@@ -1,4 +1,5 @@
 import hashlib
+from types import SimpleNamespace
 
 import pytest
 import yaml
@@ -11,6 +12,7 @@ from rsebench.evolution.noise_generation import (
     PairedNoiseRecord,
     assemble_evolution_split,
 )
+from scripts import run_profiled_skillopt
 
 
 def _hash(value: str) -> str:
@@ -229,6 +231,48 @@ def test_expanded_profiles_declare_medium_disjoint_sizes_and_candidate_budget(
     }
     assert config["selection"]["backfill_on_gate_rejection"] is True
     assert config["selection"]["candidate_multiplier"] == 4
+
+
+@pytest.mark.parametrize(
+    ("name", "operator"),
+    [
+        ("officeqa-calibrated-prompt.yaml", "failed_attempt"),
+        ("officeqa-calibrated-rank.yaml", "gold_rank_displacement"),
+    ],
+)
+def test_calibrated_officeqa_profiles_freeze_split_and_runtime(name, operator):
+    profile = generation.PROJECT_ROOT / "configs/evolution" / name
+    config = yaml.safe_load(profile.read_text(encoding="utf-8"))
+
+    assert config["operator"] == operator
+    assert config["sizes"] == {"train": 12, "validation": 6, "clean_test": 20}
+    assert config["partitions"] == {
+        "train": "evolution",
+        "validation": "validation",
+        "clean_test": "test",
+    }
+    assert config["runtime"] == {
+        "max_tool_turns": 12,
+        "max_completion_tokens": 4096,
+    }
+
+
+def test_profiled_runner_uses_profile_runtime_unless_cli_overrides():
+    config = {
+        "runtime": {"max_tool_turns": 12, "max_completion_tokens": 4096}
+    }
+
+    profile_budget = run_profiled_skillopt._runtime_budget(
+        config,
+        SimpleNamespace(max_turns=None, max_completion_tokens=None),
+    )
+    cli_budget = run_profiled_skillopt._runtime_budget(
+        config,
+        SimpleNamespace(max_turns=6, max_completion_tokens=8192),
+    )
+
+    assert profile_budget == (12, 4096)
+    assert cli_budget == (6, 8192)
 
 
 def test_profile_split_path_falls_back_to_shared_data_root(tmp_path, monkeypatch):
