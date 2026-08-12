@@ -176,7 +176,7 @@ def test_skillopt_executor_exposes_officeqa_oracle_parsed_root(tmp_path: Path):
         environment={"DEEPSEEK_API_KEY": "secret"},
     )
 
-    assert f"env.data_dirs=[{corpus},{parsed}]" in executor._domain_options(
+    assert f"env.data_dirs={corpus},{parsed}" in executor._domain_options(
         "officeqa_full"
     )
 

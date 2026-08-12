@@ -104,7 +104,7 @@ class SkillOptExecutor:
                 )
             options.extend(
                 (
-                    f"env.data_dirs=[{corpus},{parsed_root}]",
+                    f"env.data_dirs={corpus},{parsed_root}",
                     "env.search_mode=offline",
                     "env.use_local_tools=true",
                     f"env.max_tool_turns={self.budget.max_turns}",
