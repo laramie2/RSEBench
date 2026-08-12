@@ -6,6 +6,7 @@ from openpyxl.worksheet.formula import ArrayFormula
 
 from rsebench.domains.spreadsheet import (
     SpreadsheetTask,
+    _sheet_digest,
     compare_answer_range,
     inject_backup_sheet,
     inject_semantic_decoy_sheet,
@@ -70,3 +71,10 @@ def test_answer_range_comparator_matches_official_numeric_rules(spreadsheet_task
         "Answer!B1",
     )
     assert ok, reason
+
+
+def test_validator_treats_excel_empty_string_and_blank_as_equivalent():
+    first = Workbook()
+    second = Workbook()
+    first.active["A1"] = ""
+    assert _sheet_digest(first.active) == _sheet_digest(second.active)

@@ -52,6 +52,29 @@ def _normalized(text: str) -> str:
     return "".join(re.findall(r"[a-z0-9]+", text.casefold()))
 
 
+def _contextual_answer_leak(question: str, text: str, answers: list[str]) -> bool:
+    """Reject an answer only when it appears in a query-related local span.
+
+    Treasury documents contain many short numeric values, so a document-wide
+    substring rule would incorrectly reject nearly every useful decoy.
+    """
+    query_tokens = {
+        token
+        for token in _tokens(question)
+        if token not in {"what", "were", "was", "the", "of", "in", "for", "a", "an"}
+    }
+    normalized_answers = {
+        normalized for answer in answers if (normalized := _normalized(answer))
+    }
+    for span in re.split(r"[\n.!?;]+", text):
+        if len(query_tokens & _tokens(span)) < 2:
+            continue
+        normalized_span = _normalized(span)
+        if any(answer in normalized_span for answer in normalized_answers):
+            return True
+    return False
+
+
 def build_corpus_index(root: Path | str) -> list[CorpusDocument]:
     corpus_root = Path(root)
     documents: list[CorpusDocument] = []
@@ -71,9 +94,6 @@ def select_decoy_documents(
 ) -> list[CorpusDocument]:
     question_tokens = _tokens(task.question)
     gold_ids = {task.gold_document_id, *task.source_document_ids}
-    normalized_answers = {
-        normalized for answer in task.answers if (normalized := _normalized(answer))
-    }
     seen_text: set[str] = set()
     scored: list[tuple[float, str, CorpusDocument]] = []
     for document in documents:
@@ -83,7 +103,7 @@ def select_decoy_documents(
         if normalized_text in seen_text:
             continue
         seen_text.add(normalized_text)
-        if any(answer in normalized_text for answer in normalized_answers):
+        if _contextual_answer_leak(task.question, document.text, task.answers):
             continue
         overlap = len(question_tokens & _tokens(document.text))
         if overlap == 0:
@@ -153,11 +173,8 @@ def validate_officeqa_noise(
         for index, result in enumerate(fixture.results)
         if result.document_id == task.gold_document_id
     ]
-    normalized_answers = {
-        normalized for answer in task.answers if (normalized := _normalized(answer))
-    }
     leaked = any(
-        any(answer in _normalized(result.text) for answer in normalized_answers)
+        _contextual_answer_leak(task.question, result.text, task.answers)
         for result in fixture.results
         if result.document_id != task.gold_document_id
     )

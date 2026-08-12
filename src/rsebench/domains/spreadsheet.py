@@ -164,7 +164,7 @@ def _sheet_digest(sheet) -> str:
         digest.update(f"merged:{merged}".encode("utf-8"))
     for row in sheet.iter_rows():
         for cell in row:
-            if cell.value is not None:
+            if cell.value not in (None, ""):
                 value = cell.value
                 if hasattr(value, "ref"):
                     attributes = sorted(

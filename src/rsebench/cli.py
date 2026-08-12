@@ -8,6 +8,8 @@ from pathlib import Path
 import typer
 
 from rsebench.contracts import NoiseManifest, TaskManifest
+from rsebench.experiments import run_math_execution_pilot
+from rsebench.generation import generate_from_profile
 from rsebench.providers.deepseek import DeepSeekClient
 from rsebench.registry import validate_registries
 
@@ -42,6 +44,27 @@ def provider_check(config: Path = ROOT / "configs" / "pilot" / "deepseek-v4-flas
         typer.echo("credentials_missing: set DEEPSEEK_API_KEY in .env")
         raise typer.Exit(code=2)
     typer.echo(f"provider_ready model={client.config.model}")
+
+
+@app.command("generate-noise")
+def generate_noise(
+    profile: Path = typer.Option(..., exists=True, dir_okay=False),
+    limit: int | None = typer.Option(None, min=1),
+    offline: bool = typer.Option(False, help="Disable every model-backed generator."),
+) -> None:
+    summary = generate_from_profile(profile, limit=limit, offline=offline)
+    typer.echo(
+        f"status={summary.status} model={summary.model} counts={summary.counts}"
+    )
+    typer.echo(summary.run_dir)
+
+
+@app.command("math-pilot-a")
+def math_pilot_a(limit: int = typer.Option(5, min=1, max=20)) -> None:
+    summary = run_math_execution_pilot(limit=limit)
+    typer.echo(
+        f"status={summary['status']} model={summary['model']} run={summary['run_dir']}"
+    )
 
 
 if __name__ == "__main__":

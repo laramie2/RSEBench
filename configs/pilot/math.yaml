@@ -10,6 +10,7 @@ operators:
 severities: [L1, L2, L3]
 seed: 20260812
 pilot_limit: 5
+smoke_severity: L2
 model_config: configs/pilot/deepseek-v4-flash.yaml
 generation:
   max_attempts: 3

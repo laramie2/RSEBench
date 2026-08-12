@@ -16,6 +16,14 @@ benchmarks:
     local_path: officeqa
     gated: true
     license_review_required: true
+  officeqa_demo_10:
+    domain: document
+    source_kind: github
+    source_id: sentient-agi/EvoSkill
+    revision: 36f6f04952293d7054145550c2b9f0b0411bff1c
+    local_path: evoskill/examples/officeqa/data
+    gated: false
+    license_review_required: true
   docvqa_10pct:
     domain: document
     source_kind: huggingface

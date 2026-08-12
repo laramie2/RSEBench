@@ -46,6 +46,19 @@ def test_task_manifest_requires_stable_identity_and_gold():
     assert task.gold_answers == ["42"]
 
 
+def test_artifact_task_can_use_verifier_instead_of_text_gold():
+    task = TaskManifest(
+        task_id="sheet-002",
+        benchmark="spreadsheetbench_verified",
+        domain="spreadsheet",
+        prompt="Update the workbook.",
+        gold_answers=[],
+        verifier="spreadsheetbench_cell_range_v1",
+        source_hash="c" * 64,
+    )
+    assert task.verifier == "spreadsheetbench_cell_range_v1"
+
+
 def test_hashes_are_stable_and_tree_hash_is_path_sensitive(tmp_path: Path):
     first = tmp_path / "a.txt"
     first.write_text("same", encoding="utf-8")

@@ -1,0 +1,21 @@
+version: 1
+profile: officeqa-demo-noise-pilot
+benchmark: officeqa_demo_10
+domain: document
+methods_root_env: RSEBENCH_METHODS_ROOT
+dataset_path: evoskill/examples/officeqa/data/officeqa_sample.csv
+corpus_path: evoskill/examples/officeqa/data/treasury_bulletins
+operators:
+  - semantic_decoy_document
+  - gold_rank_displacement
+  - failed_attempt
+gold_ranks:
+  L1: 3
+  L2: 5
+  L3: 9
+severities: [L1, L2, L3]
+seed: 20260812
+pilot_limit: 10
+smoke_severity: L2
+model_config: configs/pilot/deepseek-v4-flash.yaml
+scope_note: pinned EvoSkill OfficeQA demo; not the 246-question formal benchmark

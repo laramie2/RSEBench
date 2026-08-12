@@ -58,11 +58,17 @@ class TaskManifest(StrictModel):
     benchmark: str = Field(min_length=1)
     domain: str = Field(min_length=1)
     prompt: str = Field(min_length=1)
-    gold_answers: list[str] = Field(min_length=1)
+    gold_answers: list[str] = Field(default_factory=list)
     source_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
     artifact_path: str | None = None
     verifier: str | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def answer_or_verifier_required(self) -> "TaskManifest":
+        if not self.gold_answers and not self.verifier:
+            raise ValueError("task requires text gold answers or an artifact verifier")
+        return self
 
 
 class NoiseManifest(StrictModel):
