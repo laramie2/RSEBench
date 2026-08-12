@@ -5,7 +5,9 @@ artifacts:
     materialized_marker: .complete
     license_review: required
   officeqa_full:
-    expected: [officeqa_full.csv, treasury_bulletins_transformed.zip]
+    expected:
+      - officeqa_full.csv
+      - treasury_bulletins_parsed/transformed/treasury_bulletins_transformed.zip
     materialized_marker: .corpus_complete
     license_review: required
   officeqa_code:

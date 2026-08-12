@@ -64,8 +64,10 @@ baseline and should be included after the first two Pilot-B smoke runs.
 EvoSkill evolves a skill or base prompt using a frontier and repeated evaluation.
 The checkout contains a self-contained OfficeQA demo (10 questions, 9 documents)
 and SealQA scripts/scorer. The OfficeQA demo uses train/validation ratios and a
-multi-tolerance scorer. It is valuable for small feasibility tests but formal
-OfficeQA comparison still needs the gated 246-question dataset.
+multi-tolerance scorer. It remains useful for native reproduction; the formal
+246-question OfficeQA data and corpus are now downloaded, so the next requirement
+is a reviewed adapter that preserves EvoSkill's algorithm while consuming the
+shared formal manifest.
 
 ### Skills-Coach
 
@@ -156,4 +158,3 @@ environments. Most tasks begin without task-local skills (140/166); later skill
 state is accumulated across the family. That temporal structure supports noise on
 skill transfer, stale library state, cross-task contamination, feedback sparsity,
 and family/task reordering.
-

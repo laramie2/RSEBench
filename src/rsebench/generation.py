@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ast
 import hashlib
 import json
 import os
@@ -19,6 +20,8 @@ from rsebench.domains.math import generate_flawed_solution, validate_flawed_solu
 from rsebench.domains.officeqa import (
     OfficeQATask,
     build_corpus_index,
+    build_decoy_index,
+    build_question_vocabulary,
     build_rank_fixture,
     select_decoy_documents,
     validate_officeqa_noise,
@@ -328,43 +331,102 @@ def _math_records(
     return records
 
 
-def _officeqa_demo_records(
+def _officeqa_answers(value: Any) -> list[str]:
+    text = str(value)
+    if text.startswith("[") and text.endswith("]"):
+        try:
+            parsed = ast.literal_eval(text)
+        except (SyntaxError, ValueError):
+            parsed = None
+        if isinstance(parsed, list) and parsed:
+            return [str(item) for item in parsed]
+    return [text]
+
+
+def _officeqa_gold_rank(config: dict, severity: str) -> int:
+    ranks = config["gold_ranks"]
+    if isinstance(ranks, dict):
+        return int(ranks[severity])
+    return int(ranks[("L1", "L2", "L3").index(severity)])
+
+
+def _resolve_officeqa_document_id(
+    source_file: str, documents_by_id: dict[str, Any]
+) -> str:
+    if source_file in documents_by_id:
+        return source_file
+    matches = [
+        document_id
+        for document_id in documents_by_id
+        if Path(document_id).name == Path(source_file).name
+    ]
+    if len(matches) != 1:
+        raise ValueError(
+            f"expected one corpus match for {source_file}, found {len(matches)}"
+        )
+    return matches[0]
+
+
+def _resolve_officeqa_document_ids(
+    source_files: str, documents_by_id: dict[str, Any]
+) -> list[str]:
+    requested = [value.strip() for value in source_files.splitlines() if value.strip()]
+    if not requested:
+        raise ValueError("OfficeQA row has no source files")
+    return [
+        _resolve_officeqa_document_id(source_file, documents_by_id)
+        for source_file in requested
+    ]
+
+
+def _officeqa_records(
     config: dict,
-    methods_root: Path,
+    dataset: Path,
+    corpus_root: Path,
     run_dir: Path,
     limit: int,
     severity: str,
+    benchmark: str,
 ) -> list[GenerationRecord]:
-    dataset = methods_root / config["dataset_path"]
-    corpus_root = methods_root / config["corpus_path"]
     frame = pd.read_csv(dataset).sort_values("uid").head(limit)
     documents = build_corpus_index(corpus_root)
+    decoy_index = build_decoy_index(
+        documents,
+        vocabulary=build_question_vocabulary(frame["question"].astype(str)),
+    )
+    documents_by_id = {document.document_id: document for document in documents}
     records: list[GenerationRecord] = []
     fixture_root = run_dir / "retrieval_fixtures"
     fixture_root.mkdir(parents=True, exist_ok=True)
     for row in frame.itertuples(index=False):
+        gold_document_ids = _resolve_officeqa_document_ids(
+            str(row.source_files), documents_by_id
+        )
         task = OfficeQATask(
             task_id=str(row.uid),
             question=str(row.question),
-            answers=[str(row.answer)],
-            gold_document_id=str(row.source_files),
+            answers=_officeqa_answers(row.answer),
+            gold_document_id=gold_document_ids[0],
+            source_document_ids=gold_document_ids[1:],
         )
         clean_hash = _hash_text(
             json.dumps(
-                [task.task_id, task.question, task.answers, task.gold_document_id],
+                [task.task_id, task.question, task.answers, gold_document_ids],
                 ensure_ascii=False,
             )
         )
         generic = TaskManifest(
             task_id=task.task_id,
-            benchmark="officeqa_demo_10",
+            benchmark=benchmark,
             domain="document",
             prompt=task.question,
             gold_answers=task.answers,
             source_hash=clean_hash,
-            metadata={"gold_document_id": task.gold_document_id},
+            metadata={"gold_document_ids": gold_document_ids},
         )
-        decoys = select_decoy_documents(task, documents, limit=8)
+        decoys = select_decoy_documents(
+            task, documents, limit=8, index=decoy_index
+        )
         for operator in config["operators"]:
             if operator == "failed_attempt":
                 result = FailedAttempt().generate(
@@ -384,7 +446,7 @@ def _officeqa_demo_records(
             gold_rank = (
                 1
                 if operator == "semantic_decoy_document"
-                else int(config["gold_ranks"][severity])
+                else _officeqa_gold_rank(config, severity)
             )
             try:
                 fixture = build_rank_fixture(task, decoys=decoys, gold_rank=gold_rank)
@@ -413,7 +475,7 @@ def _officeqa_demo_records(
                 mechanism=mechanism,
                 operator=operator,
                 domain="document",
-                benchmark="officeqa_demo_10",
+                benchmark=benchmark,
                 severity=Severity(
                     level=severity,
                     budget=(len(decoys) if gold_rank == 1 else gold_rank - 1),
@@ -434,6 +496,24 @@ def _officeqa_demo_records(
                 )
             )
     return records
+
+
+def _officeqa_demo_records(
+    config: dict,
+    methods_root: Path,
+    run_dir: Path,
+    limit: int,
+    severity: str,
+) -> list[GenerationRecord]:
+    return _officeqa_records(
+        config,
+        methods_root / config["dataset_path"],
+        methods_root / config["corpus_path"],
+        run_dir,
+        limit,
+        severity,
+        "officeqa_demo_10",
+    )
 
 
 def generate_from_profile(
@@ -485,7 +565,15 @@ def generate_from_profile(
                 )
             ]
         else:
-            records = []
+            records = _officeqa_records(
+                config,
+                dataset,
+                corpus,
+                run_dir,
+                selected_limit,
+                severity,
+                "officeqa_full",
+            )
     elif benchmark == "officeqa_demo_10":
         records = _officeqa_demo_records(
             config, methods_root, run_dir, selected_limit, severity

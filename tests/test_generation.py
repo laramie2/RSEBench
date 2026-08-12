@@ -60,6 +60,63 @@ def test_formal_officeqa_is_explicitly_blocked_when_gated_data_is_missing(
     assert Path(summary.run_dir, "summary.json").is_file()
 
 
+def test_formal_officeqa_generates_from_materialized_csv_and_nested_corpus(
+    isolated_generation_root,
+):
+    project, data, _, _ = isolated_generation_root
+    materialized = data / "materialized" / "officeqa_full"
+    corpus = materialized / "corpus" / "treasury_bulletins_transformed"
+    corpus.mkdir(parents=True)
+    pd.DataFrame(
+        [
+            {
+                "uid": "UID1",
+                "question": "What was the veterans budget?",
+                "answer": "[507, 508]",
+                "source_files": "gold.txt\r\ngold-2.txt",
+            }
+        ]
+    ).to_csv(materialized / "officeqa_full.csv", index=False)
+    (corpus / "gold.txt").write_text("official source", encoding="utf-8")
+    (corpus / "gold-2.txt").write_text("second official source", encoding="utf-8")
+    (corpus / "decoy-a.txt").write_text(
+        "veterans budget estimates for a later period", encoding="utf-8"
+    )
+    (corpus / "decoy-b.txt").write_text(
+        "veterans budget discussion for an earlier period", encoding="utf-8"
+    )
+    profile = _profile(
+        project,
+        "officeqa-formal",
+        {
+            "benchmark": "officeqa_full",
+            "model_config": "configs/model.yaml",
+            "dataset_path": "materialized/officeqa_full/officeqa_full.csv",
+            "corpus_path": "materialized/officeqa_full/corpus",
+            "operators": [
+                "semantic_decoy_document",
+                "gold_rank_displacement",
+                "failed_attempt",
+            ],
+            "gold_ranks": [2, 3, 4],
+            "seed": 17,
+            "smoke_severity": "L2",
+        },
+    )
+
+    summary = generation.generate_from_profile(profile, limit=1, offline=True)
+
+    assert summary.status == "generation_validated"
+    assert summary.counts == {"accepted": 3}
+    assert summary.records[0].manifest.benchmark == "officeqa_full"
+    assert summary.records[1].validation.checks["gold_rank"] == 3
+    assert summary.records[1].validation.checks["gold_document_count"] == 2
+    assert all(
+        Path(record.artifact_path).is_file()
+        for record in summary.records[:2]
+    )
+
+
 def test_docvqa_profile_keeps_prompt_noise_and_marks_image_noise_not_applicable(
     isolated_generation_root,
 ):

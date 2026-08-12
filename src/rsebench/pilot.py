@@ -83,18 +83,30 @@ def build_split_manifest(
     for task_id, group_id in items:
         grouped[str(group_id)].append(str(task_id))
     groups = list(grouped.items())
-    evolution_groups, remaining = _select_exact_groups(groups, counts.evolution, seed)
+    # Reserve the two nested pilot partitions before filling the remainder of
+    # evolution. Selecting evolution first can choose an exact top-level count
+    # whose group sizes make the requested nested pilot counts impossible.
+    pilot_evolve_groups, remaining = _select_exact_groups(
+        groups, counts.pilot_evolve, seed + 2
+    )
+    pilot_eval_groups, remaining = _select_exact_groups(
+        remaining, counts.pilot_eval, seed + 3
+    )
+    evolution_extra_groups, remaining = _select_exact_groups(
+        remaining,
+        counts.evolution - counts.pilot_evolve - counts.pilot_eval,
+        seed,
+    )
+    evolution_groups = [
+        *pilot_evolve_groups,
+        *pilot_eval_groups,
+        *evolution_extra_groups,
+    ]
     validation_groups, test_groups = _select_exact_groups(
         remaining, counts.validation, seed + 1
     )
     if len(_flatten(test_groups)) != counts.test:
         raise ValueError("test partition does not match requested count")
-    pilot_evolve_groups, evolution_remainder = _select_exact_groups(
-        evolution_groups, counts.pilot_evolve, seed + 2
-    )
-    pilot_eval_groups, _ = _select_exact_groups(
-        evolution_remainder, counts.pilot_eval, seed + 3
-    )
     assignments: dict[str, str] = {}
     for partition, partition_groups in (
         ("evolution", evolution_groups),

@@ -18,19 +18,23 @@ performance drop or reverse self-evolution.
 |---|---|---|---|
 | SpreadsheetBench | 10 tasks × failed-attempt + backup-sheet + semantic-decoy-sheet | 30/30 accepted | `outputs/runs/generation/20260812T055139721216Z-95707cbb23` |
 | OfficeQA demo | 10 tasks × failed-attempt + semantic-decoy-document + gold-rank displacement | 29 accepted, 1 not applicable; applicability 90% | `outputs/runs/generation/20260812T055139665008Z-5daf331d5d` |
+| OfficeQA formal | 10 tasks × failed-attempt + semantic-decoy-document + gold-rank displacement | 30/30 accepted, including multi-source questions | `outputs/runs/generation/20260812T072847372126Z-a36f58c624` |
 | DocVQA | 10 tasks × two C1 operators; margin-clutter audited separately | 20 C1 accepted; 10 image cases not applicable because answer boxes are absent | `outputs/runs/generation/20260812T055139760062Z-79dab34010` |
 | DAPO | 5 tasks × rule failed-attempt; model flawed-solution queued | 5 accepted; 5 model-backed candidates blocked by offline mode | `outputs/runs/generation/20260812T055139703890Z-1794c3b80d` |
-| OfficeQA formal | access check | blocked on gated dataset/corpus | `outputs/runs/generation/20260812T055139675622Z-a36f58c624` |
 
 Spreadsheet validation checks every original sheet’s formulas, values, number
 formats, merged ranges, and visibility while tolerating only XLSX round-trip empty
 cell and sub-precision float representation changes. The official two-decimal
 answer-range semantics remain stricter at evaluation time where relevant.
 
-OfficeQA fixtures guarantee exactly one gold document at the requested rank,
-exclude exact/duplicate documents, screen contextual answer leakage, and hash the
-entire rank order. One L2 task lacked four safe unique decoys and was correctly
-marked not applicable rather than forced.
+OfficeQA fixtures guarantee that every referenced gold document appears exactly
+once at consecutive positions beginning at the requested rank. They exclude gold
+and duplicate documents from decoys, screen contextual answer leakage, and hash
+the entire rank order. The formal selector builds one lexical feature index for
+the selected questions and reuses it across tasks rather than rescanning the
+383 MB corpus per question. The older demo smoke retained one not-applicable case
+because it lacked enough safe unique decoys; the formal 10-task smoke accepted all
+30 generated variants.
 
 DocVQA’s released Parquet subset has images and answers but no OCR answer boxes.
 The pipeline therefore refuses image clutter instead of risking label corruption.
@@ -76,13 +80,14 @@ Pilot-B is intentionally not launched yet. Preconditions are:
 4. the same frozen pilot manifest is used across methods.
 
 Spreadsheet Pilot-B should start with SkillOpt and Trace2Skill, then add SkillGrad.
-OfficeQA should start with EvoSkill’s demo and SkillOpt only after formal corpus
-access. DAPO has no native two-method intersection, so method adaptation must be
-declared rather than presented as native reproduction.
+OfficeQA corpus access is now satisfied. Pilot-B should first reproduce SkillOpt
+on the formal clean manifest and EvoSkill on its native demo, then run the reviewed
+EvoSkill formal-data adapter. DAPO has no native two-method intersection, so method
+adaptation must be declared rather than presented as native reproduction.
 
 ## Verification
 
-At this checkpoint the full offline suite has 54 tests, all passing, with 84%
+At this checkpoint the full offline suite has 59 tests, all passing, with 85%
 line coverage. It covers registries, download idempotence, contracts, provider
 lock/cache, cross-domain C1 noise, spreadsheet preservation, OfficeQA retrieval
 fixtures, DocVQA masks, math leakage and critics, group-isolated splits,

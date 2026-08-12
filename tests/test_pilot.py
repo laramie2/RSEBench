@@ -25,6 +25,43 @@ def test_pilot_ids_are_subset_of_evolution_and_groups_do_not_leak():
     assert not set(manifest.evolution) & set(manifest.test)
 
 
+def test_top_level_split_reserves_groups_for_nested_pilot_counts():
+    group_sizes = {
+        "g0": 28,
+        "g1": 19,
+        "g2": 2,
+        "g3": 12,
+        "g4": 1,
+        "g5": 8,
+        "g6": 30,
+    }
+    items = [
+        (f"{group}-{index}", group)
+        for group, size in group_sizes.items()
+        for index in range(size)
+    ]
+
+    manifest = build_split_manifest(
+        benchmark="nested-groups",
+        items=items,
+        counts=SplitCounts(
+            total=100,
+            evolution=50,
+            pilot_evolve=12,
+            pilot_eval=8,
+            validation=20,
+            test=30,
+        ),
+        seed=20260812,
+    )
+
+    assert len(manifest.evolution) == 50
+    assert len(manifest.pilot_evolve) == 12
+    assert len(manifest.pilot_eval) == 8
+    assert len(manifest.validation) == 20
+    assert len(manifest.test) == 30
+
+
 def test_operator_rejected_when_label_invariance_is_not_perfect():
     metrics = OperatorMetrics(
         structural_rate=1.0,

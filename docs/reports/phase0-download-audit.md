@@ -38,13 +38,15 @@ row.
 | MathArena/AIME data | downloaded | `a11194deff8c67a232974a383795e8a2776b4c6f` | 3,962,538 | upstream tree |
 | SkillFlow-Task | downloaded | `ecaadb0e25d5d5cfd87bd86d81e77b4abe3a00bc` | 1,667,419,545 | 166 tasks |
 | OfficeQA public evaluator code | downloaded | `7b9a3c154ef9fb40215bb67934afc43e6799de16` | 6,221,793 | n/a |
-| OfficeQA full questions/corpus | `blocked_access` | `763a8366abf2a3605c381d53586d844dc60fa756` | metadata only | 0 |
+| OfficeQA full questions/corpus | materialized | `763a8366abf2a3605c381d53586d844dc60fa756` | 98,093,279 | 246 |
 
-OfficeQA returns HTTP 403 because the logged-in Hugging Face account is not on the
-dataset authorization list. The downloader keeps this as an explicit
-`blocked_access` state. A pinned EvoSkill OfficeQA demo containing 10 questions and
-9 source documents is available for feasibility experiments, but it is never
-reported as the 246-question formal dataset.
+OfficeQA access was granted and the pinned snapshot is now materialized. The CSV
+contains 246 questions and 214 unique `source_files` values; the extracted corpus
+contains 1,393 files and occupies 383,187,672 bytes. Multi-document provenance is
+material: 125 questions use one source document and 121 use between 2 and 12.
+Noise validation therefore preserves every referenced document rather than
+reducing each question to a single gold document. The EvoSkill 10-question demo is
+retained only as a reproduction fixture and is not reported as formal OfficeQA.
 
 ## Frozen split manifests
 
@@ -58,8 +60,9 @@ The group-isolated split generator produced exact counts under `data/splits/`:
 | DAPO | 400 | 30 | 20 | 100 | 500 | normalized problem hash |
 
 Pilot IDs are nested in evolution and no group crosses evolution, validation, or
-test. The formal split is created even for OfficeQA IDs using the pinned SkillOpt
-metadata, but questions and corpus remain unavailable until access is granted.
+test. OfficeQA's 246 tasks form 101 source-document connected components. The
+regenerated manifest has zero source documents crossing top-level partitions;
+the superseded raw-string grouping had 55 such leaks and must not be reused.
 
 ## Reproduction commands
 
@@ -71,4 +74,3 @@ python scripts/audit_baselines.py
 python scripts/audit_datasets.py
 python scripts/audit_skill_native.py
 ```
-

@@ -38,10 +38,13 @@ bash scripts/run/pilot_a.sh --offline --limit 5
 python -m rsebench.cli generate-noise \
   --profile configs/pilot/spreadsheet.yaml --limit 10 --offline
 python -m rsebench.cli generate-noise \
-  --profile configs/pilot/officeqa-demo.yaml --limit 10 --offline
+  --profile configs/pilot/officeqa.yaml --limit 10 --offline
 python -m rsebench.cli generate-noise \
   --profile configs/pilot/docvqa.yaml --limit 10 --offline
 ```
+
+`configs/pilot/officeqa-demo.yaml` remains available only as a small reproduction
+fixture; formal validation uses all 246 OfficeQA rows and the downloaded corpus.
 
 After adding a valid DeepSeek key to `.env`, run the small paired effectiveness
 experiment:
