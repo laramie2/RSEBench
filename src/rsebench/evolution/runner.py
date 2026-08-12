@@ -133,6 +133,9 @@ class PairedEvolutionRunner:
             output_dir=seed_eval_dir,
             stage="seed",
         )
+        evaluation_cache: dict[str, tuple[str, EvaluationResult]] = {
+            seed_hash: ("seed", seed_evaluation)
+        }
 
         artifacts: dict[str, EvolutionArtifact] = {}
         evaluations: dict[str, EvaluationResult] = {}
@@ -153,12 +156,25 @@ class PairedEvolutionRunner:
                 raise RuntimeError(f"evolved skill hash mismatch in {arm.arm} arm")
             evaluation_dir = arm_dir / "clean_test_evaluation"
             evaluation_dir.mkdir(exist_ok=False)
-            evaluation = self.executor.evaluate(
-                skill_path=artifact_path,
-                clean_test=split.clean_test,
-                output_dir=evaluation_dir,
-                stage=arm.arm,
-            )
+            cached = evaluation_cache.get(artifact.skill_hash)
+            if cached is not None:
+                reused_stage, evaluation = cached
+                self._write_json(
+                    evaluation_dir / "reused.json",
+                    {
+                        "reason": "identical_skill_hash",
+                        "skill_hash": artifact.skill_hash,
+                        "reused_stage": reused_stage,
+                    },
+                )
+            else:
+                evaluation = self.executor.evaluate(
+                    skill_path=artifact_path,
+                    clean_test=split.clean_test,
+                    output_dir=evaluation_dir,
+                    stage=arm.arm,
+                )
+                evaluation_cache[artifact.skill_hash] = (arm.arm, evaluation)
             artifacts[arm.arm] = artifact
             evaluations[arm.arm] = evaluation
 

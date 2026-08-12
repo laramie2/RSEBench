@@ -149,3 +149,42 @@ def test_runner_rejects_seed_hash_mutation(tmp_path: Path):
             parameters={},
             output_root=tmp_path / "runs",
         )
+
+
+def test_runner_reuses_clean_test_result_for_identical_skill_hash(tmp_path: Path):
+    class UnchangedExecutor(FixtureExecutor):
+        def evolve(self, *, arm, split, seed_skill_path, output_dir):
+            artifact = output_dir / "evolved.md"
+            artifact.write_bytes(seed_skill_path.read_bytes())
+            return EvolutionArtifact(
+                skill_path=str(artifact),
+                skill_hash=_hash("seed skill"),
+            )
+
+    split = build_evolution_split(
+        benchmark="fixture",
+        domain="document",
+        seed=3,
+        source_hash=_hash("source"),
+        train=[_pair("train")],
+        validation=[],
+        clean_test=[_task("test", "clean test")],
+    )
+    seed = tmp_path / "seed.md"
+    seed.write_text("seed skill", encoding="utf-8")
+    executor = UnchangedExecutor()
+
+    result = PairedEvolutionRunner(executor).run(
+        method="fixture",
+        split=split,
+        seed_skill_path=seed,
+        method_seed=1,
+        parameters={},
+        output_root=tmp_path / "runs",
+    )
+
+    assert executor.evaluate_calls == [("seed", ["test"])]
+    assert result.seed_evaluation == result.clean_evaluation
+    assert result.seed_evaluation == result.noisy_evaluation
+    assert result.metrics.evolution_gap == 0.0
+    assert Path(result.run_dir, "clean", "clean_test_evaluation", "reused.json").is_file()
