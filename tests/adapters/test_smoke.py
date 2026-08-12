@@ -7,6 +7,7 @@ from rsebench.adapters.contracts import (
     SmokeLevelRecord,
 )
 from rsebench.adapters.smoke import run_smoke
+import rsebench.adapters.smoke as smoke
 
 
 def _spec() -> BaselineAdapterSpec:
@@ -61,3 +62,40 @@ def test_smoke_runs_through_requested_level(tmp_path: Path):
         SmokeLevel.tool,
     ]
     assert record.status == "passed"
+
+
+def test_subprocess_level_uses_machine_readable_launcher_result(
+    tmp_path: Path, monkeypatch
+):
+    launcher = tmp_path / "scripts/baselines/smoke_fixture.py"
+    launcher.parent.mkdir(parents=True)
+    launcher.write_text("# fixture\n", encoding="utf-8")
+
+    class Completed:
+        returncode = 1
+        stdout = ""
+        stderr = ""
+
+    def fake_run(command, **kwargs):
+        output = Path(command[command.index("--output") + 1])
+        output.mkdir(parents=True, exist_ok=True)
+        (output / "result.json").write_text(
+            json.dumps(
+                {
+                    "status": "failed",
+                    "detail": "DEEPSEEK_API_KEY is empty",
+                    "evidence": {"stage": "configuration"},
+                }
+            ),
+            encoding="utf-8",
+        )
+        return Completed()
+
+    monkeypatch.setattr(smoke, "PROJECT_ROOT", tmp_path)
+    monkeypatch.setattr(smoke.subprocess, "run", fake_run)
+
+    record = smoke.execute_adapter_level(_spec(), SmokeLevel.transport, tmp_path / "run")
+
+    assert record.status == "failed"
+    assert record.detail == "DEEPSEEK_API_KEY is empty"
+    assert record.evidence["stage"] == "configuration"

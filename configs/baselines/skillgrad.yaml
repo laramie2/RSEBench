@@ -1,0 +1,6 @@
+method: skillgrad
+model: deepseek-v4-flash
+base_url: https://api.deepseek.com
+thinking: disabled
+max_tokens: 2048
+native_benchmark: spreadsheetbench_verified

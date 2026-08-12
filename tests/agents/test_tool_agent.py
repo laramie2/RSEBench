@@ -67,6 +67,18 @@ def test_agent_executes_tool_then_returns_final_text(tmp_path: Path):
     assert client.calls[0][1]["role"] == "executor"
 
 
+def test_agent_uses_configured_role_for_cache_isolation(tmp_path: Path):
+    client = ScriptedClient([ModelResponse(content="done", finish_reason="stop")])
+    agent = DeepSeekToolAgent(
+        client,
+        ToolAgentConfig(workspace_root=tmp_path, role="optimizer"),
+    )
+
+    agent.run("improve it")
+
+    assert client.calls[0][1]["role"] == "optimizer"
+
+
 def test_run_command_uses_argv_and_truncates_output(tmp_path: Path):
     agent = DeepSeekToolAgent(
         ScriptedClient([]),

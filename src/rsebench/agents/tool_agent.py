@@ -77,6 +77,7 @@ class ToolAgentConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     workspace_root: Path
+    role: str = Field(default="executor", min_length=1)
     max_turns: int = Field(default=12, ge=1, le=100)
     command_timeout_seconds: float = Field(default=60.0, gt=0, le=600)
     max_output_chars: int = Field(default=12_000, ge=1)
@@ -191,7 +192,7 @@ class DeepSeekToolAgent:
                 messages,
                 tools=TOOL_SCHEMAS,
                 tool_choice="auto",
-                role="executor",
+                role=self.config.role,
             )
             if not response.tool_calls:
                 return ToolAgentResult(

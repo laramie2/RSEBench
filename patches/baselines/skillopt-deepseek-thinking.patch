@@ -1,0 +1,157 @@
+diff --git a/skillopt/model/__init__.py b/skillopt/model/__init__.py
+index d90719c..5b905a7 100644
+--- a/skillopt/model/__init__.py
++++ b/skillopt/model/__init__.py
+@@ -707,6 +707,7 @@ def configure_openai_compatible(
+     api_key: str | None = None,
+     model: str | None = None,
+     temperature: float | str | None = None,
++    thinking: str | None = None,
+     timeout_seconds: float | str | None = None,
+     max_tokens: int | str | None = None,
+     optimizer_base_url: str | None = None,
+@@ -721,6 +722,7 @@ def configure_openai_compatible(
+         api_key=api_key,
+         model=model,
+         temperature=temperature,
++        thinking=thinking,
+         timeout_seconds=timeout_seconds,
+         max_tokens=max_tokens,
+         optimizer_base_url=optimizer_base_url,
+diff --git a/skillopt/model/openai_compatible_backend.py b/skillopt/model/openai_compatible_backend.py
+index 7462be4..0020270 100644
+--- a/skillopt/model/openai_compatible_backend.py
++++ b/skillopt/model/openai_compatible_backend.py
+@@ -54,6 +54,7 @@ class OpenAICompatibleConfig:
+     timeout_seconds: float
+     max_tokens: int
+     temperature: float | None
++    thinking: str | None
+ 
+ 
+ def _parse_optional_float(value: Any) -> float | None:
+@@ -63,6 +64,17 @@ def _parse_optional_float(value: Any) -> float | None:
+     return float(raw) if raw else None
+ 
+ 
++def _parse_thinking(value: Any) -> str | None:
++    if value is None:
++        return None
++    raw = str(value).strip().lower()
++    if not raw:
++        return None
++    if raw not in {"enabled", "disabled"}:
++        raise ValueError("thinking must be 'enabled', 'disabled', or empty")
++    return raw
++
++
+ def _parse_int(value: Any, default: int) -> int:
+     if value is None:
+         return default
+@@ -92,6 +104,7 @@ def _initial_config(role: str) -> OpenAICompatibleConfig:
+         timeout_seconds=float(_role_env(role, "TIMEOUT_SECONDS", "300") or 300),
+         max_tokens=_parse_int(_role_env(role, "MAX_TOKENS", "8000"), 8000),
+         temperature=_parse_optional_float(_role_env(role, "TEMPERATURE", "")),
++        thinking=_parse_thinking(_role_env(role, "THINKING", "")),
+     )
+ 
+ 
+@@ -187,6 +200,8 @@ def _chat_messages_impl(
+     }
+     if config.temperature is not None:
+         kwargs["temperature"] = config.temperature
++    if config.thinking is not None:
++        kwargs["extra_body"] = {"thinking": {"type": config.thinking}}
+     if tools:
+         kwargs["tools"] = tools
+         if tool_choice is not None:
+@@ -336,6 +351,7 @@ def _update_config(
+     api_key: str | None = None,
+     deployment: str | None = None,
+     temperature: float | str | None = None,
++    thinking: str | None = None,
+     timeout_seconds: float | str | None = None,
+     max_tokens: int | str | None = None,
+ ) -> None:
+@@ -353,6 +369,9 @@ def _update_config(
+         raw = str(temperature).strip()
+         config.temperature = float(raw) if raw else None
+         os.environ[f"{env_prefix}_OPENAI_COMPATIBLE_TEMPERATURE"] = raw
++    if thinking is not None:
++        config.thinking = _parse_thinking(thinking)
++        os.environ[f"{env_prefix}_OPENAI_COMPATIBLE_THINKING"] = str(thinking).strip()
+     if timeout_seconds is not None:
+         config.timeout_seconds = float(timeout_seconds)
+         os.environ[f"{env_prefix}_OPENAI_COMPATIBLE_TIMEOUT_SECONDS"] = str(timeout_seconds)
+@@ -367,6 +386,7 @@ def configure_openai_compatible(
+     api_key: str | None = None,
+     model: str | None = None,
+     temperature: float | str | None = None,
++    thinking: str | None = None,
+     timeout_seconds: float | str | None = None,
+     max_tokens: int | str | None = None,
+     optimizer_base_url: str | None = None,
+@@ -390,6 +410,8 @@ def configure_openai_compatible(
+             os.environ["OPENAI_COMPATIBLE_MODEL"] = str(model).strip()
+         if temperature is not None:
+             os.environ["OPENAI_COMPATIBLE_TEMPERATURE"] = str(temperature).strip()
++        if thinking is not None:
++            os.environ["OPENAI_COMPATIBLE_THINKING"] = str(thinking).strip()
+         if timeout_seconds is not None:
+             os.environ["OPENAI_COMPATIBLE_TIMEOUT_SECONDS"] = str(timeout_seconds)
+         if max_tokens is not None:
+@@ -401,6 +423,7 @@ def configure_openai_compatible(
+             api_key=optimizer_api_key if optimizer_api_key is not None else api_key,
+             deployment=optimizer_model if optimizer_model is not None else model,
+             temperature=temperature,
++            thinking=thinking,
+             timeout_seconds=timeout_seconds,
+             max_tokens=max_tokens,
+         )
+@@ -411,6 +434,7 @@ def configure_openai_compatible(
+             api_key=target_api_key if target_api_key is not None else api_key,
+             deployment=target_model if target_model is not None else model,
+             temperature=temperature,
++            thinking=thinking,
+             timeout_seconds=timeout_seconds,
+             max_tokens=max_tokens,
+         )
+diff --git a/tests/test_openai_compatible_backend.py b/tests/test_openai_compatible_backend.py
+index 4482e20..bbed490 100644
+--- a/tests/test_openai_compatible_backend.py
++++ b/tests/test_openai_compatible_backend.py
+@@ -85,5 +85,34 @@ def test_optimizer_and_target_route_to_their_own_clients(monkeypatch: pytest.Mon
+     assert target_calls.calls[0]["model"] == "target-model"
+ 
+ 
++def test_configure_disables_provider_thinking_for_tool_calls(
++    monkeypatch: pytest.MonkeyPatch,
++) -> None:
++    target_calls = _CompletionRecorder()
++    monkeypatch.setattr(backend, "_get_client", lambda role: _Client(target_calls))
++    model.set_target_backend("openai_compatible")
++
++    model.configure_openai_compatible(thinking="disabled")
++    model.chat_target_messages(
++        [{"role": "user", "content": "Call the tool."}],
++        tools=[
++            {
++                "type": "function",
++                "function": {
++                    "name": "echo",
++                    "description": "Echo text.",
++                    "parameters": {"type": "object", "properties": {}},
++                },
++            }
++        ],
++        tool_choice="required",
++        retries=1,
++    )
++
++    assert target_calls.calls[0]["extra_body"] == {
++        "thinking": {"type": "disabled"}
++    }
++
++
+ def test_client_creation_is_lazy(monkeypatch: pytest.MonkeyPatch) -> None:
+     builds: list[str] = []

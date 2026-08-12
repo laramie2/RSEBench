@@ -1,0 +1,8 @@
+method: skillopt
+model: deepseek-v4-flash
+base_url: https://api.deepseek.com
+thinking: disabled
+max_tokens: 2048
+optimizer_backend: openai_compatible
+target_backend: openai_compatible
+native_benchmarks: [spreadsheetbench_verified, officeqa_full, live_mathematician_bench]

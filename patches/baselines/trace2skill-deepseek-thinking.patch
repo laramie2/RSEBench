@@ -1,0 +1,22 @@
+diff --git a/src/react_agent/models.py b/src/react_agent/models.py
+index b2f3058..479d48b 100644
+--- a/src/react_agent/models.py
++++ b/src/react_agent/models.py
+@@ -151,10 +151,13 @@ GENERATION_CONFIG_PRESETS: dict[str, dict[str, Any]] = {
+         "top_p": 0.95,
+         "extra_body": {"enable_thinking": True, "top_k": 50},
+     },
+-    "deepseek-reasoner": {
+-        "temperature": 0.6,
+-    },
+-}
++    "deepseek-reasoner": {
++        "temperature": 0.6,
++    },
++    "deepseek-v4-flash": {
++        "extra_body": {"thinking": {"type": "disabled"}},
++    },
++}
+ 
+ 
+ class OpenAIClient(LLMClient):

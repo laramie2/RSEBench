@@ -1,0 +1,146 @@
+diff --git a/src/cli/commands/init.py b/src/cli/commands/init.py
+index 80f1f42..d5e2465 100644
+--- a/src/cli/commands/init.py
++++ b/src/cli/commands/init.py
+@@ -459,7 +459,7 @@ def init_cmd():
+     # 1. Agent runtime
+     harness = questionary.select(
+         'Which agent runtime?',
+-        choices=['claude', 'opencode', 'codex', 'goose', 'openhands'],
++        choices=['claude', 'opencode', 'codex', 'goose', 'openhands', 'deepseek_api'],
+         default=prompt_defaults['harness'],
+     ).ask()
+ 
+diff --git a/src/harness/__init__.py b/src/harness/__init__.py
+index ca3f1df..8c79dfb 100644
+--- a/src/harness/__init__.py
++++ b/src/harness/__init__.py
+@@ -12,7 +12,7 @@ Key exports:
+ """
+ 
+ from .agent import Agent, AgentTrace, OptionsProvider
+-from .sdk_config import set_sdk, get_sdk, is_claude_sdk, is_opencode_sdk, is_codex_sdk, is_goose_sdk, is_openhands_sdk
++from .sdk_config import set_sdk, get_sdk, is_claude_sdk, is_opencode_sdk, is_codex_sdk, is_goose_sdk, is_openhands_sdk, is_deepseek_api_sdk
+ from .utils import build_options, resolve_project_root, resolve_data_dirs
+ from .claude.options import build_claudecode_options
+ from .opencode.options import build_opencode_options
+@@ -31,6 +31,7 @@ __all__ = [
+     "is_codex_sdk",
+     "is_goose_sdk",
+     "is_openhands_sdk",
++    "is_deepseek_api_sdk",
+     "build_options",
+     "build_claudecode_options",
+     "build_opencode_options",
+diff --git a/src/harness/agent.py b/src/harness/agent.py
+index 2fa1c58..3a19256 100644
+--- a/src/harness/agent.py
++++ b/src/harness/agent.py
+@@ -177,6 +177,9 @@ class Agent(Generic[T]):
+         if sdk == "goose":
+             from .goose import executor as _goose_executor
+             return await _goose_executor.execute_query(options, query)
++        if sdk == "deepseek_api":
++            from rsebench.adapters import evoskill as _deepseek_executor
++            return await _deepseek_executor.execute_query(options, query)
+         else:
+             raise ValueError(f"Unknown SDK: {sdk!r}")
+ 
+@@ -242,6 +245,9 @@ class Agent(Generic[T]):
+         elif sdk == "goose":
+             from .goose import executor as _goose_executor
+             fields = _goose_executor.parse_response(messages, self.response_model, self._get_options)
++        elif sdk == "deepseek_api":
++            from rsebench.adapters import evoskill as _deepseek_executor
++            fields = _deepseek_executor.parse_response(messages, self.response_model)
+         else:
+             raise ValueError(f"Unknown SDK: {sdk!r}")
+ 
+diff --git a/src/harness/model_aliases.py b/src/harness/model_aliases.py
+index 72a3741..89028ef 100644
+--- a/src/harness/model_aliases.py
++++ b/src/harness/model_aliases.py
+@@ -2,7 +2,7 @@ from __future__ import annotations
+ 
+ from typing import Literal
+ 
+-HarnessName = Literal["claude", "opencode", "codex", "goose", "openhands"]
++HarnessName = Literal["claude", "opencode", "codex", "goose", "openhands", "deepseek_api"]
+ 
+ DEFAULT_ANTHROPIC_MODEL = "anthropic/claude-sonnet-4-6"
+ DEFAULT_CODEX_MODEL = "gpt-5.1-codex-mini"
+@@ -13,6 +13,7 @@ _DEFAULT_MODELS: dict[HarnessName, str] = {
+     "codex": DEFAULT_CODEX_MODEL,
+     "goose": DEFAULT_ANTHROPIC_MODEL,
+     "openhands": DEFAULT_ANTHROPIC_MODEL,
++    "deepseek_api": "deepseek-v4-flash",
+ }
+ 
+ 
+diff --git a/src/harness/sdk_config.py b/src/harness/sdk_config.py
+index 7fa4930..9719284 100644
+--- a/src/harness/sdk_config.py
++++ b/src/harness/sdk_config.py
+@@ -2,12 +2,12 @@
+ 
+ from typing import Literal
+ 
+-SDKType = Literal["claude", "opencode", "codex", "goose", "openhands"]
++SDKType = Literal["claude", "opencode", "codex", "goose", "openhands", "deepseek_api"]
+ 
+ # Global SDK selection (can be overridden via CLI arguments)
+ _current_sdk: SDKType = "claude"
+ 
+-_VALID_SDKS = ("claude", "opencode", "codex", "goose", "openhands")
++_VALID_SDKS = ("claude", "opencode", "codex", "goose", "openhands", "deepseek_api")
+ 
+ 
+ def set_sdk(sdk: SDKType) -> None:
+@@ -48,3 +48,8 @@ def is_codex_sdk() -> bool:
+ def is_goose_sdk() -> bool:
+     """Check if goose is the current SDK."""
+     return _current_sdk == "goose"
++
++
++def is_deepseek_api_sdk() -> bool:
++    """Check if the bounded DeepSeek API harness is active."""
++    return _current_sdk == "deepseek_api"
+diff --git a/src/harness/utils.py b/src/harness/utils.py
+index 356be3d..4479cea 100644
+--- a/src/harness/utils.py
++++ b/src/harness/utils.py
+@@ -126,5 +126,15 @@ def build_options(
+             model=model,
+             data_dirs=data_dirs,
+         )
++
++    if sdk == "deepseek_api":
++        from rsebench.adapters.evoskill import build_options as build_deepseek_options
++        return build_deepseek_options(
++            system=system,
++            schema=schema,
++            tools=list(tools),
++            project_root=resolve_project_root(project_root),
++            model=model,
++        )
+     
+     raise ValueError(f"Unknown SDK: {sdk!r}")
+diff --git a/src/registry/sdk_utils.py b/src/registry/sdk_utils.py
+index e522b20..ae96a87 100644
+--- a/src/registry/sdk_utils.py
++++ b/src/registry/sdk_utils.py
+@@ -183,6 +183,14 @@ def options_to_config(
+             })
+             output_format = {"schema": options.get("output_schema", {})}
+ 
++        elif sdk == "deepseek_api":
++            base_metadata.update({
++                "sdk": "deepseek_api",
++                "model": options.get("model", "deepseek-v4-flash"),
++                "working_directory": options.get("working_directory"),
++            })
++            output_format = {"schema": options.get("schema", {})}
++
+         return ProgramConfig(
+             name=name,
+             parent=parent,

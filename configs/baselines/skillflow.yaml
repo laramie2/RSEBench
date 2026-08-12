@@ -1,0 +1,7 @@
+method: skillflow
+model: deepseek-v4-flash
+base_url: https://api.deepseek.com
+thinking: disabled
+max_tokens: 2048
+agent_import_path: libs.harbor_noinstall_agents.deepseek_api:DeepSeekAPIAgent
+native_benchmark: skillflow_task

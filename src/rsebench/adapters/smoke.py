@@ -56,12 +56,25 @@ def execute_adapter_level(
         text=True,
         check=False,
     )
-    detail = _redact((completed.stdout + completed.stderr).strip())
+    result_path = level_dir / "result.json"
+    launcher_result = (
+        json.loads(result_path.read_text(encoding="utf-8"))
+        if result_path.is_file()
+        else {}
+    )
+    detail = launcher_result.get("detail") or (
+        completed.stdout + completed.stderr
+    ).strip()
+    evidence = dict(launcher_result.get("evidence") or {})
+    evidence["exit_code"] = completed.returncode
     return SmokeLevelRecord(
         level=level,
-        status="passed" if completed.returncode == 0 else "failed",
-        detail=detail[-4000:],
-        evidence={"exit_code": completed.returncode},
+        status=(
+            launcher_result.get("status")
+            or ("passed" if completed.returncode == 0 else "failed")
+        ),
+        detail=_redact(detail)[-4000:],
+        evidence=evidence,
     )
 
 
