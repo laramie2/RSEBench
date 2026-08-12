@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from dotenv import load_dotenv
+from dotenv import dotenv_values, load_dotenv
 from openai import OpenAI
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -20,6 +20,22 @@ from rsebench.providers.contracts import ToolCall
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 LOCKED_MODEL = "deepseek-v4-flash"
 LOCKED_BASE_URL = "https://api.deepseek.com"
+
+
+def load_project_environment() -> None:
+    """Load a worktree env, then fill empty secrets from its shared project."""
+    load_dotenv(PROJECT_ROOT / ".env")
+    if os.environ.get("DEEPSEEK_API_KEY", "").strip():
+        return
+    data_root = os.environ.get("RSEBENCH_DATA_ROOT", "").strip()
+    if not data_root:
+        return
+    shared_env = Path(data_root).resolve().parent / ".env"
+    if shared_env.resolve() == (PROJECT_ROOT / ".env").resolve() or not shared_env.is_file():
+        return
+    shared_key = str(dotenv_values(shared_env).get("DEEPSEEK_API_KEY") or "").strip()
+    if shared_key:
+        os.environ["DEEPSEEK_API_KEY"] = shared_key
 
 
 class CredentialsMissingError(RuntimeError):
@@ -65,7 +81,7 @@ class DeepSeekClient:
     ) -> "DeepSeekClient":
         payload = yaml.safe_load(Path(path).read_text(encoding="utf-8"))
         config = DeepSeekConfig.model_validate(payload)
-        load_dotenv(PROJECT_ROOT / ".env")
+        load_project_environment()
         output_root = Path(
             os.environ.get("RSEBENCH_OUTPUT_ROOT", PROJECT_ROOT / "outputs")
         )
@@ -76,7 +92,7 @@ class DeepSeekClient:
         return cls(DeepSeekConfig(), Path(cache_dir))
 
     def has_credentials(self) -> bool:
-        load_dotenv(PROJECT_ROOT / ".env")
+        load_project_environment()
         return bool(os.environ.get(self.config.api_key_env, "").strip())
 
     def request_cache_key(
@@ -146,7 +162,7 @@ class DeepSeekClient:
         if cached is not None:
             return cached
 
-        load_dotenv(PROJECT_ROOT / ".env")
+        load_project_environment()
         api_key = os.environ.get(self.config.api_key_env, "").strip()
         if not api_key:
             raise CredentialsMissingError(

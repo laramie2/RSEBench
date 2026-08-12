@@ -36,7 +36,11 @@ def test_cached_response_does_not_require_credentials(tmp_path: Path, monkeypatc
 
 
 def test_uncached_response_never_falls_back_without_credentials(tmp_path: Path, monkeypatch):
+    isolated_project = tmp_path / "isolated-project"
+    isolated_project.mkdir()
+    monkeypatch.setattr(deepseek, "PROJECT_ROOT", isolated_project)
     monkeypatch.delenv("DEEPSEEK_API_KEY", raising=False)
+    monkeypatch.delenv("RSEBENCH_DATA_ROOT", raising=False)
     client = DeepSeekClient.for_test(cache_dir=tmp_path)
     with pytest.raises(CredentialsMissingError, match="DEEPSEEK_API_KEY"):
         client.complete([{"role": "user", "content": "x"}], cache_key="missing")
@@ -81,3 +85,21 @@ def test_disabled_thinking_is_sent_explicitly(tmp_path: Path, monkeypatch):
     )
 
     assert captured["extra_body"] == {"thinking": {"type": "disabled"}}
+
+
+def test_worktree_env_falls_back_to_shared_project_credentials(tmp_path: Path, monkeypatch):
+    worktree = tmp_path / "main" / ".worktrees" / "feature"
+    shared = tmp_path / "main"
+    worktree.mkdir(parents=True)
+    (worktree / ".env").write_text(
+        f"DEEPSEEK_API_KEY=\nRSEBENCH_DATA_ROOT={shared / 'data'}\n",
+        encoding="utf-8",
+    )
+    (shared / ".env").write_text("DEEPSEEK_API_KEY=fake-shared-key\n", encoding="utf-8")
+    monkeypatch.setattr(deepseek, "PROJECT_ROOT", worktree)
+    monkeypatch.delenv("DEEPSEEK_API_KEY", raising=False)
+    monkeypatch.delenv("RSEBENCH_DATA_ROOT", raising=False)
+
+    deepseek.load_project_environment()
+
+    assert deepseek.os.environ["DEEPSEEK_API_KEY"] == "fake-shared-key"
