@@ -486,6 +486,11 @@ def _resolve_officeqa_document_id(
         for document_id in documents_by_id
         if Path(document_id).name == Path(source_file).name
     ]
+    if not matches:
+        # Some newer released bulletins have oracle parsed JSON pages but are
+        # absent from the older transformed-text archive. The native runtime
+        # can still resolve the page by the released source filename.
+        return source_file
     if len(matches) != 1:
         raise ValueError(
             f"expected one corpus match for {source_file}, found {len(matches)}"

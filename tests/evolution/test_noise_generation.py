@@ -296,6 +296,14 @@ def test_context_length_selection_is_deterministic_and_label_free():
     assert ordered == ["a", "b", "short"]
 
 
+def test_officeqa_source_id_can_be_backed_by_oracle_parsed_json_only():
+    resolved = generation._resolve_officeqa_document_id(
+        "treasury_bulletin_2025_09.txt", {}
+    )
+
+    assert resolved == "treasury_bulletin_2025_09.txt"
+
+
 def test_searchqa_loader_preserves_grounded_context_and_answers(tmp_path):
     import json
 
