@@ -1,0 +1,25 @@
+version: 1
+profile: officeqa-evolution-noise-feasibility
+benchmark: officeqa_full
+domain: document
+dataset_path: materialized/officeqa_full/officeqa_full.csv
+corpus_path: materialized/officeqa_full/corpus
+split_manifest: data/splits/officeqa_full/split_manifest.json
+operator: gold_rank_displacement
+generator_mode: rule
+severity: L2
+gold_ranks:
+  L1: 3
+  L2: 5
+  L3: 8
+seed: 20260812
+sizes:
+  train: 10
+  validation: 5
+  clean_test: 10
+model_config: configs/pilot/deepseek-v4-flash-generation.yaml
+hard_gates:
+  - structural_valid
+  - label_invariant
+  - solvable
+  - answer_leak_free

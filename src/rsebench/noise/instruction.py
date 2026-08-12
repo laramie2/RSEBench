@@ -10,6 +10,7 @@ from typing import Any
 from rsebench.contracts import (
     GeneratorMode,
     NoiseManifest,
+    NoiseTiming,
     Severity,
     SeverityLevel,
     TaskManifest,
@@ -71,6 +72,7 @@ class InstructionNoise:
             [{"role": "user", "content": instruction}],
             response_format={"type": "json_object"},
             cache_key=cache_key,
+            role="noise_generator",
         )
         try:
             payload = json.loads(response.content)
@@ -84,7 +86,12 @@ class InstructionNoise:
         return payload[self.model_field]
 
     def generate(
-        self, task: TaskManifest, severity: str, seed: int
+        self,
+        task: TaskManifest,
+        severity: str,
+        seed: int,
+        *,
+        timing: str = "test",
     ) -> GeneratedNoise:
         if severity not in _BUDGETS:
             raise ValueError(f"unknown severity: {severity}")
@@ -131,6 +138,7 @@ class InstructionNoise:
                 GeneratorMode.model if self.model is not None else GeneratorMode.rule
             ),
             template_version=self.template_version,
+            timing=NoiseTiming(timing),
         )
         return GeneratedNoise(
             manifest=manifest, payload=payload, validation=validation

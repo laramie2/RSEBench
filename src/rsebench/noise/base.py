@@ -18,5 +18,10 @@ class GeneratedNoise(BaseModel):
 
 class NoiseOperator(Protocol):
     def generate(
-        self, task: TaskManifest, severity: str, seed: int
+        self,
+        task: TaskManifest,
+        severity: str,
+        seed: int,
+        *,
+        timing: str = "test",
     ) -> GeneratedNoise: ...

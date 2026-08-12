@@ -15,11 +15,24 @@ import yaml
 from dotenv import load_dotenv
 from pydantic import BaseModel, Field
 
-from rsebench.contracts import NoiseManifest, Severity, TaskManifest, ValidationReport
+from rsebench.contracts import (
+    GeneratorMode,
+    NoiseManifest,
+    Severity,
+    TaskManifest,
+    ValidationReport,
+)
 from rsebench.domains.math import (
     CandidateGenerationError,
     generate_flawed_solution,
     validate_flawed_solution,
+    wrap_failed_attempt,
+)
+from rsebench.evolution.contracts import EvolutionSplitManifest
+from rsebench.evolution.noise_generation import (
+    PairGenerationError,
+    PairedNoiseRecord,
+    assemble_evolution_split,
 )
 from rsebench.domains.officeqa import (
     OfficeQATask,
@@ -43,6 +56,7 @@ from rsebench.providers.deepseek import CredentialsMissingError, DeepSeekClient
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
+_OFFICEQA_DOCUMENT_CACHE: dict[Path, list[Any]] = {}
 
 
 class GenerationRecord(BaseModel):
@@ -66,6 +80,27 @@ class GenerationSummary(BaseModel):
     status: str
     counts: dict[str, int] = Field(default_factory=dict)
     records: list[GenerationRecord] = Field(default_factory=list)
+
+
+class EvolutionGenerationSummary(BaseModel):
+    run_id: str
+    run_dir: str
+    profile: str
+    operator: str
+    model: str = "deepseek-v4-flash"
+    offline: bool
+    status: str
+    records: list[PairedNoiseRecord] = Field(default_factory=list)
+    errors: list[str] = Field(default_factory=list)
+    pair_manifest: EvolutionSplitManifest | None = None
+    pair_manifest_path: str | None = None
+
+
+def _cached_officeqa_documents(corpus_root: Path) -> list[Any]:
+    key = corpus_root.resolve()
+    if key not in _OFFICEQA_DOCUMENT_CACHE:
+        _OFFICEQA_DOCUMENT_CACHE[key] = build_corpus_index(key)
+    return _OFFICEQA_DOCUMENT_CACHE[key]
 
 
 def _generation_status(counts: dict[str, int]) -> str:
@@ -626,6 +661,483 @@ def generate_from_profile(
         status=status,
         counts=counts,
         records=records,
+    )
+    (run_dir / "summary.json").write_text(
+        summary.model_dump_json(indent=2) + "\n", encoding="utf-8"
+    )
+    return summary
+
+
+def _load_evolution_tasks(
+    config: dict[str, Any], data_root: Path, task_ids: list[str]
+) -> list[TaskManifest]:
+    benchmark = str(config["benchmark"])
+    requested = set(task_ids)
+    tasks: dict[str, TaskManifest] = {}
+    if benchmark == "spreadsheetbench_verified":
+        dataset_root = data_root / config["dataset_path"]
+        rows = json.loads((dataset_root / "dataset.json").read_text(encoding="utf-8"))
+        for row in rows:
+            task_id = str(row["id"])
+            if task_id not in requested:
+                continue
+            task_dir = dataset_root / row["spreadsheet_path"]
+            initial = next(iter(sorted(task_dir.glob("*_init.xlsx"))), None)
+            gold = next(iter(sorted(task_dir.glob("*_golden.xlsx"))), None)
+            initial = initial or (task_dir / "initial.xlsx")
+            gold = gold or (task_dir / "golden.xlsx")
+            native = SpreadsheetTask.from_paths(
+                task_id=task_id,
+                workbook_path=initial,
+                gold_workbook_path=gold,
+                prompt=str(row["instruction"]),
+                answer_sheet=str(row.get("answer_sheet", "")),
+                answer_range=str(row.get("answer_position", "")),
+            )
+            tasks[task_id] = TaskManifest(
+                task_id=task_id,
+                benchmark=benchmark,
+                domain="spreadsheet",
+                prompt=native.prompt,
+                verifier="spreadsheetbench_cell_range_v1",
+                source_hash=native.clean_hash,
+                artifact_path=str(native.workbook_path),
+                metadata={
+                    "gold_workbook_path": str(native.gold_workbook_path),
+                    "answer_sheet": native.answer_sheet,
+                    "answer_range": native.answer_range,
+                },
+            )
+    elif benchmark == "officeqa_full":
+        dataset = data_root / config["dataset_path"]
+        corpus_root = data_root / config["corpus_path"]
+        frame = pd.read_csv(dataset)
+        documents = _cached_officeqa_documents(corpus_root)
+        documents_by_id = {document.document_id: document for document in documents}
+        for row in frame.itertuples(index=False):
+            task_id = str(row.uid)
+            if task_id not in requested:
+                continue
+            gold_document_ids = _resolve_officeqa_document_ids(
+                str(row.source_files), documents_by_id
+            )
+            answers = _officeqa_answers(row.answer)
+            prompt = str(row.question)
+            source_hash = _hash_text(
+                json.dumps(
+                    [task_id, prompt, answers, gold_document_ids], ensure_ascii=False
+                )
+            )
+            tasks[task_id] = TaskManifest(
+                task_id=task_id,
+                benchmark=benchmark,
+                domain="document",
+                prompt=prompt,
+                gold_answers=answers,
+                source_hash=source_hash,
+                metadata={"gold_document_ids": gold_document_ids},
+            )
+    elif benchmark == "dapo_fixed_1000":
+        frame = pd.read_parquet(data_root / config["dataset_path"])
+        for row in frame.itertuples(index=False):
+            task_id = str(row.normalized_problem_hash)
+            if task_id not in requested:
+                continue
+            reward = row.reward_model if isinstance(row.reward_model, dict) else {}
+            tasks[task_id] = TaskManifest(
+                task_id=task_id,
+                benchmark=benchmark,
+                domain="math",
+                prompt=_prompt_text(row.prompt),
+                gold_answers=[str(reward.get("ground_truth", ""))],
+                source_hash=task_id,
+            )
+    else:
+        raise ValueError(f"unsupported evolution benchmark: {benchmark}")
+    missing = [task_id for task_id in task_ids if task_id not in tasks]
+    if missing:
+        raise PairGenerationError(f"split task IDs are missing from data: {missing}")
+    return [tasks[task_id] for task_id in task_ids]
+
+
+def _resolve_split_path(raw_path: str | Path, data_root: Path) -> Path:
+    split_path = Path(raw_path)
+    if split_path.is_absolute():
+        return split_path
+    project_candidate = PROJECT_ROOT / split_path
+    if project_candidate.is_file():
+        return project_candidate
+    relative_parts = split_path.parts
+    if relative_parts and relative_parts[0] == "data":
+        relative_parts = relative_parts[1:]
+    return data_root.joinpath(*relative_parts)
+
+
+def _instruction_evolution_record(
+    task: TaskManifest,
+    *,
+    operator: str,
+    severity: str,
+    seed: int,
+    generator_mode: str,
+    client: DeepSeekClient | None,
+) -> PairedNoiseRecord:
+    op = _instruction_operator(operator)(
+        model=client if generator_mode == "model" else None
+    )
+    result = op.generate(task, severity=severity, seed=seed, timing="evolution")
+    noisy = task.model_copy(
+        update={
+            "prompt": str(result.payload["prompt"]),
+            "source_hash": result.manifest.noisy_hash,
+            "metadata": {
+                **task.metadata,
+                "noise_id": result.manifest.noise_id,
+                "generator_mode": generator_mode,
+            },
+        }
+    )
+    return PairedNoiseRecord(
+        task_id=task.task_id,
+        operator=operator,
+        clean=task,
+        noisy=noisy,
+        noise=result.manifest,
+        validation=result.validation,
+    )
+
+
+def _spreadsheet_evolution_record(
+    task: TaskManifest,
+    *,
+    operator: str,
+    severity: str,
+    seed: int,
+    run_dir: Path,
+) -> PairedNoiseRecord:
+    native = SpreadsheetTask.from_paths(
+        task_id=task.task_id,
+        workbook_path=Path(task.artifact_path or ""),
+        gold_workbook_path=Path(task.metadata["gold_workbook_path"]),
+        prompt=task.prompt,
+        answer_sheet=str(task.metadata["answer_sheet"]),
+        answer_range=str(task.metadata["answer_range"]),
+    )
+    function = {
+        "stale_backup_sheet": inject_backup_sheet,
+        "semantic_decoy_sheet": inject_semantic_decoy_sheet,
+    }[operator]
+    output = run_dir / "artifacts" / f"{task.task_id}-{operator}-{severity}.xlsx"
+    result = function(native, output, severity=severity, seed=seed)
+    validation = validate_spreadsheet_noise(native, result)
+    mechanism = "M4" if operator == "stale_backup_sheet" else "M1"
+    noise = NoiseManifest(
+        noise_id=f"{task.task_id}-C2-{mechanism}-{operator}-{severity}",
+        task_id=task.task_id,
+        channel="C2",
+        mechanism=mechanism,
+        operator=operator,
+        domain=task.domain,
+        benchmark=task.benchmark,
+        severity=Severity(
+            level=severity, budget={"L1": 1, "L2": 2, "L3": 3}[severity]
+        ),
+        seed=seed,
+        clean_hash=task.source_hash,
+        noisy_hash=result.noisy_hash,
+        timing="evolution",
+    )
+    noisy = task.model_copy(
+        update={
+            "source_hash": result.noisy_hash,
+            "artifact_path": str(output),
+            "metadata": {**task.metadata, "noise_id": noise.noise_id},
+        }
+    )
+    return PairedNoiseRecord(
+        task_id=task.task_id,
+        operator=operator,
+        clean=task,
+        noisy=noisy,
+        noise=noise,
+        validation=validation,
+        artifact_path=str(output),
+    )
+
+
+def _officeqa_evolution_record(
+    task: TaskManifest,
+    *,
+    config: dict[str, Any],
+    data_root: Path,
+    operator: str,
+    severity: str,
+    seed: int,
+    run_dir: Path,
+    documents: list[Any],
+    decoy_index: Any,
+) -> PairedNoiseRecord:
+    native = OfficeQATask(
+        task_id=task.task_id,
+        question=task.prompt,
+        answers=task.gold_answers,
+        gold_document_id=str(task.metadata["gold_document_ids"][0]),
+        source_document_ids=list(task.metadata["gold_document_ids"][1:]),
+    )
+    decoys = select_decoy_documents(
+        native, documents, limit=8, index=decoy_index
+    )
+    gold_rank = 1 if operator == "semantic_decoy_document" else _officeqa_gold_rank(
+        config, severity
+    )
+    fixture = build_rank_fixture(native, decoys=decoys, gold_rank=gold_rank)
+    validation = validate_officeqa_noise(native, fixture)
+    fixture_path = (
+        run_dir / "retrieval_fixtures" / f"{task.task_id}-{operator}-{severity}.json"
+    )
+    fixture_path.parent.mkdir(parents=True, exist_ok=True)
+    fixture_path.write_text(fixture.model_dump_json(indent=2) + "\n", encoding="utf-8")
+    channel = "C2" if operator == "semantic_decoy_document" else "C3"
+    mechanism = "M1" if operator == "semantic_decoy_document" else "M5"
+    noise = NoiseManifest(
+        noise_id=f"{task.task_id}-{channel}-{mechanism}-{operator}-{severity}",
+        task_id=task.task_id,
+        channel=channel,
+        mechanism=mechanism,
+        operator=operator,
+        domain=task.domain,
+        benchmark=task.benchmark,
+        severity=Severity(
+            level=severity,
+            budget=(len(decoys) if gold_rank == 1 else gold_rank - 1),
+        ),
+        seed=seed,
+        clean_hash=task.source_hash,
+        noisy_hash=fixture.fixture_hash,
+        timing="evolution",
+    )
+    noisy = task.model_copy(
+        update={
+            "source_hash": fixture.fixture_hash,
+            "artifact_path": str(fixture_path),
+            "metadata": {
+                **task.metadata,
+                "retrieval_fixture": str(fixture_path),
+                "noise_id": noise.noise_id,
+            },
+        }
+    )
+    return PairedNoiseRecord(
+        task_id=task.task_id,
+        operator=operator,
+        clean=task,
+        noisy=noisy,
+        noise=noise,
+        validation=validation,
+        artifact_path=str(fixture_path),
+    )
+
+
+def _math_evolution_record(
+    task: TaskManifest,
+    *,
+    severity: str,
+    seed: int,
+    client: DeepSeekClient,
+    max_attempts: int,
+) -> PairedNoiseRecord:
+    candidate = generate_flawed_solution(
+        problem=task.prompt,
+        gold_answer=task.gold_answers[0],
+        task_hash=task.source_hash,
+        client=client,
+        severity=severity,
+        seed=seed,
+        max_attempts=max_attempts,
+    )
+    validation = validate_flawed_solution(candidate, task.gold_answers[0])
+    noisy_prompt = wrap_failed_attempt(task.prompt, candidate.full_text)
+    noisy_hash = _hash_text(noisy_prompt)
+    noise = NoiseManifest(
+        noise_id=f"{task.task_id}-C1-M2-flawed_partial_solution-{severity}",
+        task_id=task.task_id,
+        channel="C1",
+        mechanism="M2",
+        operator="flawed_partial_solution",
+        domain=task.domain,
+        benchmark=task.benchmark,
+        severity=Severity(level=severity, budget=1),
+        seed=seed,
+        clean_hash=task.source_hash,
+        noisy_hash=noisy_hash,
+        generator_mode=GeneratorMode.model,
+        timing="evolution",
+        template_version="math-flaw-v4-short-single-error",
+    )
+    noisy = task.model_copy(
+        update={
+            "prompt": noisy_prompt,
+            "source_hash": noisy_hash,
+            "metadata": {
+                **task.metadata,
+                "noise_id": noise.noise_id,
+                "math_candidate": candidate.model_dump(),
+            },
+        }
+    )
+    return PairedNoiseRecord(
+        task_id=task.task_id,
+        operator="flawed_partial_solution",
+        clean=task,
+        noisy=noisy,
+        noise=noise,
+        validation=validation,
+    )
+
+
+def generate_evolution_pairs_from_profile(
+    profile_path: Path | str, *, offline: bool = False
+) -> EvolutionGenerationSummary:
+    """Generate one immutable clean/noisy evolution split from a frozen split."""
+    load_dotenv(PROJECT_ROOT / ".env")
+    profile = Path(profile_path)
+    config = yaml.safe_load(profile.read_text(encoding="utf-8"))
+    data_root = Path(os.environ.get("RSEBENCH_DATA_ROOT", PROJECT_ROOT / "data"))
+    output_root = Path(
+        os.environ.get("RSEBENCH_OUTPUT_ROOT", PROJECT_ROOT / "outputs")
+    )
+    split_path = _resolve_split_path(config["split_manifest"], data_root)
+    split_raw = json.loads(split_path.read_text(encoding="utf-8"))
+    sizes = dict(config.get("sizes") or {})
+    train_ids = [str(value) for value in split_raw["evolution"]][
+        : int(sizes.get("train", 10))
+    ]
+    validation_ids = [str(value) for value in split_raw["validation"]][
+        : int(sizes.get("validation", 5))
+    ]
+    test_ids = [str(value) for value in split_raw["test"]][
+        : int(sizes.get("clean_test", 10))
+    ]
+    if set(train_ids + validation_ids) & set(test_ids):
+        raise PairGenerationError("frozen split leaks evolution IDs into clean_test")
+    all_tasks = _load_evolution_tasks(
+        config, data_root, train_ids + validation_ids + test_ids
+    )
+    by_id = {task.task_id: task for task in all_tasks}
+    operator = str(config["operator"])
+    generator_mode = str(config.get("generator_mode", "rule"))
+    severity = str(config.get("severity", "L2"))
+    seed = int(config.get("seed", split_raw.get("seed", 0)))
+    needs_model = generator_mode == "model" or operator == "flawed_partial_solution"
+    client: DeepSeekClient | None = None
+    if needs_model and not offline:
+        client = DeepSeekClient.from_yaml(PROJECT_ROOT / config["model_config"])
+    run_id = _run_id(profile, offline)
+    run_dir = create_run_directory(output_root, "evolution-noise", run_id)
+    (run_dir / "config.yaml").write_text(
+        yaml.safe_dump(config, sort_keys=False, allow_unicode=True), encoding="utf-8"
+    )
+    records: list[PairedNoiseRecord] = []
+    errors: list[str] = []
+    office_documents: list[Any] | None = None
+    office_decoy_index: Any = None
+    if str(config["benchmark"]) == "officeqa_full" and operator not in {
+        "failed_attempt",
+        "related_distractor",
+        "redundant_context",
+    }:
+        office_documents = _cached_officeqa_documents(
+            data_root / config["corpus_path"]
+        )
+        office_decoy_index = build_decoy_index(
+            office_documents,
+            vocabulary=build_question_vocabulary(
+                [by_id[task_id].prompt for task_id in train_ids + validation_ids]
+            ),
+        )
+    for task_id in train_ids + validation_ids:
+        task = by_id[task_id]
+        try:
+            if operator in {"failed_attempt", "related_distractor", "redundant_context"}:
+                if generator_mode == "model" and client is None:
+                    raise RuntimeError("model-backed operator disabled by --offline")
+                record = _instruction_evolution_record(
+                    task,
+                    operator=operator,
+                    severity=severity,
+                    seed=seed,
+                    generator_mode=generator_mode,
+                    client=client,
+                )
+            elif task.domain == "spreadsheet":
+                record = _spreadsheet_evolution_record(
+                    task,
+                    operator=operator,
+                    severity=severity,
+                    seed=seed,
+                    run_dir=run_dir,
+                )
+            elif task.benchmark == "officeqa_full":
+                record = _officeqa_evolution_record(
+                    task,
+                    config=config,
+                    data_root=data_root,
+                    operator=operator,
+                    severity=severity,
+                    seed=seed,
+                    run_dir=run_dir,
+                    documents=office_documents or [],
+                    decoy_index=office_decoy_index,
+                )
+            elif operator == "flawed_partial_solution" and client is not None:
+                record = _math_evolution_record(
+                    task,
+                    severity=severity,
+                    seed=seed,
+                    client=client,
+                    max_attempts=int(config.get("generation", {}).get("max_attempts", 3)),
+                )
+            else:
+                raise ValueError(f"unsupported evolution operator: {operator}")
+            records.append(record)
+            if not record.validation.accepted:
+                errors.append(f"{task_id}: noise failed hard gates")
+        except Exception as exc:
+            errors.append(f"{task_id}: {type(exc).__name__}: {exc}")
+
+    pair_manifest: EvolutionSplitManifest | None = None
+    pair_manifest_path: str | None = None
+    if not errors:
+        try:
+            pair_manifest = assemble_evolution_split(
+                benchmark=str(config["benchmark"]),
+                domain=str(config["domain"]),
+                seed=seed,
+                source_hash=sha256_file(split_path),
+                records=records,
+                train_ids=train_ids,
+                validation_ids=validation_ids,
+                clean_test=[by_id[task_id] for task_id in test_ids],
+            )
+        except PairGenerationError as exc:
+            errors.append(str(exc))
+    if pair_manifest is not None:
+        manifest_file = run_dir / "pair_manifest.json"
+        manifest_file.write_text(
+            pair_manifest.model_dump_json(indent=2) + "\n", encoding="utf-8"
+        )
+        pair_manifest_path = str(manifest_file)
+    summary = EvolutionGenerationSummary(
+        run_id=run_id,
+        run_dir=str(run_dir),
+        profile=str(profile),
+        operator=operator,
+        offline=offline,
+        status="generation_validated" if pair_manifest is not None else "rejected",
+        records=records,
+        errors=errors,
+        pair_manifest=pair_manifest,
+        pair_manifest_path=pair_manifest_path,
     )
     (run_dir / "summary.json").write_text(
         summary.model_dump_json(indent=2) + "\n", encoding="utf-8"

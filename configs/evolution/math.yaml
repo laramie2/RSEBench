@@ -1,0 +1,24 @@
+version: 1
+profile: math-evolution-noise-feasibility
+benchmark: dapo_fixed_1000
+domain: math
+dataset_path: materialized/dapo_fixed_1000/dapo_fixed_1000.parquet
+split_manifest: data/splits/dapo_fixed_1000/split_manifest.json
+operator: flawed_partial_solution
+generator_mode: model
+severity: L2
+seed: 20260812
+sizes:
+  train: 5
+  validation: 3
+  clean_test: 10
+model_config: configs/pilot/deepseek-v4-flash-generation.yaml
+generation:
+  max_attempts: 9
+hard_gates:
+  - structural_valid
+  - label_invariant
+  - solvable
+  - answer_leak_free
+  - exactly_one_error
+  - invalidity_critic

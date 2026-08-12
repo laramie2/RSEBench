@@ -26,6 +26,7 @@ class MathNoiseCandidate(BaseModel):
     incorrect_conclusion: str
     critic_error_present: bool = False
     critic_error_type: str = ""
+    critic_error_count: int = 1
     critic_valid_proof: bool = True
     attempt_index: int = 0
 
@@ -48,11 +49,31 @@ def scan_answer_leak(text: str, gold_answer: str) -> bool:
     gold = _compact_math(str(gold_answer).strip().strip("$"))
     if not gold:
         return False
-    compact = _compact_math(text)
-    if re.fullmatch(r"[-+]?\d+(?:\.\d+)?", gold):
-        literals = re.findall(r"[-+]?(?:\d+(?:\.\d+)?|\.\d+)", compact)
-        return gold.lstrip("+") in {literal.lstrip("+") for literal in literals}
-    return gold in compact
+    # A value can legitimately occur as a coefficient or intermediate result,
+    # especially for small golds such as 0, 1, or -1. Treat it as leakage only
+    # when the text presents it as an answer/conclusion (or explicitly boxes it).
+    boxed = re.findall(r"\\(?:boxed|fbox)\s*\{([^{}]+)\}", text)
+    if any(_compact_math(value) == gold for value in boxed):
+        return True
+    normalized = " ".join(text.casefold().split())
+    cues = re.compile(
+        r"(?:answer|final\s+(?:answer|result)|therefore|thus|conclusion|"
+        r"最终答案|答案|故)\b.{0,64}",
+        re.IGNORECASE,
+    )
+    for match in cues.finditer(normalized):
+        if gold in _compact_math(match.group(0)):
+            return True
+    last_line = next(
+        (line.strip() for line in reversed(text.splitlines()) if line.strip()), ""
+    )
+    compact_last = _compact_math(last_line)
+    return compact_last == gold or compact_last in {
+        f"answer:{gold}",
+        f"answer={gold}",
+        f"答案:{gold}",
+        f"答案={gold}",
+    }
 
 
 def wrap_failed_attempt(problem: str, attempt: str) -> str:
@@ -108,12 +129,21 @@ def validate_flawed_solution(
     localized_error = candidate.critic_error_present and _same_error_type(
         candidate.error_type, candidate.critic_error_type
     )
+    exactly_one_error = candidate.critic_error_count == 1
     leak_free = not scan_answer_leak(candidate.full_text, gold_answer)
     invalid_proof = not candidate.critic_valid_proof
-    accepted = structural and localized_error and leak_free and invalid_proof
+    accepted = (
+        structural
+        and localized_error
+        and exactly_one_error
+        and leak_free
+        and invalid_proof
+    )
     messages: list[str] = []
     if not localized_error:
         messages.append("critic could not confirm the declared error")
+    if not exactly_one_error:
+        messages.append("critic did not confirm exactly one localized error")
     if not leak_free:
         messages.append("candidate leaks the gold answer")
     if not invalid_proof:
@@ -128,18 +158,20 @@ def validate_flawed_solution(
             "critic_error_present": candidate.critic_error_present,
             "critic_valid_proof": candidate.critic_valid_proof,
             "error_type_agreement": localized_error,
+            "exactly_one_error": exactly_one_error,
         },
         messages=messages,
     )
 
 
 def _json_response(
-    client: DeepSeekClient, prompt: str, cache_key: str
+    client: DeepSeekClient, prompt: str, cache_key: str, *, role: str
 ) -> dict:
     response = client.complete(
         [{"role": "user", "content": prompt}],
         response_format={"type": "json_object"},
         cache_key=cache_key,
+        role=role,
     )
     try:
         payload = json.loads(response.content)
@@ -179,9 +211,13 @@ def generate_flawed_solution(
             generated = _json_response(
                 client,
                 GENERATOR_PROMPT.format(
-                    problem=problem, severity=severity, seed=seed + attempt
+                    problem=problem,
+                    gold_answer=gold_answer,
+                    severity=severity,
+                    seed=seed + attempt,
                 ),
                 _cache_key(task_hash, "generator", severity, seed, attempt),
+                role="noise_generator",
             )
         except ValueError:
             rejected.append("generator_invalid_json")
@@ -202,11 +238,13 @@ def generate_flawed_solution(
                 client,
                 CRITIC_ERROR_PROMPT.format(problem=problem, attempt=attempt_text),
                 _cache_key(task_hash, "critic-error", severity, seed, attempt),
+                role="noise_error_critic",
             )
             critic_validity = _json_response(
                 client,
                 CRITIC_VALIDITY_PROMPT.format(problem=problem, attempt=attempt_text),
                 _cache_key(task_hash, "critic-validity", severity, seed, attempt),
+                role="noise_validity_critic",
             )
         except ValueError:
             rejected.append("critic_invalid_json")
@@ -215,6 +253,7 @@ def generate_flawed_solution(
             **{name: generated[name] for name in required},
             critic_error_present=bool(critic_error.get("error_present", False)),
             critic_error_type=str(critic_error.get("error_type", "")),
+            critic_error_count=int(critic_error.get("error_count", 0) or 0),
             critic_valid_proof=bool(critic_validity.get("valid_proof", True)),
             attempt_index=attempt,
         )

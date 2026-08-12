@@ -1,0 +1,20 @@
+version: 1
+profile: spreadsheet-evolution-noise-feasibility
+benchmark: spreadsheetbench_verified
+domain: spreadsheet
+dataset_path: materialized/spreadsheetbench_verified/spreadsheetbench_verified_400
+split_manifest: data/splits/spreadsheetbench_verified/split_manifest.json
+operator: failed_attempt
+generator_mode: model
+severity: L2
+seed: 20260812
+sizes:
+  train: 10
+  validation: 5
+  clean_test: 10
+model_config: configs/pilot/deepseek-v4-flash-generation.yaml
+hard_gates:
+  - structural_valid
+  - label_invariant
+  - solvable
+  - answer_leak_free

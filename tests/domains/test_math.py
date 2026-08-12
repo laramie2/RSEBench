@@ -10,6 +10,8 @@ from rsebench.providers.deepseek import ModelResponse
 
 def test_answer_leak_detects_normalized_ground_truth():
     assert scan_answer_leak(r"The result is \boxed{34}.", "34")
+    assert scan_answer_leak("Answer: 1", "1")
+    assert not scan_answer_leak("An intermediate coefficient is 1.", "1")
     assert not scan_answer_leak("A mistaken intermediate value is 3.", "34")
 
 
@@ -46,6 +48,24 @@ def test_candidate_with_valid_proof_is_rejected():
     assert not validate_flawed_solution(candidate, gold_answer="7").accepted
 
 
+def test_candidate_with_multiple_errors_is_rejected():
+    candidate = MathNoiseCandidate(
+        partial_solution="Use two unsupported transformations.",
+        error_step="Both transformations are invalid.",
+        error_type="algebra",
+        incorrect_conclusion="wrong",
+        critic_error_present=True,
+        critic_error_type="algebra",
+        critic_error_count=2,
+        critic_valid_proof=False,
+    )
+
+    report = validate_flawed_solution(candidate, gold_answer="7")
+
+    assert not report.accepted
+    assert report.checks["exactly_one_error"] is False
+
+
 def test_error_type_agreement_accepts_semantic_critic_paraphrase():
     candidate = MathNoiseCandidate(
         partial_solution="Apply a tangent-secant relation with the wrong product.",
@@ -72,13 +92,13 @@ def test_generator_retries_empty_structured_response_before_critics():
             '"error_type":"invalid independence",'
             '"incorrect_conclusion":"The probability is one half."}',
             '{"error_present":true,"error_step":"Assume independence.",'
-            '"error_type":"invalid independence assumption"}',
+            '"error_type":"invalid independence assumption","error_count":1}',
             '{"valid_proof":false,"reason":"The assumption is unsupported."}',
         ]
     )
 
     class FakeClient:
-        def complete(self, messages, response_format, cache_key):
+        def complete(self, messages, response_format, cache_key, role):
             return ModelResponse(content=next(responses))
 
     candidate = generate_flawed_solution(
@@ -92,3 +112,4 @@ def test_generator_retries_empty_structured_response_before_critics():
     )
 
     assert candidate.attempt_index == 1
+    assert candidate.critic_error_count == 1
