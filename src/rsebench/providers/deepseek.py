@@ -14,6 +14,8 @@ from dotenv import load_dotenv
 from openai import OpenAI
 from pydantic import BaseModel, ConfigDict, Field
 
+from rsebench.providers.contracts import ToolCall
+
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 LOCKED_MODEL = "deepseek-v4-flash"
@@ -39,6 +41,7 @@ class DeepSeekConfig(BaseModel):
 
 class ModelResponse(BaseModel):
     content: str
+    tool_calls: list[ToolCall] = Field(default_factory=list)
     usage: dict[str, Any] = Field(default_factory=dict)
     model: str = LOCKED_MODEL
     cache_hit: bool = False
@@ -80,6 +83,9 @@ class DeepSeekClient:
         self,
         messages: list[dict[str, Any]],
         response_format: dict[str, Any] | None = None,
+        tools: list[dict[str, Any]] | None = None,
+        tool_choice: str | dict[str, Any] | None = None,
+        role: str = "target",
     ) -> str:
         request = {
             "model": self.config.model,
@@ -88,6 +94,9 @@ class DeepSeekClient:
             "thinking": self.config.thinking,
             "messages": messages,
             "response_format": response_format,
+            "tools": tools,
+            "tool_choice": tool_choice,
+            "role": role,
         }
         encoded = json.dumps(request, sort_keys=True, ensure_ascii=False).encode("utf-8")
         return hashlib.sha256(encoded).hexdigest()
@@ -122,8 +131,17 @@ class DeepSeekClient:
         messages: list[dict[str, Any]],
         response_format: dict[str, Any] | None = None,
         cache_key: str | None = None,
+        tools: list[dict[str, Any]] | None = None,
+        tool_choice: str | dict[str, Any] | None = None,
+        role: str = "target",
     ) -> ModelResponse:
-        key = cache_key or self.request_cache_key(messages, response_format)
+        key = cache_key or self.request_cache_key(
+            messages,
+            response_format,
+            tools=tools,
+            tool_choice=tool_choice,
+            role=role,
+        )
         cached = self._read_cache(key)
         if cached is not None:
             return cached
@@ -149,6 +167,10 @@ class DeepSeekClient:
         }
         if response_format is not None:
             kwargs["response_format"] = response_format
+        if tools:
+            kwargs["tools"] = tools
+            if tool_choice is not None:
+                kwargs["tool_choice"] = tool_choice
         kwargs["extra_body"] = {
             "thinking": {"type": self.config.thinking}
         }
@@ -158,9 +180,31 @@ class DeepSeekClient:
             message = str(exc).replace(api_key, "[REDACTED]")
             raise RuntimeError(f"DeepSeek request failed: {message}") from exc
 
+        if not completion.choices:
+            raise RuntimeError("DeepSeek request returned no choices")
         choice = completion.choices[0]
+        normalized_tool_calls: list[ToolCall] = []
+        for item in getattr(choice.message, "tool_calls", None) or []:
+            try:
+                arguments = json.loads(item.function.arguments or "{}")
+            except json.JSONDecodeError as exc:
+                raise RuntimeError(
+                    f"DeepSeek tool call {item.function.name!r} returned invalid JSON arguments"
+                ) from exc
+            if not isinstance(arguments, dict):
+                raise RuntimeError(
+                    f"DeepSeek tool call {item.function.name!r} arguments must be an object"
+                )
+            normalized_tool_calls.append(
+                ToolCall(
+                    id=item.id,
+                    name=item.function.name,
+                    arguments=arguments,
+                )
+            )
         response = ModelResponse(
             content=choice.message.content or "",
+            tool_calls=normalized_tool_calls,
             usage=completion.usage.model_dump() if completion.usage else {},
             model=completion.model or self.config.model,
             finish_reason=choice.finish_reason,
