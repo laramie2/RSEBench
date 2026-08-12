@@ -1,0 +1,35 @@
+version: 1
+profile: math-evolution-noise-medium
+benchmark: dapo_fixed_1000
+domain: math
+dataset_path: materialized/dapo_fixed_1000/dapo_fixed_1000.parquet
+split_manifest: data/splits/dapo_fixed_1000/split_manifest.json
+operator: flawed_partial_solution
+generator_mode: model
+severity: L2
+seed: 20260812
+sizes:
+  train: 15
+  validation: 8
+  clean_test: 50
+partitions:
+  train: evolution
+  validation: evolution
+  clean_test: test
+selection:
+  order: prompt_length_desc
+  test_order: manifest
+  backfill_on_gate_rejection: true
+  candidate_multiplier: 4
+  exclude_task_ids:
+    - 0675c0bd4cc8219fd89bca6b394339e245c799fbefee719c3036f2962a47e30f
+model_config: configs/pilot/deepseek-v4-flash-generation.yaml
+generation:
+  max_attempts: 18
+hard_gates:
+  - structural_valid
+  - label_invariant
+  - solvable
+  - answer_leak_free
+  - exactly_one_error
+  - invalidity_critic

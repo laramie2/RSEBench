@@ -100,6 +100,19 @@ class EvolutionGenerationSummary(BaseModel):
     gate_rejections: list[str] = Field(default_factory=list)
     pair_manifest: EvolutionSplitManifest | None = None
     pair_manifest_path: str | None = None
+    selection_audit: "EvolutionSelectionAudit | None" = None
+
+
+class EvolutionSelectionAudit(BaseModel):
+    """Label-free selection decisions recorded before any evaluation."""
+
+    requested_sizes: dict[str, int]
+    candidate_pool_sizes: dict[str, int]
+    candidate_budget_sizes: dict[str, int]
+    candidate_ids: dict[str, list[str]]
+    selected_ids: dict[str, list[str]]
+    test_ids: list[str]
+    excluded_ids: list[str]
 
 
 def _collect_gate_valid_records(
@@ -1271,6 +1284,7 @@ def generate_evolution_pairs_from_profile(
     test_pool = [str(value) for value in split_raw[test_partition]]
     selection = dict(config.get("selection") or {})
     selection_order = str(selection.get("order", "manifest"))
+    test_selection_order = str(selection.get("test_order", selection_order))
     excluded_task_ids = {
         str(task_id) for task_id in selection.get("exclude_task_ids", [])
     }
@@ -1296,7 +1310,7 @@ def generate_evolution_pairs_from_profile(
         test_pool = _order_task_pool(
             test_pool,
             candidate_by_id,
-            selection_order,
+            test_selection_order,
             excluded_task_ids=excluded_task_ids,
         )
     elif excluded_task_ids:
@@ -1482,6 +1496,29 @@ def generate_evolution_pairs_from_profile(
         gate_rejections=gate_rejections,
         pair_manifest=pair_manifest,
         pair_manifest_path=pair_manifest_path,
+        selection_audit=EvolutionSelectionAudit(
+            requested_sizes={
+                "train": train_size,
+                "validation": validation_size,
+                "clean_test": test_size,
+            },
+            candidate_pool_sizes={
+                "train": len(train_pool),
+                "validation": len(validation_pool),
+                "clean_test": len(test_pool),
+            },
+            candidate_budget_sizes={
+                "train": len(train_candidate_ids),
+                "validation": len(validation_candidate_ids),
+            },
+            candidate_ids={
+                "train": train_candidate_ids,
+                "validation": validation_candidate_ids,
+            },
+            selected_ids={"train": train_ids, "validation": validation_ids},
+            test_ids=test_ids,
+            excluded_ids=sorted(excluded_task_ids),
+        ),
     )
     (run_dir / "summary.json").write_text(
         summary.model_dump_json(indent=2) + "\n", encoding="utf-8"

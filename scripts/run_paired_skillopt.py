@@ -46,8 +46,9 @@ def _parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def main() -> None:
-    args = _parse_args()
+def run_manifest(args: argparse.Namespace) -> Path:
+    """Execute one paired SkillOpt manifest and return its run directory."""
+
     split = EvolutionSplitManifest.model_validate_json(
         args.manifest.read_text(encoding="utf-8")
     )
@@ -97,8 +98,14 @@ def main() -> None:
         parameters=parameters,
         output_root=output_root,
     )
-    print(result.run_dir)
-    print(json.dumps(result.metrics.model_dump(), sort_keys=True))
+    return Path(result.run_dir)
+
+
+def main() -> None:
+    run_dir = run_manifest(_parse_args())
+    result = json.loads((run_dir / "result.json").read_text(encoding="utf-8"))
+    print(run_dir)
+    print(json.dumps(result["metrics"], sort_keys=True))
 
 
 if __name__ == "__main__":

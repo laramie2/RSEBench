@@ -195,6 +195,40 @@ def test_profile_pipeline_materializes_only_evolution_pairs(tmp_path, monkeypatc
     assert [pair.task_id for pair in manifest.validation] == ["validation"]
     assert [task.task_id for task in manifest.clean_test] == ["test"]
     assert "test" not in {record.task_id for record in summary.records}
+    assert summary.selection_audit is not None
+    assert summary.selection_audit.candidate_pool_sizes == {
+        "train": 1,
+        "validation": 1,
+        "clean_test": 1,
+    }
+    assert summary.selection_audit.selected_ids == {
+        "train": ["train"],
+        "validation": ["validation"],
+    }
+    assert summary.selection_audit.test_ids == ["test"]
+
+
+@pytest.mark.parametrize(
+    ("name", "sizes"),
+    [
+        ("spreadsheet-expanded.yaml", {"train": 20, "validation": 10, "clean_test": 30}),
+        ("math-expanded.yaml", {"train": 15, "validation": 8, "clean_test": 50}),
+    ],
+)
+def test_expanded_profiles_declare_medium_disjoint_sizes_and_candidate_budget(
+    name, sizes
+):
+    profile = generation.PROJECT_ROOT / "configs/evolution" / name
+    config = yaml.safe_load(profile.read_text(encoding="utf-8"))
+
+    assert config["sizes"] == sizes
+    assert config["partitions"] == {
+        "train": "evolution",
+        "validation": "evolution",
+        "clean_test": "test",
+    }
+    assert config["selection"]["backfill_on_gate_rejection"] is True
+    assert config["selection"]["candidate_multiplier"] == 4
 
 
 def test_profile_split_path_falls_back_to_shared_data_root(tmp_path, monkeypatch):
