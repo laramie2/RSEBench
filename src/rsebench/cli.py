@@ -8,6 +8,9 @@ from pathlib import Path
 import typer
 
 from rsebench.contracts import NoiseManifest, TaskManifest
+from rsebench.adapters.contracts import SmokeLevel
+from rsebench.adapters.registry import load_adapter_registry
+from rsebench.adapters.smoke import run_smoke
 from rsebench.experiments import run_math_execution_pilot
 from rsebench.generation import generate_from_profile
 from rsebench.providers.deepseek import DeepSeekClient
@@ -64,6 +67,24 @@ def math_pilot_a(limit: int = typer.Option(5, min=1, max=20)) -> None:
     summary = run_math_execution_pilot(limit=limit)
     typer.echo(
         f"status={summary['status']} model={summary['model']} run={summary['run_dir']}"
+    )
+
+
+@app.command("baseline-smoke")
+def baseline_smoke(
+    method: str = typer.Option(...),
+    through: SmokeLevel = typer.Option(SmokeLevel.transport),
+) -> None:
+    registry = load_adapter_registry(ROOT / "benchmark/registry/adapters.yaml")
+    if method not in registry.adapters:
+        raise typer.BadParameter(f"unknown baseline adapter: {method}")
+    summary = run_smoke(
+        registry.adapters[method],
+        through=through,
+        output_root=ROOT / "outputs/runs/baseline-smoke",
+    )
+    typer.echo(
+        f"status={summary.status} method={summary.method} run={summary.run_dir}"
     )
 
 
