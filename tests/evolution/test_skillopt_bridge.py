@@ -103,7 +103,7 @@ def test_materializes_officeqa_and_livemath_native_fields(tmp_path: Path):
     office_item = _items(office_dir, "train")[0]
     assert office_item["question"] == "noisy office"
     assert office_item["ground_truth"] == "42"
-    assert office_item["source_files"] == ["docs/report.txt"]
+    assert office_item["source_files"] == ["report.txt"]
 
     math = _task(
         "202601:1", "livemathematicianbench", "math", "clean math",

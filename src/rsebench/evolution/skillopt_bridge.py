@@ -33,13 +33,16 @@ def _spreadsheet_item(task: TaskManifest) -> dict:
 
 def _officeqa_item(task: TaskManifest) -> dict:
     metadata = task.metadata
+    source_files = [
+        Path(str(value)).name for value in metadata.get("gold_document_ids", [])
+    ]
     return {
         "id": task.task_id,
         "uid": task.task_id,
         "question": task.prompt,
         "ground_truth": task.gold_answers[0] if task.gold_answers else "",
         "category": str(metadata.get("category", "officeqa")),
-        "source_files": list(metadata.get("gold_document_ids", [])),
+        "source_files": source_files,
         "source_docs": list(metadata.get("source_docs", [])),
         "split": str(metadata.get("source_split", "")),
         "rsebench_source_hash": task.source_hash,
