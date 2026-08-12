@@ -1,0 +1,14 @@
+version: 1
+profile: spreadsheet-noise-pilot
+benchmark: spreadsheetbench_verified
+domain: spreadsheet
+data_root_env: RSEBENCH_DATA_ROOT
+dataset_path: materialized/spreadsheetbench_verified/spreadsheetbench_verified_400
+operators:
+  - stale_backup_sheet
+  - semantic_decoy_sheet
+  - failed_attempt
+severities: [L1, L2, L3]
+seed: 20260812
+pilot_limit: 10
+model_config: configs/pilot/deepseek-v4-flash.yaml
