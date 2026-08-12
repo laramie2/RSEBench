@@ -974,6 +974,46 @@ index 0000000..3846398
 +        "decoy-b.txt",
 +        "gold.txt",
 +    ]
+diff --git a/tests/test_officeqa_parsed_pages.py b/tests/test_officeqa_parsed_pages.py
+new file mode 100644
+index 0000000..10cc0a7
+--- /dev/null
++++ b/tests/test_officeqa_parsed_pages.py
+@@ -0,0 +1,34 @@
++import json
++from pathlib import Path
++
++from skillopt.envs.officeqa.tool_runtime import build_oracle_parsed_pages_context
++
++
++def test_oracle_context_finds_jsons_under_explicit_parsed_root(tmp_path: Path):
++    parsed = tmp_path / "parsed"
++    json_path = parsed / "jsons/treasury_bulletin_1954_02.json"
++    json_path.parent.mkdir(parents=True)
++    json_path.write_text(
++        json.dumps(
++            {
++                "document": {
++                    "elements": [
++                        {
++                            "content": "Treasury evidence value: 42",
++                            "bbox": [{"page_id": 7}],
++                        }
++                    ]
++                }
++            }
++        ),
++        encoding="utf-8",
++    )
++
++    context = build_oracle_parsed_pages_context(
++        "treasury_bulletin_1954_02.txt",
++        "https://example.test/bulletin?page=7",
++        [str(parsed)],
++    )
++
++    assert "treasury_bulletin_1954_02.txt page 7" in context
++    assert "Treasury evidence value: 42" in context
 diff --git a/tests/test_spreadsheet_codegen_backend.py b/tests/test_spreadsheet_codegen_backend.py
 new file mode 100644
 index 0000000..cc07c63

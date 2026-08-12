@@ -33,6 +33,9 @@ def test_skillopt_executor_runs_native_train_and_parses_eval(tmp_path: Path):
     (tmp_path / "data" / "materialized" / "officeqa_full" / "corpus").mkdir(
         parents=True
     )
+    (tmp_path / "data" / "materialized" / "officeqa_full" / "parsed/jsons").mkdir(
+        parents=True
+    )
     commands = []
 
     def fake_run(command, **kwargs):
@@ -136,6 +139,25 @@ def test_skillopt_executor_selects_dapo_config(tmp_path: Path):
 
     assert executor._config("dapo_fixed_1000") == config
     assert "env.max_turns=3" in executor._domain_options("dapo_fixed_1000")
+
+
+def test_skillopt_executor_exposes_officeqa_oracle_parsed_root(tmp_path: Path):
+    method_root = tmp_path / "skillopt"
+    (method_root / ".venv/bin").mkdir(parents=True)
+    (method_root / ".venv/bin/python").write_text("", encoding="utf-8")
+    corpus = tmp_path / "data/materialized/officeqa_full/corpus"
+    parsed = tmp_path / "data/materialized/officeqa_full/parsed"
+    corpus.mkdir(parents=True)
+    (parsed / "jsons").mkdir(parents=True)
+    executor = SkillOptExecutor(
+        method_root=method_root,
+        data_root=tmp_path / "data",
+        environment={"DEEPSEEK_API_KEY": "secret"},
+    )
+
+    assert f"env.data_dirs=[{corpus},{parsed}]" in executor._domain_options(
+        "officeqa_full"
+    )
 
 
 def test_skillopt_executor_selects_docvqa_config(tmp_path: Path):

@@ -88,9 +88,15 @@ class SkillOptExecutor:
             corpus = self.data_root / "materialized/officeqa_full/corpus"
             if not corpus.is_dir():
                 raise FileNotFoundError(f"OfficeQA corpus missing: {corpus}")
+            parsed_root = self.data_root / "materialized/officeqa_full/parsed"
+            if not (parsed_root / "jsons").is_dir():
+                raise FileNotFoundError(
+                    f"OfficeQA parsed pages missing: {parsed_root}; "
+                    "run scripts/materialize_officeqa_parsed_pages.py"
+                )
             options.extend(
                 (
-                    f"env.data_dirs={corpus}",
+                    f"env.data_dirs=[{corpus},{parsed_root}]",
                     "env.search_mode=offline",
                     "env.use_local_tools=true",
                     f"env.max_tool_turns={self.budget.max_turns}",
