@@ -22,3 +22,6 @@ artifacts:
   live_mathematician_bench:
     expected: [data/202604/qa_202604_final.json]
     license_review: mit
+  skillflow_tasks:
+    expected: [README.md]
+    license_review: required

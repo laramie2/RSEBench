@@ -171,6 +171,11 @@ def _sheet_digest(sheet) -> str:
                         (key, repr(item)) for key, item in vars(value).items()
                     )
                     canonical_value = f"{type(value).__name__}:{attributes}"
+                elif isinstance(value, float):
+                    # XML save/reload can change only the final binary-float
+                    # digit. Twelve significant digits is still much stricter
+                    # than the official two-decimal task verifier.
+                    canonical_value = format(value, ".12g")
                 else:
                     canonical_value = repr(value)
                 record = (

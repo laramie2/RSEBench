@@ -89,6 +89,12 @@ def build_download_plan(data_root: Path) -> list[DownloadItem]:
             revision="main",
         ),
         DownloadItem(
+            "skillflow_tasks",
+            "zhang-ziao/SkillFlow-Task",
+            "huggingface",
+            raw / "skillflow_tasks",
+        ),
+        DownloadItem(
             "officeqa_code",
             "https://github.com/databricks/officeqa.git",
             "git",
@@ -252,6 +258,31 @@ def materialize(item: DownloadItem, data_root: Path, methods_root: Path) -> None
             subset.to_parquet(output, index=False)
 
 
+def _merge_download_status(path: Path, updates: list[dict]) -> None:
+    existing: list[dict] = []
+    if path.is_file():
+        try:
+            loaded = json.loads(path.read_text(encoding="utf-8"))
+            if isinstance(loaded, list):
+                existing = loaded
+        except json.JSONDecodeError:
+            existing = []
+    rows = {
+        str(row["name"]): row
+        for row in existing
+        if isinstance(row, dict) and row.get("name")
+    }
+    rows.update({str(row["name"]): row for row in updates})
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps(
+            [rows[name] for name in sorted(rows)], indent=2, sort_keys=True
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+
 def execute_plan(items: Iterable[DownloadItem], data_root: Path) -> list[dict]:
     load_dotenv(PROJECT_ROOT / ".env")
     token = os.environ.get("HF_TOKEN") or None
@@ -279,9 +310,7 @@ def execute_plan(items: Iterable[DownloadItem], data_root: Path) -> list[dict]:
             print(f"failed {item.name}: {exc}")
     audit_root = data_root / "audit"
     audit_root.mkdir(parents=True, exist_ok=True)
-    (audit_root / "download-status.json").write_text(
-        json.dumps(results, indent=2, sort_keys=True) + "\n", encoding="utf-8"
-    )
+    _merge_download_status(audit_root / "download-status.json", results)
     return results
 
 
@@ -290,12 +319,19 @@ def main() -> None:
     parser.add_argument("--profile", default="core", choices=["core"])
     parser.add_argument("--resume", action="store_true")
     parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument("--only", action="append", default=[])
     args = parser.parse_args()
     load_dotenv(PROJECT_ROOT / ".env")
     data_root = Path(
         os.environ.get("RSEBENCH_DATA_ROOT", PROJECT_ROOT / "data")
     )
     plan = build_download_plan(data_root)
+    if args.only:
+        requested = set(args.only)
+        known = {item.name for item in plan}
+        if unknown := requested - known:
+            parser.error(f"unknown dataset names: {sorted(unknown)}")
+        plan = [item for item in plan if item.name in requested]
     if args.dry_run:
         for item in plan:
             print(f"{item.name}\t{item.source_kind}\t{item.source_id}\t{item.target}")

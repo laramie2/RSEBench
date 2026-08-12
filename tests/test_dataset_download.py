@@ -3,7 +3,7 @@ import os
 import subprocess
 import sys
 
-from scripts.download.datasets import build_download_plan
+from scripts.download.datasets import _merge_download_status, build_download_plan
 
 
 def test_core_download_plan_contains_required_sources(tmp_path: Path):
@@ -14,6 +14,7 @@ def test_core_download_plan_contains_required_sources(tmp_path: Path):
     assert "lmms-lab/DocVQA" in ids
     assert "BytedTsinghua-SIA/DAPO-Math-17k" in ids
     assert "LiveMathematicianBench/LiveMathematicianBench" in ids
+    assert "zhang-ziao/SkillFlow-Task" in ids
 
 
 def test_gated_officeqa_data_is_scheduled_last(tmp_path: Path):
@@ -40,3 +41,16 @@ def test_dataset_audit_runs_as_a_direct_script(tmp_path: Path):
         text=True,
     )
     assert result.returncode == 0, result.stderr
+
+
+def test_partial_download_run_preserves_prior_statuses(tmp_path: Path):
+    status = tmp_path / "download-status.json"
+    status.write_text('[{"name":"existing","status":"downloaded"}]')
+    _merge_download_status(
+        status, [{"name": "new", "status": "materialized"}]
+    )
+    import json
+
+    rows = {row["name"]: row for row in json.loads(status.read_text())}
+    assert rows["existing"]["status"] == "downloaded"
+    assert rows["new"]["status"] == "materialized"

@@ -78,3 +78,11 @@ def test_validator_treats_excel_empty_string_and_blank_as_equivalent():
     second = Workbook()
     first.active["A1"] = ""
     assert _sheet_digest(first.active) == _sheet_digest(second.active)
+
+
+def test_validator_ignores_xlsx_roundtrip_float_representation_noise():
+    first = Workbook()
+    second = Workbook()
+    first.active["A1"] = 0.12093953023488256
+    second.active["A1"] = 0.1209395302348826
+    assert _sheet_digest(first.active) == _sheet_digest(second.active)
