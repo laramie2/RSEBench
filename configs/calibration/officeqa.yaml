@@ -1,0 +1,27 @@
+version: 1
+profile: officeqa-runtime-calibration
+benchmark: officeqa_full
+domain: document
+dataset_path: materialized/officeqa_full/officeqa_full.csv
+corpus_path: materialized/officeqa_full/corpus
+parsed_path: materialized/officeqa_full/parsed
+split_manifest: data/splits/officeqa_full/split_manifest.json
+seed: 20260812
+calibration_size: 30
+workers: 2
+runtimes:
+  - name: oracle-6x4096
+    max_tool_turns: 6
+    max_completion_tokens: 4096
+  - name: oracle-12x4096
+    max_tool_turns: 12
+    max_completion_tokens: 4096
+  - name: oracle-24x8192
+    max_tool_turns: 24
+    max_completion_tokens: 8192
+gates:
+  score_low: 0.25
+  score_high: 0.75
+  min_parseable_rate: 0.80
+  max_systemic_failure_rate: 0.05
+  min_eligible_count: 12
