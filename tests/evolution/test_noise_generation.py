@@ -238,6 +238,7 @@ def test_expanded_profiles_declare_medium_disjoint_sizes_and_candidate_budget(
     [
         ("officeqa-calibrated-prompt.yaml", "failed_attempt"),
         ("officeqa-calibrated-rank.yaml", "gold_rank_displacement"),
+        ("officeqa-calibrated-evidence.yaml", "semantic_decoy_document"),
     ],
 )
 def test_calibrated_officeqa_profiles_freeze_split_and_runtime(name, operator):

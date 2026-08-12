@@ -1,0 +1,29 @@
+version: 1
+profile: officeqa-calibrated-evidence-evolution-noise
+benchmark: officeqa_full
+domain: document
+dataset_path: materialized/officeqa_full/officeqa_full.csv
+corpus_path: materialized/officeqa_full/corpus
+parsed_path: materialized/officeqa_full/parsed
+split_manifest: data/splits/officeqa_calibrated/split_manifest.json
+operator: semantic_decoy_document
+generator_mode: rule
+severity: L2
+seed: 20260812
+sizes:
+  train: 12
+  validation: 6
+  clean_test: 20
+partitions:
+  train: evolution
+  validation: validation
+  clean_test: test
+runtime:
+  max_tool_turns: 12
+  max_completion_tokens: 4096
+model_config: configs/pilot/deepseek-v4-flash-generation.yaml
+hard_gates:
+  - structural_valid
+  - label_invariant
+  - solvable
+  - answer_leak_free
