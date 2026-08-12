@@ -85,7 +85,12 @@ def test_materializes_officeqa_and_livemath_native_fields(tmp_path: Path):
     office = _task(
         "o1", "officeqa_full", "document", "clean office",
         gold_answers=["42"],
-        metadata={"gold_document_ids": ["docs/report.txt"], "category": "hard"},
+        metadata={
+            "gold_document_ids": ["docs/report.txt"],
+            "source_docs": ["https://example.test/bulletin?page=7"],
+            "category": "hard",
+            "external_evidence_required": True,
+        },
     )
     office_noisy = office.model_copy(update={"prompt": "noisy office", "source_hash": "3" * 64})
     office_split = build_evolution_split(
@@ -104,6 +109,10 @@ def test_materializes_officeqa_and_livemath_native_fields(tmp_path: Path):
     assert office_item["question"] == "noisy office"
     assert office_item["ground_truth"] == "42"
     assert office_item["source_files"] == ["report.txt"]
+    assert office_item["source_docs"] == [
+        "https://example.test/bulletin?page=7"
+    ]
+    assert office_item["external_evidence_required"] is True
 
     math = _task(
         "202601:1", "livemathematicianbench", "math", "clean math",

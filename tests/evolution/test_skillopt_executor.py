@@ -54,7 +54,22 @@ def test_skillopt_executor_runs_native_train_and_parses_eval(tmp_path: Path):
             )
             (out_root / "results.jsonl").write_text(
                 "".join(
-                    json.dumps({"id": item["id"], "hard": int(index == 0)}) + "\n"
+                    json.dumps(
+                        {
+                            "id": item["id"],
+                            "hard": int(index == 0),
+                            "exact": int(index == 0),
+                            "predicted_answer": "answer" if index == 0 else "wrong",
+                            "failure_category": "correct"
+                            if index == 0
+                            else "incorrect_answer",
+                            "oracle_parsed_pages_included": True,
+                            "oracle_parsed_pages_chars": 100,
+                            "agent_ok": True,
+                            "n_turns": 2,
+                        }
+                    )
+                    + "\n"
                     for index, item in enumerate(items)
                 ),
                 encoding="utf-8",
@@ -114,6 +129,12 @@ def test_skillopt_executor_runs_native_train_and_parses_eval(tmp_path: Path):
     assert Path(artifact.skill_path).read_text(encoding="utf-8") == "evolved"
     assert evaluation.score == 0.5
     assert evaluation.per_task_scores == {"t1": 1.0, "t2": 0.0}
+    assert evaluation.diagnostics["parseable_answer_rate"] == 1.0
+    assert evaluation.diagnostics["oracle_parsed_pages_rate"] == 1.0
+    assert evaluation.diagnostics["failure_category_counts"] == {
+        "correct": 1,
+        "incorrect_answer": 1,
+    }
     assert all(any("openai_compatible" in arg for arg in command) for command in commands)
     persisted = "".join(
         path.read_text(encoding="utf-8")

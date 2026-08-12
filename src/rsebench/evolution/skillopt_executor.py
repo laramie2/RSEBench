@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
+from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
 from statistics import mean
@@ -62,6 +64,12 @@ class SkillOptExecutor:
 
             environment = combined_method_env("skillopt")
         self.environment = dict(environment)
+        project_src = str(Path(__file__).resolve().parents[2])
+        inherited_pythonpath = self.environment.get("PYTHONPATH", "").strip()
+        pythonpath_parts = [project_src]
+        if inherited_pythonpath:
+            pythonpath_parts.append(inherited_pythonpath)
+        self.environment["PYTHONPATH"] = os.pathsep.join(pythonpath_parts)
         self.python = self.method_root / ".venv/bin/python"
         if not self.python.is_file():
             raise FileNotFoundError(f"SkillOpt Python missing: {self.python}")
@@ -292,6 +300,7 @@ class SkillOptExecutor:
         if not results_path.is_file():
             raise RuntimeError(f"SkillOpt produced no per-task results: {results_path}")
         per_task: dict[str, float] = {}
+        result_rows: dict[str, dict[str, Any]] = {}
         for line in results_path.read_text(encoding="utf-8").splitlines():
             if not line.strip():
                 continue
@@ -299,6 +308,7 @@ class SkillOptExecutor:
             task_id = str(row.get("id") or row.get("task_id") or "")
             if task_id:
                 per_task[task_id] = float(row.get("hard", 0))
+                result_rows[task_id] = row
         expected = {task.task_id for task in clean_test}
         if set(per_task) != expected:
             raise RuntimeError(
@@ -306,8 +316,50 @@ class SkillOptExecutor:
                 f"actual={sorted(per_task)}"
             )
         score = mean(per_task.values())
+        category_counts = Counter(
+            str(row.get("failure_category"))
+            for row in result_rows.values()
+            if str(row.get("failure_category") or "").strip()
+        )
+        systemic = {"provider_failure", "missing_oracle_page"}
         return EvaluationResult(
             score=score,
             per_task_scores=per_task,
-            diagnostics={"stage": stage, "results_path": str(results_path)},
+            diagnostics={
+                "stage": stage,
+                "results_path": str(results_path),
+                "exact_score": mean(
+                    float(row.get("exact", row.get("hard", 0)))
+                    for row in result_rows.values()
+                ),
+                "parseable_answer_rate": mean(
+                    bool(str(row.get("predicted_answer") or "").strip())
+                    for row in result_rows.values()
+                ),
+                "oracle_parsed_pages_rate": mean(
+                    bool(row.get("oracle_parsed_pages_included", False))
+                    for row in result_rows.values()
+                ),
+                "systemic_failure_rate": mean(
+                    str(row.get("failure_category") or "") in systemic
+                    for row in result_rows.values()
+                ),
+                "failure_category_counts": dict(sorted(category_counts.items())),
+                "per_task_diagnostics": {
+                    task_id: {
+                        key: row.get(key)
+                        for key in (
+                            "exact",
+                            "predicted_answer",
+                            "failure_category",
+                            "fail_reason",
+                            "oracle_parsed_pages_included",
+                            "oracle_parsed_pages_chars",
+                            "agent_ok",
+                            "n_turns",
+                        )
+                    }
+                    for task_id, row in result_rows.items()
+                },
+            },
         )

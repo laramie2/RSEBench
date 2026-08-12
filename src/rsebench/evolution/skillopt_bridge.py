@@ -62,6 +62,9 @@ def _officeqa_item(task: TaskManifest) -> dict:
         "category": str(metadata.get("category", "officeqa")),
         "source_files": source_files,
         "source_docs": list(metadata.get("source_docs", [])),
+        "external_evidence_required": bool(
+            metadata.get("external_evidence_required", False)
+        ),
         "split": str(metadata.get("source_split", "")),
         "rsebench_source_hash": task.source_hash,
     }

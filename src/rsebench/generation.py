@@ -456,6 +456,19 @@ def _officeqa_answers(value: Any) -> list[str]:
     return [text]
 
 
+def _officeqa_list_field(value: Any) -> list[str]:
+    text = str(value or "").strip()
+    if not text:
+        return []
+    try:
+        parsed = json.loads(text)
+    except json.JSONDecodeError:
+        parsed = None
+    if isinstance(parsed, list):
+        return [str(item).strip() for item in parsed if str(item).strip()]
+    return [item.strip() for item in text.splitlines() if item.strip()]
+
+
 def _officeqa_gold_rank(config: dict, severity: str) -> int:
     ranks = config["gold_ranks"]
     if isinstance(ranks, dict):
@@ -768,9 +781,11 @@ def _load_evolution_tasks(
             )
             answers = _officeqa_answers(row.answer)
             prompt = str(row.question)
+            source_docs = _officeqa_list_field(row.source_docs)
             source_hash = _hash_text(
                 json.dumps(
-                    [task_id, prompt, answers, gold_document_ids], ensure_ascii=False
+                    [task_id, prompt, answers, gold_document_ids, source_docs],
+                    ensure_ascii=False,
                 )
             )
             tasks[task_id] = TaskManifest(
@@ -780,7 +795,12 @@ def _load_evolution_tasks(
                 prompt=prompt,
                 gold_answers=answers,
                 source_hash=source_hash,
-                metadata={"gold_document_ids": gold_document_ids},
+                metadata={
+                    "gold_document_ids": gold_document_ids,
+                    "source_docs": source_docs,
+                    "difficulty": str(row.difficulty),
+                    "source_file_count": len(gold_document_ids),
+                },
             )
     elif benchmark == "docvqa_10pct":
         frame = pd.read_parquet(data_root / config["dataset_path"])
