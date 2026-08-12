@@ -196,3 +196,80 @@ def test_profile_split_path_falls_back_to_shared_data_root(tmp_path, monkeypatch
     assert generation._resolve_split_path(
         "data/splits/fixture/split_manifest.json", data
     ) == split
+
+
+def test_livemath_profile_builds_native_metadata_and_clean_test(tmp_path, monkeypatch):
+    import json
+
+    project = tmp_path / "project"
+    data = tmp_path / "data"
+    outputs = tmp_path / "outputs"
+    dataset = data / "livemath" / "202601"
+    dataset.mkdir(parents=True)
+    project.mkdir()
+    rows = []
+    for number in (1, 2, 3):
+        rows.append(
+            {
+                "month": "202601",
+                "no": number,
+                "paper_link": f"https://example.test/{number}",
+                "theorem_type": ["Inequality"],
+                "mcq": {
+                    "question": f"Question {number}",
+                    "choices": [
+                        {"label": "A", "text": "wrong"},
+                        {"label": "B", "text": f"correct answer {number}"},
+                    ],
+                    "correct_choice": {
+                        "label": "B",
+                        "text": f"correct answer {number}",
+                    },
+                },
+            }
+        )
+    (dataset / "qa_202601_final.json").write_text(
+        json.dumps(rows), encoding="utf-8"
+    )
+    split_path = data / "split.json"
+    split_path.write_text(
+        json.dumps(
+            {
+                "benchmark": "livemathematicianbench",
+                "seed": 7,
+                "evolution": ["202601:1"],
+                "validation": ["202601:2"],
+                "test": ["202601:3"],
+            }
+        ),
+        encoding="utf-8",
+    )
+    profile = project / "profile.yaml"
+    profile.write_text(
+        yaml.safe_dump(
+            {
+                "benchmark": "livemathematicianbench",
+                "domain": "math",
+                "dataset_path": "livemath",
+                "split_manifest": str(split_path),
+                "operator": "failed_attempt",
+                "generator_mode": "rule",
+                "severity": "L2",
+                "seed": 7,
+                "sizes": {"train": 1, "validation": 1, "clean_test": 1},
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(generation, "PROJECT_ROOT", project)
+    monkeypatch.setenv("RSEBENCH_DATA_ROOT", str(data))
+    monkeypatch.setenv("RSEBENCH_OUTPUT_ROOT", str(outputs))
+
+    summary = generation.generate_evolution_pairs_from_profile(profile, offline=True)
+
+    assert summary.status == "generation_validated"
+    assert summary.pair_manifest is not None
+    task = summary.pair_manifest.train[0].clean
+    assert task.gold_answers == ["correct answer 1"]
+    assert task.metadata["correct_choice"]["label"] == "B"
+    assert summary.pair_manifest.clean_test[0].prompt == "Question 3"

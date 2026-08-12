@@ -752,6 +752,58 @@ def _load_evolution_tasks(
                 gold_answers=[str(reward.get("ground_truth", ""))],
                 source_hash=task_id,
             )
+    elif benchmark == "livemathematicianbench":
+        dataset_root = data_root / config["dataset_path"]
+        files = (
+            [dataset_root]
+            if dataset_root.is_file()
+            else sorted(dataset_root.glob("**/qa_*_final.json"))
+        )
+        for source_path in files:
+            rows = json.loads(source_path.read_text(encoding="utf-8"))
+            if not isinstance(rows, list):
+                raise ValueError(f"expected JSON array in {source_path}")
+            for row in rows:
+                month = str(row.get("month", "")).strip()
+                number = row.get("no")
+                task_id = f"{month}:{number}"
+                if task_id not in requested:
+                    continue
+                mcq = row.get("mcq") if isinstance(row.get("mcq"), dict) else {}
+                prompt = str(mcq.get("question") or row.get("question") or "").strip()
+                choices = mcq.get("choices") or row.get("choices") or []
+                correct = mcq.get("correct_choice") or row.get("correct_choice") or {}
+                if not prompt or not isinstance(choices, list) or not isinstance(correct, dict):
+                    raise ValueError(f"invalid LiveMathematicianBench item: {task_id}")
+                correct_text = str(correct.get("text") or "").strip()
+                correct_label = str(correct.get("label") or "").strip()
+                source_hash = _hash_text(
+                    json.dumps(
+                        [task_id, prompt, choices, correct],
+                        ensure_ascii=False,
+                        sort_keys=True,
+                    )
+                )
+                tasks[task_id] = TaskManifest(
+                    task_id=task_id,
+                    benchmark=benchmark,
+                    domain="math",
+                    prompt=prompt,
+                    gold_answers=[correct_text or correct_label],
+                    source_hash=source_hash,
+                    metadata={
+                        "month": month,
+                        "no": number,
+                        "paper_link": str(row.get("paper_link") or ""),
+                        "theorem": str(row.get("theorem") or ""),
+                        "sketch": str(row.get("sketch") or ""),
+                        "theorem_type": list(row.get("theorem_type") or []),
+                        "choices": choices,
+                        "correct_choice": correct,
+                        "source_path": str(source_path),
+                        "group_id": str(row.get("paper_link") or task_id),
+                    },
+                )
     else:
         raise ValueError(f"unsupported evolution benchmark: {benchmark}")
     missing = [task_id for task_id in task_ids if task_id not in tasks]

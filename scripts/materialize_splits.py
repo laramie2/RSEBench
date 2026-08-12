@@ -47,6 +47,17 @@ def _dapo_items(data_root: Path) -> list[tuple[str, str]]:
     ]
 
 
+def _livemath_items(data_root: Path) -> list[tuple[str, str]]:
+    root = data_root / "raw/live_mathematician_bench/data"
+    items: list[tuple[str, str]] = []
+    for path in sorted(root.glob("*/qa_*_final.json")):
+        rows = json.loads(path.read_text(encoding="utf-8"))
+        for row in rows:
+            task_id = f"{row.get('month')}:{row.get('no')}"
+            items.append((task_id, str(row.get("paper_link") or task_id)))
+    return items
+
+
 def _officeqa_connected_items(rows: Iterable[dict]) -> list[tuple[str, str]]:
     materialized = list(rows)
     parent = {
@@ -103,6 +114,7 @@ def main() -> None:
         "officeqa_full": lambda: _officeqa_items(data_root),
         "docvqa_10pct": lambda: _docvqa_items(data_root),
         "dapo_fixed_1000": lambda: _dapo_items(data_root),
+        "livemathematicianbench": lambda: _livemath_items(data_root),
     }
     for benchmark, loader in loaders.items():
         row = specs[benchmark]

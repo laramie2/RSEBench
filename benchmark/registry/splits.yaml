@@ -36,3 +36,12 @@ splits:
     pilot_eval: 20
     validation: 100
     test: 500
+  livemathematicianbench:
+    benchmark: livemathematicianbench
+    total: 608
+    group_key: paper_link
+    evolution: 200
+    pilot_evolve: 20
+    pilot_eval: 10
+    validation: 60
+    test: 348
