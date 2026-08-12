@@ -1,0 +1,24 @@
+version: 1
+artifacts:
+  spreadsheetbench_verified:
+    expected: [spreadsheetbench_verified_400.tar.gz]
+    materialized_marker: .complete
+    license_review: required
+  officeqa_full:
+    expected: [officeqa_full.csv, treasury_bulletins_transformed.zip]
+    materialized_marker: .corpus_complete
+    license_review: required
+  officeqa_code:
+    expected: [reward.py, README.md]
+    license_review: required
+  docvqa_10pct:
+    expected: [DocVQA/validation-00000-of-00006.parquet]
+    materialized_output: docvqa_534.parquet
+    license_review: required
+  dapo_fixed_1000:
+    expected: [data/dapo-math-17k.parquet]
+    materialized_output: dapo_fixed_1000.parquet
+    license_review: apache-2.0
+  live_mathematician_bench:
+    expected: [data/202604/qa_202604_final.json]
+    license_review: mit
