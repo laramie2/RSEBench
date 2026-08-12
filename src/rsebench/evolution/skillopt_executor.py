@@ -37,6 +37,9 @@ _CONFIGS = {
     "spreadsheetbench_verified": "configs/spreadsheetbench/default.yaml",
     "officeqa_full": "configs/officeqa/default.yaml",
     "livemathematicianbench": "configs/livemathematicianbench/default.yaml",
+    "dapo_fixed_1000": "configs/dapo/default.yaml",
+    "docvqa_10pct": "configs/docvqa/default.yaml",
+    "searchqa_skillopt": "configs/searchqa/default.yaml",
 }
 
 
@@ -101,6 +104,10 @@ class SkillOptExecutor:
                     "env.use_sketch=false",
                 )
             )
+        elif benchmark == "dapo_fixed_1000":
+            options.append("env.exec_timeout=180")
+        elif benchmark == "docvqa_10pct":
+            options.extend(("env.image_detail=high", "env.exec_timeout=180"))
         return options
 
     def _common_options(self, benchmark: str, split_dir: Path) -> list[str]:

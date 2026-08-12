@@ -36,7 +36,25 @@ def _officeqa_item(task: TaskManifest) -> dict:
     source_files = [
         Path(str(value)).name for value in metadata.get("gold_document_ids", [])
     ]
-    return {
+    expected_gold_rank: int | None = None
+    retrieval_fixture = str(metadata.get("retrieval_fixture") or "").strip()
+    if retrieval_fixture:
+        fixture_path = Path(retrieval_fixture)
+        if not fixture_path.is_file():
+            raise FileNotFoundError(
+                f"OfficeQA retrieval fixture missing for {task.task_id}: {fixture_path}"
+            )
+        fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+        ranked = [
+            Path(str(row.get("document_id") or "")).name
+            for row in fixture.get("results", [])
+            if str(row.get("document_id") or "").strip()
+        ]
+        if not ranked:
+            raise ValueError(f"OfficeQA retrieval fixture is empty: {fixture_path}")
+        source_files = ranked
+        expected_gold_rank = int(fixture.get("expected_gold_rank") or 0) or None
+    item = {
         "id": task.task_id,
         "uid": task.task_id,
         "question": task.prompt,
@@ -47,6 +65,9 @@ def _officeqa_item(task: TaskManifest) -> dict:
         "split": str(metadata.get("source_split", "")),
         "rsebench_source_hash": task.source_hash,
     }
+    if expected_gold_rank is not None:
+        item["rsebench_expected_gold_rank"] = expected_gold_rank
+    return item
 
 
 def _livemath_item(task: TaskManifest) -> dict:
@@ -73,6 +94,63 @@ def _livemath_item(task: TaskManifest) -> dict:
     }
 
 
+def _dapo_item(task: TaskManifest) -> dict:
+    metadata = task.metadata
+    if not task.gold_answers or not str(task.gold_answers[0]).strip():
+        raise ValueError(f"DAPO task lacks a ground-truth answer: {task.task_id}")
+    return {
+        "id": task.task_id,
+        "question": task.prompt,
+        "ground_truth": str(task.gold_answers[0]),
+        "task_type": str(metadata.get("ability", "MATH")),
+        "reward_style": str(metadata.get("reward_style", "rule-lighteval/MATH_v2")),
+        "rsebench_source_hash": task.source_hash,
+    }
+
+
+def _docvqa_item(task: TaskManifest) -> dict:
+    image = Path(task.artifact_path or "")
+    if not image.is_file():
+        raise FileNotFoundError(f"DocVQA image missing for {task.task_id}: {image}")
+    metadata = task.metadata
+    question_types = [
+        str(value) for value in metadata.get("question_types", []) if str(value)
+    ]
+    task_type = question_types[0] if question_types else "docvqa"
+    return {
+        "id": task.task_id,
+        "questionId": task.task_id,
+        "question": task.prompt,
+        "answer": task.gold_answers[0] if task.gold_answers else "",
+        "answers": list(task.gold_answers),
+        "task_type": task_type,
+        "subtask": task_type,
+        "image_path": str(image.resolve()),
+        "image_paths": [str(image.resolve())],
+        "docId": str(metadata.get("doc_id", "")),
+        "ucsf_document_id": str(metadata.get("ucsf_document_id", "")),
+        "ucsf_document_page_no": str(metadata.get("ucsf_document_page_no", "")),
+        "source_split": str(metadata.get("source_split", "")),
+        "rsebench_source_hash": task.source_hash,
+    }
+
+
+def _searchqa_item(task: TaskManifest) -> dict:
+    context = str(task.metadata.get("context") or "").strip()
+    if not context:
+        raise ValueError(f"SearchQA task lacks grounded context: {task.task_id}")
+    if not task.gold_answers:
+        raise ValueError(f"SearchQA task lacks answers: {task.task_id}")
+    return {
+        "id": task.task_id,
+        "question": task.prompt,
+        "context": context,
+        "answers": list(task.gold_answers),
+        "task_type": "qa",
+        "rsebench_source_hash": task.source_hash,
+    }
+
+
 def _native_item(task: TaskManifest) -> dict:
     if task.benchmark == "spreadsheetbench_verified":
         return _spreadsheet_item(task)
@@ -80,6 +158,12 @@ def _native_item(task: TaskManifest) -> dict:
         return _officeqa_item(task)
     if task.benchmark == "livemathematicianbench":
         return _livemath_item(task)
+    if task.benchmark == "dapo_fixed_1000":
+        return _dapo_item(task)
+    if task.benchmark == "docvqa_10pct":
+        return _docvqa_item(task)
+    if task.benchmark == "searchqa_skillopt":
+        return _searchqa_item(task)
     raise ValueError(f"SkillOpt bridge does not support {task.benchmark}")
 
 

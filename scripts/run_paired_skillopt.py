@@ -25,6 +25,9 @@ _SEEDS = {
     "spreadsheetbench_verified": "skillopt/envs/spreadsheetbench/skills/initial.md",
     "officeqa_full": "skillopt/envs/officeqa/skills/initial.md",
     "livemathematicianbench": "skillopt/envs/livemathematicianbench/skills/initial.md",
+    "dapo_fixed_1000": "skillopt/envs/dapo/skills/initial.md",
+    "docvqa_10pct": "skillopt/envs/docvqa/skills/initial.md",
+    "searchqa_skillopt": "skillopt/envs/searchqa/skills/initial.md",
 }
 
 

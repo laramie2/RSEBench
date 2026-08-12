@@ -133,3 +133,163 @@ def test_materializes_officeqa_and_livemath_native_fields(tmp_path: Path):
     assert math_item["question"] == "noisy math"
     assert math_item["correct_choice"]["label"] == "B"
     assert math_item["choices"][1]["text"] == "y"
+
+
+def test_materializes_dapo_exact_answer_fields(tmp_path: Path):
+    math = _task(
+        "hash-1",
+        "dapo_fixed_1000",
+        "math",
+        "Solve clean problem",
+        gold_answers=["89"],
+        metadata={"ability": "MATH", "reward_style": "rule-lighteval/MATH_v2"},
+    )
+    noisy = math.model_copy(
+        update={"prompt": "Incorrect attempt.\n\nSolve clean problem", "source_hash": "7" * 64}
+    )
+    split = build_evolution_split(
+        benchmark=math.benchmark,
+        domain=math.domain,
+        seed=7,
+        source_hash="8" * 64,
+        train=[_pair(math, noisy)],
+        validation=[],
+        clean_test=[math.model_copy(update={"task_id": "hash-2"})],
+    )
+
+    native_dir = materialize_skillopt_split(
+        split, arm="noisy", output_dir=tmp_path / "dapo"
+    )
+    item = _items(native_dir, "train")[0]
+
+    assert item["id"] == "hash-1"
+    assert item["question"].startswith("Incorrect attempt")
+    assert item["ground_truth"] == "89"
+    assert item["task_type"] == "MATH"
+
+
+def test_officeqa_noisy_arm_uses_ranked_retrieval_fixture(tmp_path: Path):
+    fixture = tmp_path / "retrieval.json"
+    fixture.write_text(
+        json.dumps(
+            {
+                "results": [
+                    {"document_id": "docs/decoy-a.txt", "is_gold": False},
+                    {"document_id": "docs/decoy-b.txt", "is_gold": False},
+                    {"document_id": "docs/gold.txt", "is_gold": True},
+                ],
+                "expected_gold_rank": 3,
+            }
+        ),
+        encoding="utf-8",
+    )
+    clean = _task(
+        "o1",
+        "officeqa_full",
+        "document",
+        "office question",
+        gold_answers=["answer"],
+        metadata={"gold_document_ids": ["docs/gold.txt"]},
+    )
+    noisy = clean.model_copy(
+        update={
+            "source_hash": "9" * 64,
+            "artifact_path": str(fixture),
+            "metadata": {
+                **clean.metadata,
+                "retrieval_fixture": str(fixture),
+            },
+        }
+    )
+    split = build_evolution_split(
+        benchmark=clean.benchmark,
+        domain=clean.domain,
+        seed=7,
+        source_hash="a" * 64,
+        train=[_pair(clean, noisy)],
+        validation=[],
+        clean_test=[clean.model_copy(update={"task_id": "o2"})],
+    )
+
+    clean_dir = materialize_skillopt_split(
+        split, arm="clean", output_dir=tmp_path / "clean-ranked"
+    )
+    noisy_dir = materialize_skillopt_split(
+        split, arm="noisy", output_dir=tmp_path / "noisy-ranked"
+    )
+
+    assert _items(clean_dir, "train")[0]["source_files"] == ["gold.txt"]
+    assert _items(noisy_dir, "train")[0]["source_files"] == [
+        "decoy-a.txt",
+        "decoy-b.txt",
+        "gold.txt",
+    ]
+    assert _items(noisy_dir, "train")[0]["rsebench_expected_gold_rank"] == 3
+
+
+def test_materializes_docvqa_image_and_answers(tmp_path: Path):
+    image = tmp_path / "doc.png"
+    image.write_bytes(b"png")
+    clean = _task(
+        "d1",
+        "docvqa_10pct",
+        "document",
+        "What is the total?",
+        gold_answers=["42", "forty two"],
+        artifact_path=str(image),
+        metadata={"question_types": ["figure"], "doc_id": "doc-1"},
+    )
+    noisy = clean.model_copy(
+        update={"prompt": "A prior attempt says 41.\n\nWhat is the total?", "source_hash": "b" * 64}
+    )
+    split = build_evolution_split(
+        benchmark=clean.benchmark,
+        domain=clean.domain,
+        seed=7,
+        source_hash="c" * 64,
+        train=[_pair(clean, noisy)],
+        validation=[],
+        clean_test=[clean.model_copy(update={"task_id": "d2"})],
+    )
+
+    native = materialize_skillopt_split(
+        split, arm="noisy", output_dir=tmp_path / "docvqa"
+    )
+    item = _items(native, "train")[0]
+
+    assert item["question"].startswith("A prior attempt")
+    assert item["answers"] == ["42", "forty two"]
+    assert item["image_path"] == str(image.resolve())
+    assert item["task_type"] == "figure"
+
+
+def test_materializes_searchqa_grounded_context(tmp_path: Path):
+    clean = _task(
+        "q1",
+        "searchqa_skillopt",
+        "document",
+        "Who wrote it?",
+        gold_answers=["Ada"],
+        metadata={"context": "[DOC] Ada wrote the report."},
+    )
+    noisy = clean.model_copy(
+        update={"prompt": "A prior attempt says Bob.\n\nWho wrote it?", "source_hash": "d" * 64}
+    )
+    split = build_evolution_split(
+        benchmark=clean.benchmark,
+        domain=clean.domain,
+        seed=7,
+        source_hash="e" * 64,
+        train=[_pair(clean, noisy)],
+        validation=[],
+        clean_test=[clean.model_copy(update={"task_id": "q2"})],
+    )
+
+    native = materialize_skillopt_split(
+        split, arm="noisy", output_dir=tmp_path / "searchqa"
+    )
+    item = _items(native, "train")[0]
+
+    assert item["question"].startswith("A prior attempt says Bob")
+    assert item["context"] == "[DOC] Ada wrote the report."
+    assert item["answers"] == ["Ada"]

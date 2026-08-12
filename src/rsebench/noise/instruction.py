@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import random
+import re
 from typing import Any
 
 from rsebench.contracts import (
@@ -29,10 +30,13 @@ def _json_hash(payload: dict[str, Any]) -> str:
 
 
 def _answer_leak_free(text: str, answers: list[str]) -> bool:
-    normalized = " ".join(text.casefold().split())
+    def normalize(value: str) -> str:
+        return " ".join(re.sub(r"[^\w]+", " ", value.casefold()).split())
+
+    normalized = normalize(text)
     return all(
         not answer.strip()
-        or " ".join(answer.casefold().split()) not in normalized
+        or normalize(answer) not in normalized
         for answer in answers
     )
 

@@ -118,3 +118,54 @@ def test_skillopt_executor_runs_native_train_and_parses_eval(tmp_path: Path):
         if path.is_file()
     )
     assert "must-not-be-written" not in persisted
+
+
+def test_skillopt_executor_selects_dapo_config(tmp_path: Path):
+    method_root = tmp_path / "skillopt"
+    (method_root / ".venv" / "bin").mkdir(parents=True)
+    (method_root / ".venv" / "bin" / "python").write_text("", encoding="utf-8")
+    config = method_root / "configs" / "dapo" / "default.yaml"
+    config.parent.mkdir(parents=True)
+    config.write_text("env: {name: dapo}", encoding="utf-8")
+
+    executor = SkillOptExecutor(
+        method_root=method_root,
+        data_root=tmp_path / "data",
+        environment={"DEEPSEEK_API_KEY": "secret"},
+    )
+
+    assert executor._config("dapo_fixed_1000") == config
+    assert "env.max_turns=3" in executor._domain_options("dapo_fixed_1000")
+
+
+def test_skillopt_executor_selects_docvqa_config(tmp_path: Path):
+    method_root = tmp_path / "skillopt"
+    (method_root / ".venv" / "bin").mkdir(parents=True)
+    (method_root / ".venv" / "bin" / "python").write_text("", encoding="utf-8")
+    config = method_root / "configs" / "docvqa" / "default.yaml"
+    config.parent.mkdir(parents=True)
+    config.write_text("env: {name: docvqa}", encoding="utf-8")
+    executor = SkillOptExecutor(
+        method_root=method_root,
+        data_root=tmp_path / "data",
+        environment={"DEEPSEEK_API_KEY": "secret"},
+    )
+
+    assert executor._config("docvqa_10pct") == config
+    assert "env.image_detail=high" in executor._domain_options("docvqa_10pct")
+
+
+def test_skillopt_executor_selects_searchqa_config(tmp_path: Path):
+    method_root = tmp_path / "skillopt"
+    (method_root / ".venv" / "bin").mkdir(parents=True)
+    (method_root / ".venv" / "bin" / "python").write_text("", encoding="utf-8")
+    config = method_root / "configs" / "searchqa" / "default.yaml"
+    config.parent.mkdir(parents=True)
+    config.write_text("env: {name: searchqa}", encoding="utf-8")
+    executor = SkillOptExecutor(
+        method_root=method_root,
+        data_root=tmp_path / "data",
+        environment={"DEEPSEEK_API_KEY": "secret"},
+    )
+
+    assert executor._config("searchqa_skillopt") == config

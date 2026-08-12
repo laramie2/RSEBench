@@ -27,6 +27,15 @@ splits:
     pilot_eval: 10
     validation: 53
     test: 374
+  searchqa_skillopt:
+    benchmark: searchqa_skillopt
+    total: 2000
+    group_key: id
+    evolution: 400
+    pilot_evolve: 20
+    pilot_eval: 10
+    validation: 200
+    test: 1400
   dapo_fixed_1000:
     benchmark: dapo_fixed_1000
     total: 1000

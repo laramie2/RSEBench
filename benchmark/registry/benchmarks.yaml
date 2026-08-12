@@ -32,6 +32,14 @@ benchmarks:
     local_path: docvqa
     gated: false
     license_review_required: true
+  searchqa_skillopt:
+    domain: document
+    source_kind: huggingface
+    source_id: lucadiliello/searchqa
+    revision: main
+    local_path: searchqa_skillopt_split
+    gated: false
+    license_review_required: true
   dapo_fixed_1000:
     domain: math
     source_kind: huggingface
@@ -48,7 +56,7 @@ benchmarks:
     local_path: wikitablequestions
     gated: false
     license_review_required: true
-  live_mathematician_bench:
+  livemathematicianbench:
     domain: math
     source_kind: huggingface
     source_id: LiveMathematicianBench/LiveMathematicianBench

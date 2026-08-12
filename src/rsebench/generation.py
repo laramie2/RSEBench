@@ -8,7 +8,7 @@ import json
 import os
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 import pandas as pd
 import yaml
@@ -48,6 +48,11 @@ from rsebench.domains.spreadsheet import (
     inject_backup_sheet,
     inject_semantic_decoy_sheet,
     validate_spreadsheet_noise,
+)
+from rsebench.domains.searchqa import (
+    TEMPLATE_VERSION as SEARCHQA_EVIDENCE_TEMPLATE_VERSION,
+    generate_semantic_decoy_evidence,
+    inject_semantic_decoy_evidence,
 )
 from rsebench.hashing import sha256_file
 from rsebench.noise.instruction import FailedAttempt, RedundantContext, RelatedDistractor
@@ -92,8 +97,35 @@ class EvolutionGenerationSummary(BaseModel):
     status: str
     records: list[PairedNoiseRecord] = Field(default_factory=list)
     errors: list[str] = Field(default_factory=list)
+    gate_rejections: list[str] = Field(default_factory=list)
     pair_manifest: EvolutionSplitManifest | None = None
     pair_manifest_path: str | None = None
+
+
+def _collect_gate_valid_records(
+    candidate_ids: list[str],
+    *,
+    target_size: int,
+    generate: Callable[[str], PairedNoiseRecord],
+) -> tuple[list[PairedNoiseRecord], list[PairedNoiseRecord], list[str]]:
+    """Backfill rejected candidates using only hard-gate outcomes, never scores."""
+    selected: list[PairedNoiseRecord] = []
+    attempted: list[PairedNoiseRecord] = []
+    rejections: list[str] = []
+    for task_id in candidate_ids:
+        if len(selected) >= target_size:
+            break
+        try:
+            record = generate(task_id)
+        except Exception as exc:
+            rejections.append(f"{task_id}: {type(exc).__name__}: {exc}")
+            continue
+        attempted.append(record)
+        if record.validation.accepted:
+            selected.append(record)
+        else:
+            rejections.append(f"{task_id}: noise failed hard gates")
+    return selected, attempted, rejections
 
 
 def _cached_officeqa_documents(corpus_root: Path) -> list[Any]:
@@ -737,6 +769,89 @@ def _load_evolution_tasks(
                 source_hash=source_hash,
                 metadata={"gold_document_ids": gold_document_ids},
             )
+    elif benchmark == "docvqa_10pct":
+        frame = pd.read_parquet(data_root / config["dataset_path"])
+        image_root = data_root / config.get(
+            "image_dir", "materialized/docvqa_10pct/images"
+        )
+        for row in frame.itertuples(index=False):
+            task_id = str(row.questionId)
+            if task_id not in requested:
+                continue
+            image_path = image_root / f"{task_id}.png"
+            if not image_path.is_file():
+                raise FileNotFoundError(
+                    f"materialized DocVQA image missing: {image_path}; "
+                    "run scripts/materialize_docvqa_images.py"
+                )
+            answers = [str(value) for value in list(row.answers)]
+            question_types = [str(value) for value in list(row.question_types)]
+            prompt = str(row.question)
+            source_hash = _hash_text(
+                json.dumps(
+                    [task_id, prompt, answers, sha256_file(image_path)],
+                    ensure_ascii=False,
+                )
+            )
+            tasks[task_id] = TaskManifest(
+                task_id=task_id,
+                benchmark=benchmark,
+                domain="document",
+                prompt=prompt,
+                gold_answers=answers,
+                source_hash=source_hash,
+                artifact_path=str(image_path.resolve()),
+                metadata={
+                    "question_types": question_types,
+                    "doc_id": str(row.docId),
+                    "ucsf_document_id": str(row.ucsf_document_id),
+                    "ucsf_document_page_no": str(row.ucsf_document_page_no),
+                    "source_split": str(row.data_split),
+                },
+            )
+    elif benchmark == "searchqa_skillopt":
+        dataset_root = data_root / config["dataset_path"]
+        for split_name in ("train", "val", "test"):
+            items_path = dataset_root / split_name / "items.json"
+            if not items_path.is_file():
+                continue
+            rows = json.loads(items_path.read_text(encoding="utf-8"))
+            if not isinstance(rows, list):
+                raise ValueError(f"expected SearchQA JSON array in {items_path}")
+            for row in rows:
+                task_id = str(row.get("id") or "")
+                if task_id not in requested:
+                    continue
+                prompt = str(row.get("question") or "").strip()
+                context = str(row.get("context") or "").strip()
+                raw_answers = row.get("answers") or []
+                answers = (
+                    [str(value) for value in raw_answers]
+                    if isinstance(raw_answers, list)
+                    else [str(raw_answers)]
+                )
+                answers = [value for value in answers if value.strip()]
+                if not prompt or not context or not answers:
+                    raise ValueError(f"invalid SearchQA item: {task_id}")
+                source_hash = _hash_text(
+                    json.dumps(
+                        [task_id, prompt, context, answers],
+                        ensure_ascii=False,
+                        sort_keys=True,
+                    )
+                )
+                tasks[task_id] = TaskManifest(
+                    task_id=task_id,
+                    benchmark=benchmark,
+                    domain="document",
+                    prompt=prompt,
+                    gold_answers=answers,
+                    source_hash=source_hash,
+                    metadata={
+                        "context": context,
+                        "source_split": split_name,
+                    },
+                )
     elif benchmark == "dapo_fixed_1000":
         frame = pd.read_parquet(data_root / config["dataset_path"])
         for row in frame.itertuples(index=False):
@@ -1047,6 +1162,89 @@ def _math_evolution_record(
     )
 
 
+def _searchqa_evolution_record(
+    task: TaskManifest,
+    *,
+    severity: str,
+    seed: int,
+    client: DeepSeekClient,
+) -> PairedNoiseRecord:
+    candidate = generate_semantic_decoy_evidence(
+        task,
+        client=client,
+        severity=severity,
+        seed=seed,
+    )
+    result = inject_semantic_decoy_evidence(
+        task,
+        candidate,
+        severity=severity,
+        seed=seed,
+    )
+    noise = NoiseManifest(
+        noise_id=f"{task.task_id}-C2-M1-semantic_decoy_evidence-{severity}",
+        task_id=task.task_id,
+        channel="C2",
+        mechanism="M1",
+        operator="semantic_decoy_evidence",
+        domain=task.domain,
+        benchmark=task.benchmark,
+        severity=Severity(level=severity, budget=len(candidate.decoy_passages)),
+        seed=seed,
+        clean_hash=task.source_hash,
+        noisy_hash=result.noisy_hash,
+        generator_mode=GeneratorMode.model,
+        timing="evolution",
+        template_version=SEARCHQA_EVIDENCE_TEMPLATE_VERSION,
+    )
+    noisy = task.model_copy(
+        update={
+            "source_hash": result.noisy_hash,
+            "metadata": {
+                **task.metadata,
+                "context": result.noisy_context,
+                "noise_id": noise.noise_id,
+                "searchqa_decoy_candidate": candidate.model_dump(),
+            },
+        }
+    )
+    return PairedNoiseRecord(
+        task_id=task.task_id,
+        operator="semantic_decoy_evidence",
+        clean=task,
+        noisy=noisy,
+        noise=noise,
+        validation=result.validation,
+    )
+
+
+def _order_task_pool(
+    task_ids: list[str],
+    tasks_by_id: dict[str, TaskManifest],
+    order: str,
+    *,
+    excluded_task_ids: set[str] | None = None,
+) -> list[str]:
+    """Apply a label-free, deterministic ordering within a frozen partition."""
+    excluded = excluded_task_ids or set()
+    available = [task_id for task_id in task_ids if task_id not in excluded]
+    normalized = str(order or "manifest").strip().lower()
+    if normalized in {"", "manifest"}:
+        return available
+    if normalized not in {"prompt_length_desc", "context_length_desc"}:
+        raise PairGenerationError(f"unsupported task selection order: {order}")
+    missing = [task_id for task_id in available if task_id not in tasks_by_id]
+    if missing:
+        raise PairGenerationError(f"selection tasks missing from dataset: {missing[:3]}")
+    if normalized == "prompt_length_desc":
+        length = lambda task_id: len(tasks_by_id[task_id].prompt)
+    else:
+        length = lambda task_id: len(
+            str(tasks_by_id[task_id].metadata.get("context") or "")
+        )
+    return sorted(available, key=lambda task_id: (-length(task_id), task_id))
+
+
 def generate_evolution_pairs_from_profile(
     profile_path: Path | str, *, offline: bool = False
 ) -> EvolutionGenerationSummary:
@@ -1071,22 +1269,68 @@ def generate_evolution_pairs_from_profile(
     train_pool = [str(value) for value in split_raw[train_partition]]
     validation_pool = [str(value) for value in split_raw[validation_partition]]
     test_pool = [str(value) for value in split_raw[test_partition]]
-    train_ids = train_pool[:train_size]
-    validation_offset = train_size if validation_partition == train_partition else 0
-    validation_ids = validation_pool[
-        validation_offset : validation_offset + validation_size
+    selection = dict(config.get("selection") or {})
+    selection_order = str(selection.get("order", "manifest"))
+    excluded_task_ids = {
+        str(task_id) for task_id in selection.get("exclude_task_ids", [])
+    }
+    preloaded_tasks: list[TaskManifest] | None = None
+    if selection_order.strip().lower() not in {"", "manifest"}:
+        candidate_ids = list(
+            dict.fromkeys(train_pool + validation_pool + test_pool)
+        )
+        preloaded_tasks = _load_evolution_tasks(config, data_root, candidate_ids)
+        candidate_by_id = {task.task_id: task for task in preloaded_tasks}
+        train_pool = _order_task_pool(
+            train_pool,
+            candidate_by_id,
+            selection_order,
+            excluded_task_ids=excluded_task_ids,
+        )
+        validation_pool = _order_task_pool(
+            validation_pool,
+            candidate_by_id,
+            selection_order,
+            excluded_task_ids=excluded_task_ids,
+        )
+        test_pool = _order_task_pool(
+            test_pool,
+            candidate_by_id,
+            selection_order,
+            excluded_task_ids=excluded_task_ids,
+        )
+    elif excluded_task_ids:
+        train_pool = [item for item in train_pool if item not in excluded_task_ids]
+        validation_pool = [
+            item for item in validation_pool if item not in excluded_task_ids
+        ]
+        test_pool = [item for item in test_pool if item not in excluded_task_ids]
+    backfill = bool(selection.get("backfill_on_gate_rejection", False))
+    candidate_multiplier = max(1, int(selection.get("candidate_multiplier", 1)))
+    train_candidate_size = train_size * candidate_multiplier if backfill else train_size
+    validation_candidate_size = (
+        validation_size * candidate_multiplier if backfill else validation_size
+    )
+    train_candidate_ids = train_pool[:train_candidate_size]
+    validation_offset = (
+        train_candidate_size if validation_partition == train_partition else 0
+    )
+    validation_candidate_ids = validation_pool[
+        validation_offset : validation_offset + validation_candidate_size
     ]
     test_ids = test_pool[:test_size]
     if (
-        len(train_ids) != train_size
-        or len(validation_ids) != validation_size
+        len(train_candidate_ids) < train_size
+        or len(validation_candidate_ids) < validation_size
         or len(test_ids) != test_size
     ):
         raise PairGenerationError("configured pilot partition is smaller than requested")
-    if set(train_ids + validation_ids) & set(test_ids):
+    if set(train_candidate_ids + validation_candidate_ids) & set(test_ids):
         raise PairGenerationError("frozen split leaks evolution IDs into clean_test")
-    all_tasks = _load_evolution_tasks(
-        config, data_root, train_ids + validation_ids + test_ids
+    all_tasks = preloaded_tasks or _load_evolution_tasks(
+        config,
+        data_root,
+        train_candidate_ids + validation_candidate_ids + test_ids,
     )
     by_id = {task.task_id: task for task in all_tasks}
     operator = str(config["operator"])
@@ -1117,58 +1361,92 @@ def generate_evolution_pairs_from_profile(
         office_decoy_index = build_decoy_index(
             office_documents,
             vocabulary=build_question_vocabulary(
-                [by_id[task_id].prompt for task_id in train_ids + validation_ids]
+                [
+                    by_id[task_id].prompt
+                    for task_id in train_candidate_ids + validation_candidate_ids
+                ]
             ),
         )
-    for task_id in train_ids + validation_ids:
+
+    def generate_record(task_id: str) -> PairedNoiseRecord:
         task = by_id[task_id]
-        try:
-            if operator in {"failed_attempt", "related_distractor", "redundant_context"}:
-                if generator_mode == "model" and client is None:
-                    raise RuntimeError("model-backed operator disabled by --offline")
-                record = _instruction_evolution_record(
-                    task,
-                    operator=operator,
-                    severity=severity,
-                    seed=seed,
-                    generator_mode=generator_mode,
-                    client=client,
+        if operator == "semantic_decoy_evidence" and client is not None:
+            if task.benchmark != "searchqa_skillopt":
+                raise ValueError(
+                    "semantic_decoy_evidence currently requires searchqa_skillopt"
                 )
-            elif task.domain == "spreadsheet":
-                record = _spreadsheet_evolution_record(
-                    task,
-                    operator=operator,
-                    severity=severity,
-                    seed=seed,
-                    run_dir=run_dir,
-                )
-            elif task.benchmark == "officeqa_full":
-                record = _officeqa_evolution_record(
-                    task,
-                    config=config,
-                    data_root=data_root,
-                    operator=operator,
-                    severity=severity,
-                    seed=seed,
-                    run_dir=run_dir,
-                    documents=office_documents or [],
-                    decoy_index=office_decoy_index,
-                )
-            elif operator == "flawed_partial_solution" and client is not None:
-                record = _math_evolution_record(
-                    task,
-                    severity=severity,
-                    seed=seed,
-                    client=client,
-                    max_attempts=int(config.get("generation", {}).get("max_attempts", 3)),
-                )
-            else:
-                raise ValueError(f"unsupported evolution operator: {operator}")
-            records.append(record)
-            if not record.validation.accepted:
-                errors.append(f"{task_id}: noise failed hard gates")
-        except Exception as exc:
-            errors.append(f"{task_id}: {type(exc).__name__}: {exc}")
+            return _searchqa_evolution_record(
+                task,
+                severity=severity,
+                seed=seed,
+                client=client,
+            )
+        if operator in {"failed_attempt", "related_distractor", "redundant_context"}:
+            if generator_mode == "model" and client is None:
+                raise RuntimeError("model-backed operator disabled by --offline")
+            return _instruction_evolution_record(
+                task,
+                operator=operator,
+                severity=severity,
+                seed=seed,
+                generator_mode=generator_mode,
+                client=client,
+            )
+        if task.domain == "spreadsheet":
+            return _spreadsheet_evolution_record(
+                task,
+                operator=operator,
+                severity=severity,
+                seed=seed,
+                run_dir=run_dir,
+            )
+        if task.benchmark == "officeqa_full":
+            return _officeqa_evolution_record(
+                task,
+                config=config,
+                data_root=data_root,
+                operator=operator,
+                severity=severity,
+                seed=seed,
+                run_dir=run_dir,
+                documents=office_documents or [],
+                decoy_index=office_decoy_index,
+            )
+        if operator == "flawed_partial_solution" and client is not None:
+            return _math_evolution_record(
+                task,
+                severity=severity,
+                seed=seed,
+                client=client,
+                max_attempts=int(config.get("generation", {}).get("max_attempts", 3)),
+            )
+        raise ValueError(f"unsupported evolution operator: {operator}")
+
+    selected_train, attempted_train, train_rejections = _collect_gate_valid_records(
+        train_candidate_ids,
+        target_size=train_size,
+        generate=generate_record,
+    )
+    selected_validation, attempted_validation, validation_rejections = (
+        _collect_gate_valid_records(
+            validation_candidate_ids,
+            target_size=validation_size,
+            generate=generate_record,
+        )
+    )
+    records = attempted_train + attempted_validation
+    gate_rejections = train_rejections + validation_rejections
+    train_ids = [record.task_id for record in selected_train]
+    validation_ids = [record.task_id for record in selected_validation]
+    selected_records = selected_train + selected_validation
+    if len(train_ids) != train_size or len(validation_ids) != validation_size:
+        errors.append(
+            "hard-gate candidate budget exhausted: "
+            f"train={len(train_ids)}/{train_size}, "
+            f"validation={len(validation_ids)}/{validation_size}"
+        )
+    if gate_rejections and not backfill:
+        errors.extend(gate_rejections)
 
     pair_manifest: EvolutionSplitManifest | None = None
     pair_manifest_path: str | None = None
@@ -1179,7 +1457,7 @@ def generate_evolution_pairs_from_profile(
                 domain=str(config["domain"]),
                 seed=seed,
                 source_hash=sha256_file(split_path),
-                records=records,
+                records=selected_records,
                 train_ids=train_ids,
                 validation_ids=validation_ids,
                 clean_test=[by_id[task_id] for task_id in test_ids],
@@ -1201,6 +1479,7 @@ def generate_evolution_pairs_from_profile(
         status="generation_validated" if pair_manifest is not None else "rejected",
         records=records,
         errors=errors,
+        gate_rejections=gate_rejections,
         pair_manifest=pair_manifest,
         pair_manifest_path=pair_manifest_path,
     )

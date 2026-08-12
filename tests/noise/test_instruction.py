@@ -1,7 +1,12 @@
 import pytest
 
 from rsebench.contracts import TaskManifest
-from rsebench.noise.instruction import FailedAttempt, RedundantContext, RelatedDistractor
+from rsebench.noise.instruction import (
+    FailedAttempt,
+    RedundantContext,
+    RelatedDistractor,
+    _answer_leak_free,
+)
 
 
 @pytest.fixture
@@ -39,3 +44,9 @@ def test_rule_addition_must_not_leak_gold_answer(task_fixture):
     result = FailedAttempt(model=None).generate(task_fixture, severity="L3", seed=2)
     assert task_fixture.gold_answers[0] not in result.payload["addition"]
     assert result.validation.answer_leak_free
+
+
+def test_answer_leak_gate_ignores_quote_and_punctuation_variants():
+    assert not _answer_leak_free(
+        "Maybe it is 'Seasons in the Sun'?", ['"Seasons In The Sun"']
+    )

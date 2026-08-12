@@ -1,5 +1,5 @@
 version: 1
-profile: math-evolution-noise-feasibility
+profile: math-evolution-noise-length-stratified-feasibility
 benchmark: dapo_fixed_1000
 domain: math
 dataset_path: materialized/dapo_fixed_1000/dapo_fixed_1000.parquet
@@ -16,6 +16,12 @@ partitions:
   train: pilot_evolve
   validation: pilot_evolve
   clean_test: pilot_eval
+selection:
+  order: prompt_length_desc
+  # Rejected after 18 attempts because the invalidity critic could not confirm
+  # a single localized flaw. Exclusion is based only on generator hard gates.
+  exclude_task_ids:
+    - 0675c0bd4cc8219fd89bca6b394339e245c799fbefee719c3036f2962a47e30f
 model_config: configs/pilot/deepseek-v4-flash-generation.yaml
 generation:
   max_attempts: 18

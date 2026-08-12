@@ -63,6 +63,20 @@ def _record(task_id: str, accepted: bool = True) -> PairedNoiseRecord:
     )
 
 
+def test_gate_backfill_selects_only_valid_candidates_in_manifest_order():
+    candidates = ["bad", "good-1", "good-2", "unused"]
+
+    selected, attempted, rejections = generation._collect_gate_valid_records(
+        candidates,
+        target_size=2,
+        generate=lambda task_id: _record(task_id, accepted=task_id != "bad"),
+    )
+
+    assert [record.task_id for record in selected] == ["good-1", "good-2"]
+    assert [record.task_id for record in attempted] == ["bad", "good-1", "good-2"]
+    assert rejections == ["bad: noise failed hard gates"]
+
+
 def test_assemble_pairs_noises_only_train_and_validation():
     clean_test = _task("test", "untouched test")
     split = assemble_evolution_split(
@@ -196,6 +210,91 @@ def test_profile_split_path_falls_back_to_shared_data_root(tmp_path, monkeypatch
     assert generation._resolve_split_path(
         "data/splits/fixture/split_manifest.json", data
     ) == split
+
+
+def test_prompt_length_selection_is_deterministic_and_label_free():
+    short = TaskManifest(
+        task_id="short",
+        benchmark="dapo_fixed_1000",
+        domain="math",
+        prompt="one",
+        gold_answers=["999"],
+        source_hash="1" * 64,
+    )
+    long_b = short.model_copy(
+        update={"task_id": "b", "prompt": "a much longer prompt", "gold_answers": ["1"]}
+    )
+    long_a = long_b.model_copy(update={"task_id": "a", "gold_answers": ["different"]})
+
+    ordered = generation._order_task_pool(
+        ["short", "b", "a"],
+        {task.task_id: task for task in (short, long_b, long_a)},
+        "prompt_length_desc",
+        excluded_task_ids={"b"},
+    )
+
+    assert ordered == ["a", "short"]
+
+
+def test_context_length_selection_is_deterministic_and_label_free():
+    base = TaskManifest(
+        task_id="short",
+        benchmark="searchqa_skillopt",
+        domain="document",
+        prompt="question",
+        gold_answers=["ignored"],
+        source_hash="1" * 64,
+        metadata={"context": "short"},
+    )
+    long_b = base.model_copy(
+        update={"task_id": "b", "metadata": {"context": "much longer context"}}
+    )
+    long_a = long_b.model_copy(
+        update={"task_id": "a", "gold_answers": ["different"]}
+    )
+
+    ordered = generation._order_task_pool(
+        ["short", "b", "a"],
+        {task.task_id: task for task in (base, long_b, long_a)},
+        "context_length_desc",
+    )
+
+    assert ordered == ["a", "b", "short"]
+
+
+def test_searchqa_loader_preserves_grounded_context_and_answers(tmp_path):
+    import json
+
+    dataset = tmp_path / "searchqa"
+    (dataset / "train").mkdir(parents=True)
+    (dataset / "train" / "items.json").write_text(
+        json.dumps(
+            [
+                {
+                    "id": "q1",
+                    "question": "Who wrote the report?",
+                    "context": "[DOC] Ada wrote the report.",
+                    "answers": ["Ada", "Ada Lovelace"],
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    tasks = generation._load_evolution_tasks(
+        {
+            "benchmark": "searchqa_skillopt",
+            "dataset_path": "searchqa",
+        },
+        tmp_path,
+        ["q1"],
+    )
+
+    assert tasks[0].domain == "document"
+    assert tasks[0].prompt == "Who wrote the report?"
+    assert tasks[0].gold_answers == ["Ada", "Ada Lovelace"]
+    assert tasks[0].metadata["context"] == "[DOC] Ada wrote the report."
+    assert tasks[0].metadata["source_split"] == "train"
 
 
 def test_livemath_profile_builds_native_metadata_and_clean_test(tmp_path, monkeypatch):
