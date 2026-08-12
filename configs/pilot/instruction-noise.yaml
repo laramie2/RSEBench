@@ -1,0 +1,14 @@
+version: 1
+profile: instruction-noise-pilot
+model_config: configs/pilot/deepseek-v4-flash.yaml
+operators:
+  - redundant_context
+  - related_distractor
+  - failed_attempt
+severities: [L1, L2, L3]
+generator_modes: [rule, model]
+hard_gates:
+  structural_valid: true
+  label_invariant: true
+  solvable: true
+  answer_leak_free: true
