@@ -1,0 +1,18 @@
+version: 1
+profile: math-noise-pilot
+benchmark: dapo_fixed_1000
+domain: math
+data_root_env: RSEBENCH_DATA_ROOT
+dataset_path: materialized/dapo_fixed_1000/dapo_fixed_1000.parquet
+operators:
+  - failed_attempt
+  - flawed_partial_solution
+severities: [L1, L2, L3]
+seed: 20260812
+pilot_limit: 5
+model_config: configs/pilot/deepseek-v4-flash.yaml
+generation:
+  max_attempts: 3
+  require_error_critic: true
+  require_invalidity_critic: true
+  reject_answer_leak: true
