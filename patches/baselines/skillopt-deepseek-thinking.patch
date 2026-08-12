@@ -585,7 +585,7 @@ index 124d25d..9398fe2 100644
 +        "score_rationale": scored.rationale,
      }
 diff --git a/skillopt/envs/officeqa/rollout.py b/skillopt/envs/officeqa/rollout.py
-index 01afe8b..10d332b 100644
+index 01afe8b..4bb5ae5 100644
 --- a/skillopt/envs/officeqa/rollout.py
 +++ b/skillopt/envs/officeqa/rollout.py
 @@ -2,7 +2,9 @@ from __future__ import annotations
@@ -598,7 +598,28 @@ index 01afe8b..10d332b 100644
  from skillopt.envs.officeqa.evaluator import evaluate
  from skillopt.envs.officeqa.tool_runtime import (
      build_oracle_parsed_pages_context,
-@@ -691,7 +693,21 @@ def process_one(
+@@ -681,8 +683,18 @@ def process_one(
+                 if turn == max_tool_turns:
+                     fail_reason = f"Exceeded tool-turn budget ({max_tool_turns})"
+                 else:
+-                    fail_reason = "Model neither produced a tool request nor a final answer"
+-                    break
++                    recovery_prompt = (
++                        "Your previous response did not use a tool or return a final answer. "
++                        "Continue the task: use a tool if more evidence or computation is "
++                        "needed, or return the final answer inside <answer>...</answer>."
++                    )
++                    messages.append({"role": "user", "content": recovery_prompt})
++                    conversation.append({
++                        "type": "recovery_prompt",
++                        "turn": turn,
++                        "content": recovery_prompt,
++                    })
++                    continue
+     except Exception as e:  # noqa: BLE001
+         fail_reason = f"error: {e}"
+     with open(os.path.join(pred_dir, "target_system_prompt.txt"), "w", encoding="utf-8") as f:
+@@ -691,7 +703,21 @@ def process_one(
          f.write(user)
      with open(os.path.join(pred_dir, "conversation.json"), "w", encoding="utf-8") as f:
          json.dump(conversation, f, ensure_ascii=False, indent=2)
@@ -621,7 +642,7 @@ index 01afe8b..10d332b 100644
      result = {
          "id": item_id,
          "question": item.get("question", ""),
-@@ -705,16 +721,36 @@ def process_one(
+@@ -705,16 +731,36 @@ def process_one(
          "oracle_parsed_pages_included": bool(oracle_context),
          "oracle_parsed_pages_chars": len(oracle_context),
          "use_local_tools": bool(use_local_tools),
@@ -661,7 +682,7 @@ index 01afe8b..10d332b 100644
  def run_batch(
      items: list[dict],
      out_root: str,
-@@ -750,6 +786,7 @@ def run_batch(
+@@ -750,6 +796,7 @@ def run_batch(
                  existing.append(row)
      pending = [item for item in items if str(item["id"]) not in done_ids]
      if not pending:
@@ -669,7 +690,7 @@ index 01afe8b..10d332b 100644
          return existing
      total = len(existing) + len(pending)
      completed = len(existing)
-@@ -796,4 +833,5 @@ def run_batch(
+@@ -796,4 +843,5 @@ def run_batch(
              )
              outf.write(json.dumps(res, ensure_ascii=False) + "\n")
              outf.flush()
@@ -1059,12 +1080,14 @@ index 0000000..3846398
 +    ]
 diff --git a/tests/test_officeqa_failures.py b/tests/test_officeqa_failures.py
 new file mode 100644
-index 0000000..379d463
+index 0000000..5767173
 --- /dev/null
 +++ b/tests/test_officeqa_failures.py
-@@ -0,0 +1,22 @@
+@@ -0,0 +1,65 @@
 +import pytest
++from types import SimpleNamespace
 +
++from skillopt.envs.officeqa import rollout
 +from skillopt.envs.officeqa.rollout import _raise_on_systemic_failure
 +
 +
@@ -1085,6 +1108,47 @@ index 0000000..379d463
 +    ]
 +
 +    _raise_on_systemic_failure(rows)
++
++
++def test_unstructured_response_gets_recovery_round_instead_of_early_stop(
++    tmp_path, monkeypatch
++):
++    responses = iter(["I need to calculate this first.", "<answer>42</answer>"])
++    calls = []
++
++    def fake_chat_target_messages(**kwargs):
++        calls.append(kwargs["messages"])
++        return SimpleNamespace(
++            content=next(responses), tool_calls=[], metadata={}
++        ), {}
++
++    monkeypatch.setattr(rollout, "chat_target_messages", fake_chat_target_messages)
++    monkeypatch.setattr(rollout, "is_target_exec_backend", lambda: False)
++    monkeypatch.setattr(rollout, "resolve_docs_roots", lambda _: [str(tmp_path)])
++    monkeypatch.setattr(rollout, "resolve_candidate_files", lambda *_: [])
++    monkeypatch.setattr(
++        rollout,
++        "build_oracle_parsed_pages_context",
++        lambda *_args, **_kwargs: "oracle evidence",
++    )
++
++    result = rollout.process_one(
++        {
++            "id": "q1",
++            "question": "What is the value?",
++            "ground_truth": "42",
++            "source_files": ["report.txt"],
++            "source_docs": ["https://example.test?page=1"],
++        },
++        str(tmp_path / "out"),
++        "Return an answer.",
++        max_tool_turns=2,
++        data_dirs=[str(tmp_path)],
++    )
++
++    assert len(calls) == 2
++    assert result["hard"] == 1
++    assert result["failure_category"] == "correct"
 diff --git a/tests/test_officeqa_official_scorer.py b/tests/test_officeqa_official_scorer.py
 new file mode 100644
 index 0000000..06671d3
