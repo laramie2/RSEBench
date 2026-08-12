@@ -88,6 +88,9 @@ def _inspect_materialized(name: str, materialized: Path) -> dict:
 def main() -> None:
     load_dotenv(PROJECT_ROOT / ".env")
     data_root = Path(os.environ.get("RSEBENCH_DATA_ROOT", PROJECT_ROOT / "data"))
+    output_root = Path(
+        os.environ.get("RSEBENCH_OUTPUT_ROOT", PROJECT_ROOT / "outputs")
+    )
     status_path = data_root / "audit" / "download-status.json"
     statuses = (
         {row["name"]: row for row in json.loads(status_path.read_text())}
@@ -134,7 +137,7 @@ def main() -> None:
                 ["git", "-C", str(item.target), "rev-parse", "HEAD"], text=True
             ).strip()
         rows[item.name] = row
-    output = PROJECT_ROOT / "outputs" / "audits" / "datasets.json"
+    output = output_root / "audits" / "datasets.json"
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(rows, indent=2, sort_keys=True) + "\n")
     print(output)

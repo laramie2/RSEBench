@@ -33,6 +33,7 @@ def test_dataset_audit_runs_as_a_direct_script(tmp_path: Path):
     root = Path(__file__).parents[1]
     env = os.environ.copy()
     env["RSEBENCH_DATA_ROOT"] = str(tmp_path)
+    env["RSEBENCH_OUTPUT_ROOT"] = str(tmp_path / "outputs")
     result = subprocess.run(
         [sys.executable, str(root / "scripts/audit_datasets.py")],
         cwd=root,
@@ -41,6 +42,7 @@ def test_dataset_audit_runs_as_a_direct_script(tmp_path: Path):
         text=True,
     )
     assert result.returncode == 0, result.stderr
+    assert (tmp_path / "outputs/audits/datasets.json").is_file()
 
 
 def test_partial_download_run_preserves_prior_statuses(tmp_path: Path):
