@@ -1,176 +1,212 @@
-# Current API Adaptation and Paired-Evolution Status
+# Current Robust Self-Evolution Validation Status
 
 Date: 2026-08-12
 
 ## Executive conclusion
 
-The shared harness now runs paired clean/noisy self-evolution from the same seed
-skill, with identical task order, method seed, budget, and an untouched clean test
-split. All online calls in this phase used exactly `deepseek-v4-flash` at
-`https://api.deepseek.com` with thinking explicitly disabled. No GPT model was
-used.
+The shared harness now supports hash-audited paired self-evolution: clean and
+noisy arms start from the same seed skill, use the same task IDs, task order,
+method seed, optimizer budget, and untouched clean test split. All online calls
+in this phase used exactly `deepseek-v4-flash` at `https://api.deepseek.com`
+with thinking disabled. No GPT model was used.
 
-Seven baseline repositories now pass real DeepSeek transport, structured-output,
-and tool-use smokes. This proves the API adaptation layer, not full native
-self-evolution support for every method. SkillOpt is currently the only baseline
-connected end to end to the shared paired-evolution harness across the three main
-pilot domains.
+The expanded validation result is deliberately mixed:
 
-The main efficacy result is mixed:
+- **Spreadsheet passed the medium-scale efficacy gate.** With 20 train, 10
+  validation, and 30 untouched clean-test tasks, clean evolution improved from
+  `0.2333` to `0.4000`, while evolution on C1 failed-attempt noise remained at
+  `0.2333`. The clean-minus-noisy gap is `+0.1667`, with paired bootstrap 95%
+  interval `[0.0333, 0.3000]`. Clean evolution accepted a skill update; noisy
+  evolution rejected every update. This is evidence that noise disrupted the
+  self-evolution process, rather than merely degrading final inference.
+- **DAPO math did not pass.** A strict C1 flawed-partial-solution pipeline
+  generated 15 train and 8 validation pairs after rejecting 9 candidates, but
+  both arms rejected all three skill updates and retained the same seed skill.
+  Seed, clean-evolved, and noisy-evolved scores are all `0.6800` on 50 clean
+  test tasks. The operator is valid data, but not an effective evolution-noise
+  operator for this SkillOpt configuration.
+- **OfficeQA calibration is repaired.** Oracle parsed pages cover every task,
+  official scoring is reproduced, and `12` tool rounds with `4096` completion
+  tokens passed the preregistered calibration gates. The frozen formal split is
+  12 train / 6 validation / 20 clean test, with a `0.5000` seed score and no
+  floor or ceiling. C1 prompt noise produced zero gap. C3 rank displacement
+  changed the selected skill but improved, rather than harmed, clean-test score
+  from `0.5000` to `0.5500`. C2 semantic-decoy evidence also produced zero gap
+  and retained the seed in both arms.
 
-- Spreadsheet prompt noise produced the intended degradation and reverse
-  evolution in one bounded pilot: clean-evolved `0.500`, noisy-evolved `0.375`,
-  gap `+0.125` on eight untouched clean test tasks. The paired bootstrap interval
-  is `[0.000, 0.375]`, so this is feasibility evidence, not a final statistical
-  claim.
-- DAPO math noise changed the evolution path: the clean arm accepted a new skill
-  after validation improved from `0.667` to `1.000`, while the noisy arm retained
-  the seed. Both nevertheless scored `0.600` on ten clean test tasks, with two
-  opposite task flips canceling in aggregate.
-- OfficeQA prompt/rank pilots did not establish an effect. SearchQA prompt noise
-  and stronger evidence-level semantic decoys also produced zero gap because the
-  selected clean test tasks were at a `1.000` ceiling and both arms rejected all
-  candidate skills.
-- DocVQA visual execution is blocked by provider capability: this DeepSeek
-  endpoint rejects `image_url` input. The interrupted run is invalid and its
-  zeros must never be reported as benchmark scores.
+Therefore only the spreadsheet operator is currently eligible as a positive
+robustness-benchmark component. Math and the completed document operators must
+be reported as null or opposite-direction results, not selected away.
 
-Therefore the construction and execution infrastructure is ready, but only the
-spreadsheet lane has passed the current minimum-effect feasibility criterion.
-The math lane has mechanism evidence without aggregate degradation; the document
-lane still needs a non-floor/non-ceiling native task setting before any full-data
-study.
-
-## Experimental protocol now enforced
+## Protocol and decision rules
 
 For every paired run:
 
-1. Clean and noisy arms use the same seed skill, task IDs/order, method seed, and
-   optimization budget.
-2. Noise is applied only to evolution train and validation records. The test
-   records are clean and hash-audited.
-3. Noise candidates must pass structural validity, label invariance, solvability,
-   and answer-leak gates before materialization.
-4. Hard-gate backfill scans candidates in frozen manifest order and never reads a
-   clean-test score. Rejected candidates remain in the generation audit.
-5. Seed, clean-evolved, and noisy-evolved skills are evaluated on the same clean
-   test tasks. Identical skill hashes reuse the same evaluation so stochastic
-   duplicate calls cannot create a false gap.
-6. Reports separate final score, evolution gain, evolution gap, paired bootstrap
-   interval, and reverse-evolution status.
+1. Noise is applied only to evolution train and validation records. Formal test
+   records remain clean and are hash-audited.
+2. Noise candidates must pass structural validity, label invariance,
+   solvability, and answer-leak gates before materialization.
+3. Hard-gate backfill follows frozen manifest order and never reads a clean-test
+   score. Rejected candidates remain in the generation audit.
+4. Seed, clean-evolved, and noisy-evolved skills are evaluated on the same clean
+   test tasks. Identical skill hashes reuse one evaluation, preventing duplicate
+   stochastic calls from creating a false gap.
+5. A medium-scale operator passes the current feasibility gate only when the
+   clean-minus-noisy evolution gap is at least `0.05` and its direction is
+   supported by paired task transitions. Confidence intervals, including those
+   crossing zero, are always reported.
 
-The current cross-domain taxonomy exercised in execution is:
+The exercised cross-domain taxonomy is:
 
-- `C1/M2`: failed-attempt or flawed-solution noise in task communication.
-- `C2/M1`: additive evidence/artifact noise, including SearchQA semantic decoy
-  passages and spreadsheet artifact distractors.
-- `C3/M5`: retrieval order/access noise, represented by OfficeQA gold-rank
-  displacement.
+- `C1/M2`: misleading or flawed task-side reasoning context;
+- `C2/M1`: additive evidence or artifact distractors;
+- `C3/M5`: retrieval order and evidence-access displacement.
 
-## Paired self-evolution results
+## Expanded paired results
 
-| Domain / operator | Train / val / clean test | Seed | Clean evolved | Noisy evolved | Gap | Interpretation |
+| Domain / operator | Train / val / test | Seed | Clean evolved | Noisy evolved | Gap | 95% paired CI | Decision |
+|---|---:|---:|---:|---:|---:|---:|---|
+| SpreadsheetBench-Verified, C1 failed attempt | 20 / 10 / 30 | 0.2333 | 0.4000 | 0.2333 | +0.1667 | [0.0333, 0.3000] | Pass |
+| DAPO, C1 flawed partial solution | 15 / 8 / 50 | 0.6800 | 0.6800 | 0.6800 | 0.0000 | [0.0000, 0.0000] | Null; both arms retained seed |
+| OfficeQA, C1 failed attempt | 12 / 6 / 20 | 0.5000 | 0.5000 | 0.5000 | 0.0000 | [0.0000, 0.0000] | Null; both arms retained seed |
+| OfficeQA, C3 gold-rank displacement | 12 / 6 / 20 | 0.5000 | 0.5000 | 0.5500 | -0.0500 | [-0.2500, 0.1500] | Opposite direction |
+| OfficeQA, C2 semantic-decoy documents | 12 / 6 / 20 | 0.4000 | 0.4000 | 0.4000 | 0.0000 | [0.0000, 0.0000] | Null; both arms retained seed |
+
+### Spreadsheet details
+
+The earlier 5/5/8 pilot suggested a `+0.125` gap, but evaluating those old skills
+on 30 test tasks reversed the conclusion: seed and clean were `0.3333`, noisy
+was `0.4667`, and clean-minus-noisy was `-0.1333` with interval
+`[-0.2667, -0.0333]`. This result was retained and triggered the declared
+medium-scale rerun rather than being discarded.
+
+The medium run then produced the positive result. Validation improved from
+`0.60` to `0.70` in the clean arm, which accepted one update. The noisy arm's
+validation baseline was `0.80`; all four attempted steps failed to improve it,
+so the arm retained its seed skill. On formal test there were 7 both-correct,
+18 both-wrong, and 5 clean-correct/noisy-wrong transitions.
+
+Run:
+`/home/nvidia/yutao/lzt/self-evolution-robustness/outputs/runs/paired-evolution/20260812T141243410275Z-skillopt`
+
+Generation:
+`/home/nvidia/yutao/lzt/self-evolution-robustness/outputs/runs/evolution-noise/20260812T141159229114Z-54d9cb6bcf`
+
+### Mathematics details
+
+The old 5/3/10 artifacts were first evaluated on 50 test tasks. Seed/noisy scored
+`0.6800`, clean scored `0.6200`, and clean-minus-noisy was `-0.0600` with
+interval `[-0.1800, 0.0600]`. Four tasks favored clean and seven favored noisy;
+the clean skill itself was the unstable component.
+
+The medium generator then attempted 23 candidates to retain 15 train and 8
+validation records; 9 candidates were rejected under the 18-attempt per-task
+limit. Rejection causes include invalid or truncated JSON, gold-answer leakage,
+failure to confirm exactly one localized error, and an independent critic
+judging the attempt valid. No gate was relaxed. In the paired run, clean
+validation was `0.3750`, noisy validation was `0.5000`, and neither arm accepted
+an update. Both final skill hashes equal the seed hash.
+
+Run:
+`/home/nvidia/yutao/lzt/self-evolution-robustness/outputs/runs/paired-evolution/20260812T151342302045Z-skillopt`
+
+Generation:
+`/home/nvidia/yutao/lzt/self-evolution-robustness/outputs/runs/evolution-noise/20260812T143117286818Z-3adb2c600f`
+
+### OfficeQA calibration and operator details
+
+All 246 OfficeQA rows have materialized parsed-page evidence. The 30-task
+calibration pool is disjoint from the frozen 12/6/20 experiment split and was
+selected using released difficulty and source-file-count strata, not task
+correctness.
+
+| Runtime | Score | Parseable | Systemic failure | Oracle pages | Eligible | Gate |
 |---|---:|---:|---:|---:|---:|---|
-| SpreadsheetBench-Verified, C1 failed attempt | 5 / 5 / 8 | 0.500 | 0.500 | 0.375 | +0.125 | Reverse evolution; noisy candidate passed noisy validation and harmed one clean-test task |
-| OfficeQA, C1 failed attempt | 10 / 2 / 8 | 0.500 | 0.500 | 0.500 | 0.000 | Both arms retained seed; no effect |
-| OfficeQA, C3 rank displacement smoke | 3 / 1 / 2 | 1.000 | 1.000 | 1.000 | 0.000 | Harness smoke only; train rollouts at floor |
-| DAPO, C1 flawed partial solution | 5 / 3 / 10 | 0.600 | 0.600 | 0.600 | 0.000 | Evolution paths diverged, aggregate test effect canceled |
-| SearchQA, C1 failed attempt | 6 / 2 / 8 | 1.000 | 1.000 | 1.000 | 0.000 | Test ceiling; all candidate skills rejected |
-| SearchQA, C2 semantic decoy evidence | 6 / 2 / 8 | 1.000 | 1.000 | 1.000 | 0.000 | Gold evidence remained visible; noise still did not affect evolution |
-| SearchQA, C2 decoy + label-free context-length stratum | 6 / 2 / 8 | 1.000 | 1.000 | 1.000 | 0.000 | Same ceiling after a pre-evaluation difficulty proxy |
+| 6 rounds / 4096 tokens | 0.5667 | 0.7000 | 0.0000 | 1.0000 | 29 | Fail parseability |
+| 12 rounds / 4096 tokens | 0.6667 | 0.8333 | 0.0000 | 1.0000 | 29 | Pass and selected |
 
-### Reproducible run locations
+Calibration:
+`/home/nvidia/yutao/lzt/self-evolution-robustness/outputs/runs/officeqa-calibration/20260812T135014695288Z-skillopt`
 
-- Spreadsheet paired result:
-  `/home/nvidia/yutao/lzt/self-evolution-robustness/outputs/runs/paired-evolution/20260812T105048200231Z-skillopt`
-- OfficeQA prompt result:
-  `/home/nvidia/yutao/lzt/self-evolution-robustness/outputs/runs/paired-evolution/20260812T105816665296Z-skillopt`
-- OfficeQA rank smoke:
-  `/home/nvidia/yutao/lzt/self-evolution-robustness/outputs/runs/paired-evolution/20260812T112341133412Z-skillopt`
-- DAPO challenge result:
-  `/home/nvidia/yutao/lzt/self-evolution-robustness/outputs/runs/paired-evolution/20260812T113615435943Z-skillopt`
-- SearchQA prompt result:
-  `/home/nvidia/yutao/lzt/self-evolution-robustness/outputs/runs/paired-evolution/20260812T115904945216Z-skillopt`
-- SearchQA evidence result:
-  `/home/nvidia/yutao/lzt/self-evolution-robustness/outputs/runs/paired-evolution/20260812T120621460859Z-skillopt`
-- SearchQA label-free context-length result:
-  `/home/nvidia/yutao/lzt/self-evolution-robustness/outputs/runs/paired-evolution/20260812T121001957307Z-skillopt`
+Frozen split:
+`/home/nvidia/yutao/lzt/self-evolution-robustness/data/splits/officeqa_calibrated/split_manifest.json`
 
-The valid SearchQA evidence manifest is:
+C1 retained the same skill in both arms after three rejected updates. The 20-task
+test was `0.5000` with `0.9000` parseability, so the null result is not a floor
+artifact.
 
-`/home/nvidia/yutao/lzt/self-evolution-robustness/outputs/runs/evolution-noise/20260812T120505962841Z-c5e57a4286/pair_manifest.json`
+C3 lowered noisy validation from the clean seed's `0.8333` to `0.5000`. The
+noisy arm then accepted step 2 after improving to `0.6667`; the clean arm kept
+the seed. On formal clean test, however, the new skill scored `0.5500`. Paired
+transitions were 8 both-correct, 7 both-wrong, 2 clean-only, and 3 noisy-only.
+This is mechanism evidence but the wrong direction for the intended benchmark.
 
-Its six train and two validation candidates all passed the gates. The earlier C1
-prompt manifest used automatic hard-gate backfill: 17 candidates were attempted,
-9 answer-leaking candidates were rejected, and 8 valid pairs were retained.
+C2 added eight query-related, answer-leak-screened decoy documents while
+keeping all gold documents at rank 1. Both clean and noisy validation baselines
+were `0.8333`, and both arms rejected all three updates. The run's seed score
+was `0.4000` with `0.7500` parseability; clean and noisy final scores remained
+identical. The difference from the C1/C3 run-level seed score (`0.5000`) is
+DeepSeek rollout variance across independent runs, not a paired comparison
+artifact: each paired run shares its own seed/test realization, and identical
+skill hashes reuse the same evaluation within that run.
 
-## Dataset and domain readiness
+C1 run:
+`/home/nvidia/yutao/lzt/self-evolution-robustness/outputs/runs/paired-evolution/20260812T152847183826Z-skillopt`
 
-| Dataset | Local state | Shared-harness state | Efficacy state |
-|---|---|---|---|
-| SpreadsheetBench-Verified | Materialized and frozen | Native SkillOpt train/eval passed | Positive bounded feasibility result |
-| OfficeQA | Gated data and corpus downloaded | Prompt and retrieval-rank paths execute | Negative/floor pilots; redesign task calibration |
-| DAPO fixed 1000 | Materialized with frozen 400/100/500 partition | Native numeric evaluator and SkillOpt environment passed | Path divergence, zero aggregate gap |
-| LiveMathematicianBench | Downloaded, profiled, and split | Bridge/config available | Not used for the current aggregate pilot after DAPO proved more directly executable |
-| DocVQA 10% | 534 rows and 534 images materialized | JSON/image bridge passes local tests | Online visual execution blocked by text-only endpoint |
-| SearchQA SkillOpt split | 400/200/1400 official-ID payload materialized | Native train/eval and C1/C2 pipelines passed | Repeated ceiling; retain as negative result |
-| Skill-native datasets | Existing distribution/format audit retained | No shared evolution run in this phase | Mechanism/diagnostic lane only |
+C3 run:
+`/home/nvidia/yutao/lzt/self-evolution-robustness/outputs/runs/paired-evolution/20260812T155946233702Z-skillopt`
 
-SearchQA's RSE split is recreated by
-`scripts/materialize_searchqa_split_manifest.py`; it preserves the released
-SkillOpt train/validation/test IDs and defines disjoint 20-task pilot-evolve and
-10-task pilot-eval lists. DocVQA image bytes are recreated by
-`scripts/materialize_docvqa_images.py`.
+C2 run:
+`/home/nvidia/yutao/lzt/self-evolution-robustness/outputs/runs/paired-evolution/20260812T164334977961Z-skillopt`
 
-## Baseline deployment matrix
+## Dataset and baseline readiness
 
-All seven rows below passed real online transport, JSON structured output, and a
-tool-use smoke with `deepseek-v4-flash` and thinking disabled.
+| Dataset | Local and harness state | Current efficacy state |
+|---|---|---|
+| SpreadsheetBench-Verified | Materialized, frozen, native train/eval passed | Positive medium-scale C1 result |
+| OfficeQA | 246 rows plus 285 referenced parsed JSON hardlinks; official scorer and calibrated runtime passed | C1 null, C2 null, C3 opposite direction |
+| DAPO fixed 1000 | Materialized with frozen 400/100/500 partition; native numeric evaluator passed | Strict C1 null at medium scale |
+| LiveMathematicianBench | Downloaded, profiled, and split | Retained as alternate math source; not used in current medium run |
+| DocVQA 10% | 534 rows and images materialized | Visual online execution blocked because the selected DeepSeek endpoint rejects `image_url` |
+| SearchQA SkillOpt split | Official IDs and payload materialized; native C1/C2 paths passed | Repeated `1.0000` ceiling; negative/control lane |
+| Skill-native datasets | Distribution and format audit retained | Mechanism/diagnostic lane only |
 
-| Baseline | API/tool smoke | Adapted roles | Native benchmark run | Shared paired self-evolution |
-|---|---|---|---|---|
-| Trace2Skill | Passed | executor, analysis, optimizer | Spreadsheet clean skill-preloaded smoke passed previously | Not yet connected |
-| SkillOpt | Passed | target, optimizer | Spreadsheet, OfficeQA, DAPO, SearchQA passed; DocVQA blocked online | Passed end to end in three main domains |
-| SkillGrad | Passed | executor, diagnoser, momentum, patcher | Not rerun on shared manifest | Not yet connected |
-| EvoSkill | Passed | executor, proposer, evaluator | No shared-domain native run in this phase | Not yet connected |
-| Skills-Coach | Passed | generator, optimizer, executor, judge | Skill-native task run pending | Not yet connected |
-| SkillFlow | Passed | worker, patcher | Tool worker passed; benchmark container run pending | Not yet connected |
-| FederatedSkill | Passed | worker, patcher, merger | Worker and merger tool paths passed | Not yet connected |
+Seven baseline repositories pass real DeepSeek transport, structured-output,
+and tool-use smoke tests. This proves API adaptation, not full shared evolution
+support. SkillOpt remains the only method wired end to end to the paired harness
+across all three current domains.
 
-The latest FederatedSkill smoke is at:
+| Baseline | DeepSeek API/tool smoke | Shared paired self-evolution |
+|---|---|---|
+| Trace2Skill | Passed | Not yet connected |
+| SkillOpt | Passed | End-to-end in spreadsheet, OfficeQA, and DAPO |
+| SkillGrad | Passed | Not yet connected |
+| EvoSkill | Passed | Not yet connected |
+| Skills-Coach | Passed | Not yet connected |
+| SkillFlow | Passed | Not yet connected |
+| FederatedSkill | Passed | Not yet connected |
 
-`/home/nvidia/yutao/lzt/self-evolution-robustness/.worktrees/rsebench-pilot/outputs/runs/baseline-smoke/20260812T121242422535Z-federatedskill`
+## Current next gate
 
-The other passing smoke directories are recorded under the same
-`outputs/runs/baseline-smoke` directory. Reproducible source patches are stored in
-`patches/baselines/`; each patch matches the corresponding dirty external method
-checkout (Trace2Skill requires whitespace-tolerant application because the
-upstream file uses mixed CRLF/LF endings).
+Do not start the full multi-method benchmark yet.
 
-## Verification evidence
+1. Retain spreadsheet C1 as the positive operator and reproduce it with at least
+   one additional baseline before making a general cross-method claim.
+2. Redesign math noise at the evolution-feedback level or use a less explicitly
+   dismissible provenance-conflict operator; the current labeled flawed attempt
+   is valid but does not drive a selected skill update.
+3. Redesign document noise around conflicting provenance/evidence attribution
+   while retaining oracle solvability. The current C1/C2 operators are too weak,
+   while C3 changes the update path in the opposite direction.
+4. Only operators that reproduce a harmful evolution gap without hurting clean
+   benchmark validity should enter the final robust benchmark release.
 
-- Main RSEBench harness: `157 passed`.
-- SkillOpt full repository suite: `906 passed, 6 skipped, 130 subtests passed`.
-- Focused API-adaptation suites: Trace2Skill `2 passed`, SkillGrad `2 passed`,
-  EvoSkill `1 passed`, Skills-Coach `4 passed`, SkillFlow `1 passed`, and
-  FederatedSkill `2 passed`.
-- All seven online baseline smoke ladders passed through `tool`.
-- All SkillOpt paired reports include per-task scores and paired bootstrap
-  intervals. No provider error result is counted as an experimental score.
+## Reproducibility verification
 
-## Next experiment gate
-
-Do not start a full multi-method benchmark run yet. The next bounded work should
-be:
-
-1. Reproduce the spreadsheet effect with at least one additional baseline and a
-   larger untouched clean-test sample.
-2. For math, expand clean-test evaluation of the already divergent clean/noisy
-   skills before changing the operator; the current ten-task aggregate is too
-   small and exactly cancels.
-3. Replace SearchQA as the primary document efficacy lane, or calibrate an
-   OfficeQA subset where the seed score is neither floor nor ceiling before
-   generating new noise. Keep SearchQA as a negative/control lane.
-4. Only after each domain has a non-floor/non-ceiling clean seed and at least one
-   operator with a reproducible positive evolution gap should the full shared
-   harness be applied to every baseline.
+- Main benchmark and harness suite: `199 passed`.
+- Focused external SkillOpt adapter/environment suite: `18 passed`.
+- The tracked SkillOpt adaptation patch reverse-applies cleanly to the current
+  external checkout, so the intentionally dirty external repository is fully
+  represented by the versioned patch.
+- Tracked-file secret scan passed; API and Hugging Face credentials remain only
+  in ignored environment files and are not copied into reports or artifacts.
