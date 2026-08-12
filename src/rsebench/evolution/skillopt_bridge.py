@@ -120,3 +120,50 @@ def materialize_skillopt_split(
         encoding="utf-8",
     )
     return root
+
+
+def materialize_skillopt_clean_test(
+    clean_test: list[TaskManifest], *, output_dir: Path | str
+) -> Path:
+    """Write a test-only SkillOpt split without introducing evaluation noise."""
+    if not clean_test:
+        raise ValueError("clean test split must be non-empty")
+    benchmarks = {task.benchmark for task in clean_test}
+    if len(benchmarks) != 1:
+        raise ValueError("clean test tasks must use one benchmark")
+    root = Path(output_dir)
+    root.mkdir(parents=True, exist_ok=False)
+    for split_name in ("train", "val"):
+        split_dir = root / split_name
+        split_dir.mkdir()
+        (split_dir / "items.json").write_text("[]\n", encoding="utf-8")
+    test_dir = root / "test"
+    test_dir.mkdir()
+    (test_dir / "items.json").write_text(
+        json.dumps(
+            [_native_item(task) for task in clean_test],
+            ensure_ascii=False,
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (root / "rsebench_materialization.json").write_text(
+        json.dumps(
+            {
+                "benchmark": next(iter(benchmarks)),
+                "arm": "clean_test_only",
+                "splits": {
+                    "train": [],
+                    "val": [],
+                    "test": [task.source_hash for task in clean_test],
+                },
+            },
+            ensure_ascii=False,
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    return root
