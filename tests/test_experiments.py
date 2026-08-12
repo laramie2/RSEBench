@@ -1,3 +1,4 @@
+import hashlib
 from pathlib import Path
 
 import pandas as pd
@@ -11,11 +12,13 @@ def _prepare_project(tmp_path: Path, monkeypatch) -> tuple[Path, Path]:
     data = tmp_path / "data"
     outputs = tmp_path / "outputs"
     (project / "configs" / "pilot").mkdir(parents=True)
-    (project / "configs" / "pilot" / "deepseek-v4-flash.yaml").write_text(
+    (project / "configs" / "pilot" / "deepseek-v4-flash-generation.yaml").write_text(
         "provider: deepseek\n"
         "base_url: https://api.deepseek.com\n"
         "model: deepseek-v4-flash\n"
-        "api_key_env: DEEPSEEK_API_KEY\n",
+        "api_key_env: DEEPSEEK_API_KEY\n"
+        "thinking: disabled\n"
+        "max_tokens: 2048\n",
         encoding="utf-8",
     )
     monkeypatch.setattr(experiments, "PROJECT_ROOT", project)
@@ -67,9 +70,13 @@ def test_math_execution_pilot_scores_all_paired_conditions(tmp_path: Path, monke
                 usage={"prompt_tokens": 2, "completion_tokens": 1, "total_tokens": 3},
             )
 
-    monkeypatch.setattr(
-        experiments.DeepSeekClient, "from_yaml", lambda *args, **kwargs: FakeClient()
-    )
+    loaded_configs = []
+
+    def fake_from_yaml(path, *args, **kwargs):
+        loaded_configs.append(Path(path).name)
+        return FakeClient()
+
+    monkeypatch.setattr(experiments.DeepSeekClient, "from_yaml", fake_from_yaml)
 
     summary = experiments.run_math_execution_pilot(limit=1)
 
@@ -81,9 +88,17 @@ def test_math_execution_pilot_scores_all_paired_conditions(tmp_path: Path, monke
         for condition in summary["rows"][0]["conditions"].values()
     )
     assert summary["decision"] is not None
+    assert loaded_configs == ["deepseek-v4-flash-generation.yaml"]
 
 
 def test_answer_parser_handles_plain_and_boxed_final_lines():
     assert experiments._answer_text("work\nAnswer: 12.") == "12"
     assert experiments._answer_text("work\nAnswer: \\boxed{7}") == "7"
     assert experiments._correct("Answer: 1,000", "1000")
+
+
+def test_math_execution_cache_key_versions_the_non_thinking_profile():
+    expected = hashlib.sha256(
+        b"math-pilot-a-v2-nonthinking:task:execute:L0"
+    ).hexdigest()
+    assert experiments._cache_key("task", "execute", "L0") == expected

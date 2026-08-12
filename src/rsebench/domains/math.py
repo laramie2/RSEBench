@@ -68,7 +68,29 @@ def wrap_failed_attempt(problem: str, attempt: str) -> str:
 def _same_error_type(expected: str, observed: str) -> bool:
     first = re.sub(r"[^a-z0-9]+", "", expected.casefold())
     second = re.sub(r"[^a-z0-9]+", "", observed.casefold())
-    return bool(first and second and (first in second or second in first))
+    if first and second and (first in second or second in first):
+        return True
+    generic = {
+        "a",
+        "an",
+        "and",
+        "application",
+        "error",
+        "incorrect",
+        "invalid",
+        "misapplication",
+        "misapplied",
+        "of",
+        "or",
+        "the",
+        "wrong",
+    }
+    first_tokens = set(re.findall(r"[a-z0-9]+", expected.casefold())) - generic
+    second_tokens = set(re.findall(r"[a-z0-9]+", observed.casefold())) - generic
+    if not first_tokens or not second_tokens:
+        return False
+    overlap = len(first_tokens & second_tokens)
+    return overlap / min(len(first_tokens), len(second_tokens)) >= 0.5
 
 
 def validate_flawed_solution(
@@ -153,11 +175,17 @@ def generate_flawed_solution(
     }
     rejected: list[str] = []
     for attempt in range(max_attempts):
-        generated = _json_response(
-            client,
-            GENERATOR_PROMPT.format(problem=problem, severity=severity, seed=seed + attempt),
-            _cache_key(task_hash, "generator", severity, seed, attempt),
-        )
+        try:
+            generated = _json_response(
+                client,
+                GENERATOR_PROMPT.format(
+                    problem=problem, severity=severity, seed=seed + attempt
+                ),
+                _cache_key(task_hash, "generator", severity, seed, attempt),
+            )
+        except ValueError:
+            rejected.append("generator_invalid_json")
+            continue
         if not required <= generated.keys() or not all(
             isinstance(generated[name], str) for name in required
         ):
@@ -169,16 +197,20 @@ def generate_flawed_solution(
         if scan_answer_leak(attempt_text, gold_answer):
             rejected.append("answer_leak")
             continue
-        critic_error = _json_response(
-            client,
-            CRITIC_ERROR_PROMPT.format(problem=problem, attempt=attempt_text),
-            _cache_key(task_hash, "critic-error", severity, seed, attempt),
-        )
-        critic_validity = _json_response(
-            client,
-            CRITIC_VALIDITY_PROMPT.format(problem=problem, attempt=attempt_text),
-            _cache_key(task_hash, "critic-validity", severity, seed, attempt),
-        )
+        try:
+            critic_error = _json_response(
+                client,
+                CRITIC_ERROR_PROMPT.format(problem=problem, attempt=attempt_text),
+                _cache_key(task_hash, "critic-error", severity, seed, attempt),
+            )
+            critic_validity = _json_response(
+                client,
+                CRITIC_VALIDITY_PROMPT.format(problem=problem, attempt=attempt_text),
+                _cache_key(task_hash, "critic-validity", severity, seed, attempt),
+            )
+        except ValueError:
+            rejected.append("critic_invalid_json")
+            continue
         candidate = MathNoiseCandidate(
             **{name: generated[name] for name in required},
             critic_error_present=bool(critic_error.get("error_present", False)),

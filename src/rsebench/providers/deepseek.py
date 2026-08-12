@@ -149,8 +149,9 @@ class DeepSeekClient:
         }
         if response_format is not None:
             kwargs["response_format"] = response_format
-        if self.config.thinking == "enabled":
-            kwargs["extra_body"] = {"thinking": {"type": "enabled"}}
+        kwargs["extra_body"] = {
+            "thinking": {"type": self.config.thinking}
+        }
         try:
             completion = client.chat.completions.create(**kwargs)
         except Exception as exc:

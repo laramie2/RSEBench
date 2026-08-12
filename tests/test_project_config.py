@@ -26,3 +26,19 @@ def test_env_is_ignored_and_example_has_no_secret():
         for line in text.splitlines()
         if "API_KEY=" in line
     )
+
+
+def test_structured_math_generation_uses_non_thinking_flash_profile():
+    math = yaml.safe_load((ROOT / "configs/pilot/math.yaml").read_text())
+    profile = yaml.safe_load(
+        (ROOT / "configs/pilot/deepseek-v4-flash-generation.yaml").read_text()
+    )
+    assert math["model_config"] == "configs/pilot/deepseek-v4-flash-generation.yaml"
+    assert profile["model"] == "deepseek-v4-flash"
+    assert profile["thinking"] == "disabled"
+    assert profile["max_tokens"] <= 4096
+
+
+def test_math_execution_pilot_uses_non_thinking_flash_profile():
+    source = (ROOT / "src/rsebench/experiments.py").read_text()
+    assert "deepseek-v4-flash-generation.yaml" in source

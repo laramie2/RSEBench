@@ -1,8 +1,14 @@
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
-from rsebench.providers.deepseek import CredentialsMissingError, DeepSeekClient
+import rsebench.providers.deepseek as deepseek
+from rsebench.providers.deepseek import (
+    CredentialsMissingError,
+    DeepSeekClient,
+    DeepSeekConfig,
+)
 
 
 def test_client_rejects_non_flash_model(tmp_path: Path):
@@ -41,3 +47,37 @@ def test_cache_key_does_not_embed_prompt_text(tmp_path: Path):
     key = client.request_cache_key([{"role": "user", "content": "sensitive prompt"}])
     assert len(key) == 64
     assert "sensitive" not in key
+
+
+def test_disabled_thinking_is_sent_explicitly(tmp_path: Path, monkeypatch):
+    captured = {}
+
+    class FakeCompletions:
+        def create(self, **kwargs):
+            captured.update(kwargs)
+            return SimpleNamespace(
+                choices=[
+                    SimpleNamespace(
+                        message=SimpleNamespace(content='{"ok":true}'),
+                        finish_reason="stop",
+                    )
+                ],
+                usage=None,
+                model="deepseek-v4-flash",
+            )
+
+    class FakeOpenAI:
+        def __init__(self, **kwargs):
+            self.chat = SimpleNamespace(completions=FakeCompletions())
+
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "test-key")
+    monkeypatch.setattr(deepseek, "OpenAI", FakeOpenAI)
+    client = DeepSeekClient(
+        DeepSeekConfig(thinking="disabled"), cache_dir=tmp_path
+    )
+
+    client.complete(
+        [{"role": "user", "content": "return json"}], cache_key="disabled"
+    )
+
+    assert captured["extra_body"] == {"thinking": {"type": "disabled"}}

@@ -187,6 +187,43 @@ def test_math_profile_separates_rule_noise_from_offline_model_block(
     assert summary.counts == {"accepted": 1, "blocked_model": 1}
 
 
+def test_math_generation_rejection_is_recorded_without_aborting_batch(
+    tmp_path: Path, monkeypatch
+):
+    dataset = tmp_path / "dapo.parquet"
+    pd.DataFrame(
+        [
+            {
+                "normalized_problem_hash": "b" * 64,
+                "prompt": [{"role": "user", "content": "Compute 3+3."}],
+                "reward_model": {"ground_truth": "6"},
+            }
+        ]
+    ).to_parquet(dataset)
+    from rsebench.domains.math import CandidateGenerationError
+
+    def reject_candidate(**kwargs):
+        raise CandidateGenerationError("critic rejected all attempts")
+
+    monkeypatch.setattr(generation, "generate_flawed_solution", reject_candidate)
+    records = generation._math_records(
+        {
+            "dataset_path": "dapo.parquet",
+            "operators": ["flawed_partial_solution"],
+            "seed": 23,
+        },
+        tmp_path,
+        limit=1,
+        severity="L2",
+        offline=False,
+        client=object(),
+    )
+
+    assert len(records) == 1
+    assert records[0].status == "rejected_generation"
+    assert "critic rejected" in records[0].detail
+
+
 def test_spreadsheet_generation_materializes_and_validates_both_artifact_operators(
     tmp_path: Path,
 ):
@@ -277,3 +314,9 @@ def test_unknown_generation_benchmark_is_rejected(isolated_generation_root):
     )
     with pytest.raises(ValueError, match="unsupported generation benchmark"):
         generation.generate_from_profile(profile, offline=True)
+
+
+def test_generation_status_treats_typed_rejections_as_partial():
+    assert generation._generation_status(
+        {"accepted": 5, "rejected_generation": 5}
+    ) == "partial"

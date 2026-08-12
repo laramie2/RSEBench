@@ -4,9 +4,10 @@ Date: 2026-08-12
 
 ## Outcome
 
-The benchmark-construction pipeline is ready for model-backed Pilot-A, but the
-effectiveness experiment is not complete because `DEEPSEEK_API_KEY` is empty. No
-GPT-5.5 call or fallback model was used.
+The benchmark-construction pipeline and the first model-backed Pilot-A are
+complete. The DAPO rule-noise operator was rejected because clean and noisy scores
+were both 0.6 at L1/L2/L3, giving zero aggregate effect. No GPT-5.5 call or
+fallback model was used; the completed online run used `deepseek-v4-flash`.
 
 The current evidence establishes generator feasibility and label preservation; it
 does **not** yet establish that every operator causes a statistically useful
@@ -20,7 +21,8 @@ performance drop or reverse self-evolution.
 | OfficeQA demo | 10 tasks × failed-attempt + semantic-decoy-document + gold-rank displacement | 29 accepted, 1 not applicable; applicability 90% | `outputs/runs/generation/20260812T055139665008Z-5daf331d5d` |
 | OfficeQA formal | 10 tasks × failed-attempt + semantic-decoy-document + gold-rank displacement | 30/30 accepted, including multi-source questions | `outputs/runs/generation/20260812T072847372126Z-a36f58c624` |
 | DocVQA | 10 tasks × two C1 operators; margin-clutter audited separately | 20 C1 accepted; 10 image cases not applicable because answer boxes are absent | `outputs/runs/generation/20260812T055139760062Z-79dab34010` |
-| DAPO | 5 tasks × rule failed-attempt; model flawed-solution queued | 5 accepted; 5 model-backed candidates blocked by offline mode | `outputs/runs/generation/20260812T055139703890Z-1794c3b80d` |
+| DAPO, rule | 5 tasks × failed-attempt | 5/5 accepted structurally; execution effect later rejected | `outputs/runs/generation/20260812T055139703890Z-1794c3b80d` |
+| DAPO, model | 5 tasks × flawed-partial-solution | 0/5 accepted; hard gates rejected leakage, invalid JSON, or critic disagreement | `outputs/runs/generation/20260812T080953382224Z-723dcd31a0` |
 
 Spreadsheet validation checks every original sheet’s formulas, values, number
 formats, merged ranges, and visibility while tolerating only XLSX round-trip empty
@@ -49,15 +51,19 @@ clean, L1, L2, and L3 failed-attempt prompts, parses the final answer, stores to
 usage and cache status, and applies structural, invariance, leakage, minimum-effect,
 severity-monotonicity, and floor-avoidance gates.
 
-Current run state:
+Completed run state:
 
 ```text
-status=blocked_on_credentials
+status=experiment_complete
 model=deepseek-v4-flash
-run=outputs/runs/pilot-a/20260812T055220737612Z-dapo-failed-attempt
+run=outputs/runs/pilot-a/20260812T082228672656Z-dapo-failed-attempt
 ```
 
-After placing a valid key in `.env`:
+Result: clean/L1/L2/L3 were all 0.6, `effect_l2=0`, and the
+`minimum_effect` gate failed. One task degraded and one improved, so the aggregate
+effect cancelled. This operator must be redesigned before benchmark inclusion.
+
+To reproduce with the configured key in `.env`:
 
 ```bash
 python -m rsebench.cli provider-check \
@@ -67,16 +73,18 @@ python -m rsebench.cli math-pilot-a --limit 5
 
 The provider is hard-locked to the official `https://api.deepseek.com` endpoint and
 model ID `deepseek-v4-flash`; cached responses are reused and credentials are never
-written to run manifests.
+written to run manifests. Execution now uses explicit non-thinking mode with a
+2048-token cap after a retained thinking-enabled run produced four empty responses
+for one task at the 8192-token reasoning limit.
 
 ## Pilot-B status
 
-Pilot-B is intentionally not launched yet. Preconditions are:
+Pilot-B full self-evolution is intentionally not launched yet. Preconditions are:
 
 1. a Pilot-A operator demonstrates a real clean-to-noisy drop without collapsing
    all scores to zero;
 2. the selected baseline reproduces its native clean pilot result;
-3. a reviewed DeepSeek adapter is added to the baseline launcher;
+3. the baseline's native DeepSeek/OpenAI-compatible route is verified;
 4. the same frozen pilot manifest is used across methods.
 
 Spreadsheet Pilot-B should start with SkillOpt and Trace2Skill, then add SkillGrad.
@@ -87,7 +95,7 @@ adaptation must be declared rather than presented as native reproduction.
 
 ## Verification
 
-At this checkpoint the full offline suite has 59 tests, all passing, with 85%
+At this checkpoint the full harness suite has 67 tests, all passing, with 88%
 line coverage. It covers registries, download idempotence, contracts, provider
 lock/cache, cross-domain C1 noise, spreadsheet preservation, OfficeQA retrieval
 fixtures, DocVQA masks, math leakage and critics, group-isolated splits,

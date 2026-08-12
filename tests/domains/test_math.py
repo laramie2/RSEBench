@@ -1,9 +1,11 @@
 from rsebench.domains.math import (
     MathNoiseCandidate,
+    generate_flawed_solution,
     scan_answer_leak,
     validate_flawed_solution,
     wrap_failed_attempt,
 )
+from rsebench.providers.deepseek import ModelResponse
 
 
 def test_answer_leak_detects_normalized_ground_truth():
@@ -42,3 +44,51 @@ def test_candidate_with_valid_proof_is_rejected():
         critic_valid_proof=True,
     )
     assert not validate_flawed_solution(candidate, gold_answer="7").accepted
+
+
+def test_error_type_agreement_accepts_semantic_critic_paraphrase():
+    candidate = MathNoiseCandidate(
+        partial_solution="Apply a tangent-secant relation with the wrong product.",
+        error_step="The tangent-secant theorem was misapplied.",
+        error_type="Misapplication of the tangent-secant power theorem",
+        incorrect_conclusion="The length is 9.",
+        critic_error_present=True,
+        critic_error_type=(
+            "Incorrect application of tangent-secant theorem; "
+            "the exterior and whole secant were confused."
+        ),
+        critic_valid_proof=False,
+    )
+
+    assert validate_flawed_solution(candidate, gold_answer="12").accepted
+
+
+def test_generator_retries_empty_structured_response_before_critics():
+    responses = iter(
+        [
+            "",
+            '{"partial_solution":"Use an unsupported independence assumption.",'
+            '"error_step":"Assume independence.",'
+            '"error_type":"invalid independence",'
+            '"incorrect_conclusion":"The probability is one half."}',
+            '{"error_present":true,"error_step":"Assume independence.",'
+            '"error_type":"invalid independence assumption"}',
+            '{"valid_proof":false,"reason":"The assumption is unsupported."}',
+        ]
+    )
+
+    class FakeClient:
+        def complete(self, messages, response_format, cache_key):
+            return ModelResponse(content=next(responses))
+
+    candidate = generate_flawed_solution(
+        problem="Find the probability.",
+        gold_answer="3/4",
+        task_hash="c" * 64,
+        client=FakeClient(),
+        severity="L2",
+        seed=3,
+        max_attempts=2,
+    )
+
+    assert candidate.attempt_index == 1

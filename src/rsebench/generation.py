@@ -16,7 +16,11 @@ from dotenv import load_dotenv
 from pydantic import BaseModel, Field
 
 from rsebench.contracts import NoiseManifest, Severity, TaskManifest, ValidationReport
-from rsebench.domains.math import generate_flawed_solution, validate_flawed_solution
+from rsebench.domains.math import (
+    CandidateGenerationError,
+    generate_flawed_solution,
+    validate_flawed_solution,
+)
 from rsebench.domains.officeqa import (
     OfficeQATask,
     build_corpus_index,
@@ -62,6 +66,25 @@ class GenerationSummary(BaseModel):
     status: str
     counts: dict[str, int] = Field(default_factory=dict)
     records: list[GenerationRecord] = Field(default_factory=list)
+
+
+def _generation_status(counts: dict[str, int]) -> str:
+    blockers = sum(
+        count for status, count in counts.items() if status.startswith("blocked")
+    )
+    rejected = sum(
+        count for status, count in counts.items() if status.startswith("rejected")
+    )
+    accepted = counts.get("accepted", 0)
+    if accepted == 0 and blockers:
+        return "blocked"
+    if accepted == 0 and rejected:
+        return "rejected"
+    if blockers or rejected:
+        return "partial"
+    if accepted == 0 and counts.get("not_applicable", 0):
+        return "not_applicable"
+    return "generation_validated"
 
 
 def _run_id(profile: Path, offline: bool) -> str:
@@ -328,6 +351,16 @@ def _math_records(
                             detail=str(exc),
                         )
                     )
+                except CandidateGenerationError as exc:
+                    records.append(
+                        GenerationRecord(
+                            task_id=task.task_id,
+                            operator=operator,
+                            severity=severity,
+                            status="rejected_generation",
+                            detail=str(exc),
+                        )
+                    )
     return records
 
 
@@ -583,18 +616,7 @@ def generate_from_profile(
     counts: dict[str, int] = {}
     for record in records:
         counts[record.status] = counts.get(record.status, 0) + 1
-    blockers = sum(
-        count for status, count in counts.items() if status.startswith("blocked")
-    )
-    rejected = counts.get("rejected", 0)
-    accepted = counts.get("accepted", 0)
-    status = (
-        "blocked"
-        if accepted == 0 and blockers
-        else "partial"
-        if blockers or rejected
-        else "generation_validated"
-    )
+    status = _generation_status(counts)
     summary = GenerationSummary(
         run_id=run_id,
         run_dir=str(run_dir),

@@ -1,6 +1,6 @@
 """Prompt templates for flawed-mathematical-solution generation and critique."""
 
-GENERATOR_TEMPLATE_VERSION = "math-flaw-v1"
+GENERATOR_TEMPLATE_VERSION = "math-flaw-v3-explicit-nonthinking"
 
 GENERATOR_PROMPT = """You are constructing a robustness benchmark, not solving for a user.
 Given the math problem below, write a plausible but flawed partial attempt. Introduce exactly

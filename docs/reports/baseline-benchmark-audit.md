@@ -45,10 +45,11 @@ failures and edits a skill under selection/gating. Its checkout includes native
 configs and fixed split metadata for SpreadsheetBench, OfficeQA, DocVQA, SearchQA,
 and LiveMathematicianBench. SpreadsheetBench uses workbook execution and the
 official cell comparator. OfficeQA uses an offline document/search tool runtime and
-the released reward logic. DocVQA is a one-turn image task. The model router can
-support OpenAI-compatible endpoints internally, but the current launcher does not
-offer a first-class `deepseek` backend, so a small reviewed adapter is required
-before Pilot-B.
+the released reward logic. DocVQA is a one-turn image task. The model router has a
+generic `openai_compatible` backend. Its isolated environment is installed, 60
+focused routing tests pass, and a real request to `deepseek-v4-flash` succeeded. A
+new transport adapter is therefore unnecessary; the remaining work is the shared
+manifest environment and result adapter.
 
 ### SkillGrad
 

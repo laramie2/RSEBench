@@ -48,7 +48,9 @@ def _correct(response: str, gold: str) -> bool:
 
 def _cache_key(task_hash: str, condition: str, severity: str = "L0") -> str:
     return hashlib.sha256(
-        f"math-pilot-a-v1:{task_hash}:{condition}:{severity}".encode("utf-8")
+        f"math-pilot-a-v2-nonthinking:{task_hash}:{condition}:{severity}".encode(
+            "utf-8"
+        )
     ).hexdigest()
 
 
@@ -68,7 +70,7 @@ def run_math_execution_pilot(*, limit: int = 5) -> dict[str, Any]:
     run_id = f"{stamp}-dapo-failed-attempt"
     run_dir = create_run_directory(output_root, "pilot-a", run_id)
     client = DeepSeekClient.from_yaml(
-        PROJECT_ROOT / "configs/pilot/deepseek-v4-flash.yaml"
+        PROJECT_ROOT / "configs/pilot/deepseek-v4-flash-generation.yaml"
     )
     base = {
         "run_id": run_id,
