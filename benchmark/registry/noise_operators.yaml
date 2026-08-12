@@ -1,0 +1,52 @@
+version: 1
+operators:
+  failed_attempt:
+    channel: C1
+    mechanism: M2
+    domains: [spreadsheet, document, math]
+    modes: [rule, model]
+  related_distractor:
+    channel: C1
+    mechanism: M1
+    domains: [spreadsheet, document, math]
+    modes: [model]
+  stale_backup_sheet:
+    channel: C2
+    mechanism: M4
+    domains: [spreadsheet]
+    modes: [rule]
+  semantic_decoy_sheet:
+    channel: C2
+    mechanism: M1
+    domains: [spreadsheet]
+    modes: [hybrid]
+  semantic_decoy_document:
+    channel: C2
+    mechanism: M1
+    domains: [document]
+    modes: [rule, hybrid]
+  gold_rank_displacement:
+    channel: C3
+    mechanism: M5
+    domains: [document]
+    modes: [rule]
+  margin_clutter:
+    channel: C2
+    mechanism: M1
+    domains: [document]
+    modes: [rule]
+  flawed_partial_solution:
+    channel: C1
+    mechanism: M2
+    domains: [math]
+    modes: [model]
+  plausible_false_lemma:
+    channel: C2
+    mechanism: M2
+    domains: [math]
+    modes: [model]
+  feedback_dropout:
+    channel: C4
+    mechanism: M3
+    domains: [spreadsheet, document, math]
+    modes: [rule]

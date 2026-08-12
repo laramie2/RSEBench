@@ -1,0 +1,38 @@
+version: 1
+splits:
+  spreadsheetbench_verified:
+    benchmark: spreadsheetbench_verified
+    total: 400
+    group_key: id
+    evolution: 200
+    pilot_evolve: 30
+    pilot_eval: 10
+    validation: 20
+    test: 180
+  officeqa_full:
+    benchmark: officeqa_full
+    total: 246
+    group_key: source_files
+    evolution: 50
+    pilot_evolve: 12
+    pilot_eval: 8
+    validation: 24
+    test: 172
+  docvqa_10pct:
+    benchmark: docvqa_10pct
+    total: 534
+    group_key: docId
+    evolution: 107
+    pilot_evolve: 20
+    pilot_eval: 10
+    validation: 53
+    test: 374
+  dapo_fixed_1000:
+    benchmark: dapo_fixed_1000
+    total: 1000
+    group_key: normalized_problem_hash
+    evolution: 400
+    pilot_evolve: 30
+    pilot_eval: 20
+    validation: 100
+    test: 500

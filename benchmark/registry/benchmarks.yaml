@@ -1,0 +1,66 @@
+version: 1
+benchmarks:
+  spreadsheetbench_verified:
+    domain: spreadsheet
+    source_kind: huggingface
+    source_id: KAKA22/SpreadsheetBench
+    revision: main
+    local_path: spreadsheetbench
+    gated: false
+    license_review_required: true
+  officeqa_full:
+    domain: document
+    source_kind: huggingface
+    source_id: databricks/officeqa
+    revision: main
+    local_path: officeqa
+    gated: true
+    license_review_required: true
+  docvqa_10pct:
+    domain: document
+    source_kind: huggingface
+    source_id: lmms-lab/DocVQA
+    revision: main
+    local_path: docvqa
+    gated: false
+    license_review_required: true
+  dapo_fixed_1000:
+    domain: math
+    source_kind: huggingface
+    source_id: BytedTsinghua-SIA/DAPO-Math-17k
+    revision: main
+    local_path: dapo_math_17k
+    gated: false
+    license_review_required: false
+  wikitablequestions:
+    domain: spreadsheet
+    source_kind: github
+    source_id: ppasupat/WikiTableQuestions
+    revision: master
+    local_path: wikitablequestions
+    gated: false
+    license_review_required: true
+  live_mathematician_bench:
+    domain: math
+    source_kind: huggingface
+    source_id: LiveMathematicianBench/LiveMathematicianBench
+    revision: main
+    local_path: live_mathematician_bench
+    gated: false
+    license_review_required: false
+  aime_2026:
+    domain: math
+    source_kind: github
+    source_id: eth-sri/matharena
+    revision: main
+    local_path: matharena
+    gated: false
+    license_review_required: true
+  skillflow_tasks:
+    domain: skill_native
+    source_kind: huggingface
+    source_id: zhang-ziao/SkillFlow-Task
+    revision: main
+    local_path: skillflow_tasks
+    gated: false
+    license_review_required: true
