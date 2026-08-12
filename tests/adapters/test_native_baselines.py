@@ -108,3 +108,13 @@ def test_credential_path_skips_empty_worktree_env(tmp_path: Path, monkeypatch):
     monkeypatch.setattr(common_env.subprocess, "run", lambda *args, **kwargs: Completed())
 
     assert common_env._credential_env_path() == checkout / ".env"
+
+
+def test_load_deepseek_key_replaces_inherited_empty_value(tmp_path: Path, monkeypatch):
+    credential_file = tmp_path / ".env"
+    credential_file.write_text("DEEPSEEK_API_KEY=usable\n", encoding="utf-8")
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "")
+    monkeypatch.setattr(common_env, "_credential_env_path", lambda: credential_file)
+
+    assert common_env.load_deepseek_key() == "usable"
+    assert common_env.os.environ["DEEPSEEK_API_KEY"] == "usable"
