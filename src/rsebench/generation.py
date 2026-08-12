@@ -1061,15 +1061,28 @@ def generate_evolution_pairs_from_profile(
     split_path = _resolve_split_path(config["split_manifest"], data_root)
     split_raw = json.loads(split_path.read_text(encoding="utf-8"))
     sizes = dict(config.get("sizes") or {})
-    train_ids = [str(value) for value in split_raw["evolution"]][
-        : int(sizes.get("train", 10))
+    partitions = dict(config.get("partitions") or {})
+    train_partition = str(partitions.get("train", "evolution"))
+    validation_partition = str(partitions.get("validation", "validation"))
+    test_partition = str(partitions.get("clean_test", "test"))
+    train_size = int(sizes.get("train", 10))
+    validation_size = int(sizes.get("validation", 5))
+    test_size = int(sizes.get("clean_test", 10))
+    train_pool = [str(value) for value in split_raw[train_partition]]
+    validation_pool = [str(value) for value in split_raw[validation_partition]]
+    test_pool = [str(value) for value in split_raw[test_partition]]
+    train_ids = train_pool[:train_size]
+    validation_offset = train_size if validation_partition == train_partition else 0
+    validation_ids = validation_pool[
+        validation_offset : validation_offset + validation_size
     ]
-    validation_ids = [str(value) for value in split_raw["validation"]][
-        : int(sizes.get("validation", 5))
-    ]
-    test_ids = [str(value) for value in split_raw["test"]][
-        : int(sizes.get("clean_test", 10))
-    ]
+    test_ids = test_pool[:test_size]
+    if (
+        len(train_ids) != train_size
+        or len(validation_ids) != validation_size
+        or len(test_ids) != test_size
+    ):
+        raise PairGenerationError("configured pilot partition is smaller than requested")
     if set(train_ids + validation_ids) & set(test_ids):
         raise PairGenerationError("frozen split leaks evolution IDs into clean_test")
     all_tasks = _load_evolution_tasks(

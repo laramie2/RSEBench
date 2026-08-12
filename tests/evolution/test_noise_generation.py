@@ -234,11 +234,13 @@ def test_livemath_profile_builds_native_metadata_and_clean_test(tmp_path, monkey
     split_path = data / "split.json"
     split_path.write_text(
         json.dumps(
-            {
-                "benchmark": "livemathematicianbench",
-                "seed": 7,
-                "evolution": ["202601:1"],
-                "validation": ["202601:2"],
+                {
+                    "benchmark": "livemathematicianbench",
+                    "seed": 7,
+                    "evolution": ["202601:1"],
+                    "pilot_evolve": ["202601:1", "202601:2"],
+                    "pilot_eval": ["202601:3"],
+                    "validation": ["202601:2"],
                 "test": ["202601:3"],
             }
         ),
@@ -257,6 +259,11 @@ def test_livemath_profile_builds_native_metadata_and_clean_test(tmp_path, monkey
                 "severity": "L2",
                 "seed": 7,
                 "sizes": {"train": 1, "validation": 1, "clean_test": 1},
+                "partitions": {
+                    "train": "pilot_evolve",
+                    "validation": "pilot_evolve",
+                    "clean_test": "pilot_eval",
+                },
             }
         ),
         encoding="utf-8",

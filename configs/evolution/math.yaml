@@ -12,6 +12,10 @@ sizes:
   train: 5
   validation: 3
   clean_test: 10
+partitions:
+  train: pilot_evolve
+  validation: pilot_evolve
+  clean_test: pilot_eval
 model_config: configs/pilot/deepseek-v4-flash-generation.yaml
 generation:
   max_attempts: 9
