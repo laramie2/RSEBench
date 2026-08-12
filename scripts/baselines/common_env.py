@@ -44,10 +44,12 @@ def _credential_env_path() -> Path:
 
 
 def load_deepseek_key() -> str:
+    credential_path = _credential_env_path()
+    load_dotenv(credential_path)
     key = os.environ.get("DEEPSEEK_API_KEY", "").strip()
     if not key:
         key = str(
-            dotenv_values(_credential_env_path()).get("DEEPSEEK_API_KEY") or ""
+            dotenv_values(credential_path).get("DEEPSEEK_API_KEY") or ""
         ).strip()
         if key:
             os.environ["DEEPSEEK_API_KEY"] = key
