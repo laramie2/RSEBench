@@ -13,6 +13,7 @@ from rsebench.evidence.contracts import (
     TrajectoryRecord,
 )
 from rsebench.evidence.io import canonical_hash, canonical_json, read_record, write_record
+from rsebench.evidence.hooks import EvidenceAdapter, EvidenceNoiseHook
 from rsebench.evidence.operators import (
     mutate_record,
     omit_selected_event,
@@ -21,6 +22,8 @@ from rsebench.evidence.operators import (
 
 __all__ = [
     "EvidenceRecord",
+    "EvidenceAdapter",
+    "EvidenceNoiseHook",
     "EvidenceStage",
     "FeedbackRecord",
     "HookContext",

@@ -8,6 +8,14 @@ from pathlib import Path
 import typer
 
 from rsebench.contracts import NoiseManifest, TaskManifest
+from rsebench.evidence import (
+    FeedbackRecord,
+    RuntimeNoiseSpec,
+    TrajectoryRecord,
+    read_record,
+    write_record,
+)
+from rsebench.evidence.operators import mutate_record
 from rsebench.adapters.contracts import SmokeLevel
 from rsebench.adapters.registry import load_adapter_registry
 from rsebench.adapters.smoke import run_smoke
@@ -27,11 +35,46 @@ def export_schemas(output_dir: Path = ROOT / "benchmark" / "schemas") -> None:
     schemas = {
         "task-manifest.schema.json": TaskManifest.model_json_schema(),
         "noise-manifest.schema.json": NoiseManifest.model_json_schema(),
+        "trajectory-record.schema.json": TrajectoryRecord.model_json_schema(),
+        "feedback-record.schema.json": FeedbackRecord.model_json_schema(),
+        "runtime-noise-spec.schema.json": RuntimeNoiseSpec.model_json_schema(),
     }
     for name, schema in schemas.items():
         path = output_dir / name
         path.write_text(json.dumps(schema, indent=2, sort_keys=True) + "\n")
         typer.echo(path)
+
+
+@app.command("evidence-mutate")
+def evidence_mutate(
+    spec_path: Path = typer.Option(
+        ..., "--spec", exists=True, dir_okay=False, readable=True
+    ),
+    input_path: Path = typer.Option(
+        ..., "--input", exists=True, dir_okay=False, readable=True
+    ),
+    output_path: Path = typer.Option(..., "--output", dir_okay=False),
+    audit_path: Path = typer.Option(..., "--audit", dir_okay=False),
+    trajectory_path: Path | None = typer.Option(
+        None, "--trajectory", exists=True, dir_okay=False, readable=True
+    ),
+) -> None:
+    """Mutate a normalized N3/N4 record and write its audit record."""
+
+    spec = RuntimeNoiseSpec.model_validate_json(
+        spec_path.read_text(encoding="utf-8")
+    )
+    record = read_record(input_path)
+    trajectory = read_record(trajectory_path) if trajectory_path else None
+    if trajectory is not None and not isinstance(trajectory, TrajectoryRecord):
+        raise typer.BadParameter("--trajectory must contain a trajectory record")
+    result = mutate_record(record, spec, trajectory=trajectory)
+    write_record(output_path, result.output_record)
+    write_record(audit_path, result.audit)
+    typer.echo(
+        f"stage={spec.stage.value} applicable={result.audit.applicable} "
+        f"output={output_path}"
+    )
 
 
 @app.command("registry-check")

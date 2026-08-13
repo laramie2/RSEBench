@@ -1,0 +1,68 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "benchmark": {
+      "minLength": 1,
+      "title": "Benchmark",
+      "type": "string"
+    },
+    "blamed_event_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Blamed Event Ids",
+      "type": "array"
+    },
+    "blamed_resource_refs": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Blamed Resource Refs",
+      "type": "array"
+    },
+    "diagnosis": {
+      "default": "",
+      "title": "Diagnosis",
+      "type": "string"
+    },
+    "metadata": {
+      "additionalProperties": true,
+      "title": "Metadata",
+      "type": "object"
+    },
+    "recommendation": {
+      "default": "",
+      "title": "Recommendation",
+      "type": "string"
+    },
+    "record_type": {
+      "const": "feedback",
+      "default": "feedback",
+      "title": "Record Type",
+      "type": "string"
+    },
+    "scalar_reward": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Scalar Reward"
+    },
+    "task_id": {
+      "minLength": 1,
+      "title": "Task Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "task_id",
+    "benchmark"
+  ],
+  "title": "FeedbackRecord",
+  "type": "object"
+}
