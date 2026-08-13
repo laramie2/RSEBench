@@ -1,0 +1,108 @@
+{
+  "benchmark": "skilllearnbench",
+  "clean_test": [
+    {
+      "artifact_path": "rsebench-methods://skilllearnbench/tasks/enterprise-information-search/enterprise-information-search-4",
+      "benchmark": "skilllearnbench",
+      "domain": "skill_learning",
+      "gold_answers": [],
+      "metadata": {
+        "official_instance_path": "rsebench-methods://skilllearnbench/tasks/enterprise-information-search/enterprise-information-search-4",
+        "task_family": "enterprise-information-search"
+      },
+      "prompt": "I want you to help me retrieve information over enterprise data.\n\nThe data file is located at /root/DATA. \nThe retrieval question is located at /root/question.txt which includes the key and value of all questions.\n\nWrite your answer of all questions to '/root/answer.json' in a dict format so I can read it by python code directly.\nFor every question, store the `answer` as a list.\nIf the answer includes multiple names/items/ids, store them in a list.\nIf the answer only includes one name/item/id, also store it in a list with length 1.\nAfter finishing all the step, please also log the consumed tokens in the json file.\nFor every question, store `tokens` as a positive numeric value, not a string.\nThe content of the output file should be in the following format:\n{\n    \"q1\": {\"answer\": [\"xxx\"], \"tokens\": 123}, \n    \"q2\": {\"answer\": [\"xxx\"], \"tokens\": 123}, \n    \"q3\": {\"answer\": [\"xxx\"], \"tokens\": 123}, \n}\n",
+      "source_hash": "a34595cebe6bb165f3fff6fba6d6665642a5e8fec89b93159938b558b760c751",
+      "task_id": "enterprise-information-search-4",
+      "verifier": "skilllearn_hidden_test_v1"
+    },
+    {
+      "artifact_path": "rsebench-methods://skilllearnbench/tasks/enterprise-information-search/enterprise-information-search-5",
+      "benchmark": "skilllearnbench",
+      "domain": "skill_learning",
+      "gold_answers": [],
+      "metadata": {
+        "official_instance_path": "rsebench-methods://skilllearnbench/tasks/enterprise-information-search/enterprise-information-search-5",
+        "task_family": "enterprise-information-search"
+      },
+      "prompt": "I want you to help me retrieve information over enterprise data.\n\nThe data file is located at /root/DATA. \nThe retrieval question is located at /root/question.txt which includes the key and value of all questions.\n\nWrite your answer of all questions to '/root/answer.json' in a dict format so I can read it by python code directly.\nFor every question, store the `answer` as a list.\nIf the answer includes multiple names/items/ids, store them in a list.\nIf the answer only includes one name/item/id, also store it in a list with length 1.\nAfter finishing all the step, please also log the consumed tokens in the json file.\nFor every question, store `tokens` as a positive numeric value, not a string.\nThe content of the output file should be in the following format:\n{\n    \"q1\": {\"answer\": [\"xxx\"], \"tokens\": 123}, \n    \"q2\": {\"answer\": [\"xxx\"], \"tokens\": 123}, \n    \"q3\": {\"answer\": [\"xxx\"], \"tokens\": 123}, \n}\n",
+      "source_hash": "4f248e3c0180d2558db6cfdec1526957204830f02b99cd4178f8f687a6513095",
+      "task_id": "enterprise-information-search-5",
+      "verifier": "skilllearn_hidden_test_v1"
+    },
+    {
+      "artifact_path": "rsebench-methods://skilllearnbench/tasks/enterprise-information-search/enterprise-information-search-6",
+      "benchmark": "skilllearnbench",
+      "domain": "skill_learning",
+      "gold_answers": [],
+      "metadata": {
+        "official_instance_path": "rsebench-methods://skilllearnbench/tasks/enterprise-information-search/enterprise-information-search-6",
+        "task_family": "enterprise-information-search"
+      },
+      "prompt": "I want you to help me retrieve information over enterprise data.\n\nThe data file is located at /root/DATA. \nThe retrieval question is located at /root/question.txt which includes the key and value of all questions.\n\nWrite your answer of all questions to '/root/answer.json' in a dict format so I can read it by python code directly.\nFor every question, store the `answer` as a list.\nIf the answer includes multiple names/items/ids, store them in a list.\nIf the answer only includes one name/item/id, also store it in a list with length 1.\nAfter finishing all the step, please also log the consumed tokens in the json file.\nFor every question, store `tokens` as a positive numeric value, not a string.\nThe content of the output file should be in the following format:\n{\n    \"q1\": {\"answer\": [\"xxx\"], \"tokens\": 123}, \n    \"q2\": {\"answer\": [\"xxx\"], \"tokens\": 123}, \n    \"q3\": {\"answer\": [\"xxx\"], \"tokens\": 123}, \n}\n",
+      "source_hash": "d0aaba8df539f8a7ebb4989fb733a008893bbf168ce0be3b909373793134815e",
+      "task_id": "enterprise-information-search-6",
+      "verifier": "skilllearn_hidden_test_v1"
+    }
+  ],
+  "domain": "skill_learning",
+  "metadata": {
+    "baseline": "skilllearn_self_feedback",
+    "feedback_mode": "self",
+    "qualification_version": "clean-qualification-v1",
+    "runtime": {
+      "evolution_rounds": 2,
+      "max_completion_tokens": 4096,
+      "max_tool_turns": 16,
+      "require_prebuilt_images": true
+    },
+    "task_family": "enterprise-information-search"
+  },
+  "seed": 20260813,
+  "source_hash": "716ca6cdebc431fb65453ce07199e513a06921a1fb6ee8e594c820a1874a1165",
+  "train": [
+    {
+      "artifact_path": "rsebench-methods://skilllearnbench/tasks/enterprise-information-search/enterprise-information-search-1",
+      "benchmark": "skilllearnbench",
+      "domain": "skill_learning",
+      "gold_answers": [],
+      "metadata": {
+        "official_instance_path": "rsebench-methods://skilllearnbench/tasks/enterprise-information-search/enterprise-information-search-1",
+        "task_family": "enterprise-information-search"
+      },
+      "prompt": "I want you to help me retrieve information over enterprise data.\n\nThe data file is located at /root/DATA. \nThe retrieval question is located at /root/question.txt which includes the key and value of all questions.\n\nWrite your answer of all questions to '/root/answer.json' in a dict format so I can read it by python code directly.\nFor every question, store the `answer` as a list.\nIf the answer includes multiple names/items/ids, store them in a list.\nIf the answer only includes one name/item/id, also store it in a list with length 1.\nAfter finishing all the step, please also log the consumed tokens in the json file.\nFor every question, store `tokens` as a positive numeric value, not a string.\nThe content of the output file should be in the following format:\n{\n    \"q1\": {\"answer\": [\"xxx\"], \"tokens\": 123}, \n    \"q2\": {\"answer\": [\"xxx\"], \"tokens\": 123}, \n    \"q3\": {\"answer\": [\"xxx\"], \"tokens\": 123}, \n}\n",
+      "source_hash": "ca226f788a79684bcfb0e37e58726a441bfb4fb7f929cd5b264d391e8be8aa94",
+      "task_id": "enterprise-information-search-1",
+      "verifier": "skilllearn_hidden_test_v1"
+    },
+    {
+      "artifact_path": "rsebench-methods://skilllearnbench/tasks/enterprise-information-search/enterprise-information-search-2",
+      "benchmark": "skilllearnbench",
+      "domain": "skill_learning",
+      "gold_answers": [],
+      "metadata": {
+        "official_instance_path": "rsebench-methods://skilllearnbench/tasks/enterprise-information-search/enterprise-information-search-2",
+        "task_family": "enterprise-information-search"
+      },
+      "prompt": "I want you to help me retrieve information over enterprise data.\n\nThe data file is located at /root/DATA. \nThe retrieval question is located at /root/question.txt which includes the key and value of all questions.\n\nWrite your answer of all questions to '/root/answer.json' in a dict format so I can read it by python code directly.\nFor every question, store the `answer` as a list.\nIf the answer includes multiple names/items/ids, store them in a list.\nIf the answer only includes one name/item/id, also store it in a list with length 1.\nAfter finishing all the step, please also log the consumed tokens in the json file.\nFor every question, store `tokens` as a positive numeric value, not a string.\nThe content of the output file should be in the following format:\n{\n    \"q1\": {\"answer\": [\"xxx\"], \"tokens\": 123}, \n    \"q2\": {\"answer\": [\"xxx\"], \"tokens\": 123}, \n    \"q3\": {\"answer\": [\"xxx\"], \"tokens\": 123}, \n}\n",
+      "source_hash": "b061acfba10ed5c3a234ac3aa3287053deb67683c614ca925fda5d036280d167",
+      "task_id": "enterprise-information-search-2",
+      "verifier": "skilllearn_hidden_test_v1"
+    }
+  ],
+  "validation": [
+    {
+      "artifact_path": "rsebench-methods://skilllearnbench/tasks/enterprise-information-search/enterprise-information-search-3",
+      "benchmark": "skilllearnbench",
+      "domain": "skill_learning",
+      "gold_answers": [],
+      "metadata": {
+        "official_instance_path": "rsebench-methods://skilllearnbench/tasks/enterprise-information-search/enterprise-information-search-3",
+        "task_family": "enterprise-information-search"
+      },
+      "prompt": "I want you to help me retrieve information over enterprise data.\n\nThe data file is located at /root/DATA. \nThe retrieval question is located at /root/question.txt which includes the key and value of all questions.\n\nWrite your answer of all questions to '/root/answer.json' in a dict format so I can read it by python code directly.\nFor every question, store the `answer` as a list.\nIf the answer includes multiple names/items/ids, store them in a list.\nIf the answer only includes one name/item/id, also store it in a list with length 1.\nAfter finishing all the step, please also log the consumed tokens in the json file.\nFor every question, store `tokens` as a positive numeric value, not a string.\nThe content of the output file should be in the following format:\n{\n    \"q1\": {\"answer\": [\"xxx\"], \"tokens\": 123}, \n    \"q2\": {\"answer\": [\"xxx\"], \"tokens\": 123}, \n    \"q3\": {\"answer\": [\"xxx\"], \"tokens\": 123}, \n}\n",
+      "source_hash": "5a5cdaf9c8c722b1dcee34dc1f4d6601d219afe0ba93e3e822ae959536518564",
+      "task_id": "enterprise-information-search-3",
+      "verifier": "skilllearn_hidden_test_v1"
+    }
+  ]
+}
