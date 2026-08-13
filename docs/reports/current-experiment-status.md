@@ -1,6 +1,6 @@
 # Current Robust Self-Evolution Validation Status
 
-Date: 2026-08-12
+Date: 2026-08-13
 
 ## Executive conclusion
 
@@ -201,10 +201,27 @@ Do not start the full multi-method benchmark yet.
 4. Only operators that reproduce a harmful evolution gap without hurting clean
    benchmark validity should enter the final robust benchmark release.
 
+The execution-ready screening, confirmation, token-budget, and stopping rules
+are frozen in `docs/plans/next-validation-experiments.md`.
+
+## Token accounting
+
+All future noise generation, calibration, paired evolution, and expanded
+evaluation runs now write an append-only per-call token ledger. The default
+budget view is provider-billed usage; cache hits are reported separately through
+the logical-token view.
+
+The historical exact lower bound is `24,670,510` billed tokens across `3,282`
+observable calls. Another `588` legacy evaluation conversations have no
+persisted provider usage and remain unobservable rather than estimated. The
+live ledger smoke measured 11 billed tokens for one request and 22 logical
+tokens after one identical cache hit. Full definitions, source breakdown, and
+artifact paths are in `docs/reports/token-accounting-status.md`.
+
 ## Reproducibility verification
 
-- Main benchmark and harness suite: `199 passed`.
-- Focused external SkillOpt adapter/environment suite: `18 passed`.
+- Main benchmark and harness suite: `210 passed`.
+- Focused external SkillOpt token/backend/environment suite: `13 passed`.
 - The tracked SkillOpt adaptation patch reverse-applies cleanly to the current
   external checkout, so the intentionally dirty external repository is fully
   represented by the versioned patch.
