@@ -43,6 +43,7 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--workers", type=int, default=1)
     parser.add_argument("--max-turns", type=int, default=3)
     parser.add_argument("--max-completion-tokens", type=int, default=2048)
+    parser.add_argument("--stage", choices=["N1", "N2", "N3", "N4"])
     parser.add_argument("--seed", type=int, default=20260812)
     return parser.parse_args()
 
@@ -92,6 +93,7 @@ def run_manifest(args: argparse.Namespace) -> Path:
         "workers": args.workers,
         "max_turns": args.max_turns,
         "max_completion_tokens": args.max_completion_tokens,
+        "stage": args.stage,
     }
     result = PairedEvolutionRunner(executor).run(
         method="skillopt",

@@ -52,12 +52,18 @@ class SkillOptExecutor:
         *,
         method_root: Path | str,
         data_root: Path | str,
+        project_root: Path | str | None = None,
         budget: SkillOptBudget | None = None,
         command_runner: Callable[..., Any] = subprocess.run,
         environment: dict[str, str] | None = None,
     ) -> None:
         self.method_root = Path(method_root).resolve()
         self.data_root = Path(data_root).resolve()
+        self.project_root = (
+            Path(project_root).resolve()
+            if project_root is not None
+            else Path(__file__).resolve().parents[3]
+        )
         self.budget = budget or SkillOptBudget()
         self.command_runner = command_runner
         if environment is None:
@@ -277,15 +283,35 @@ class SkillOptExecutor:
             "--cfg-options",
             *self._common_options(split.benchmark, native_split),
         ]
+        environment = self._token_environment(
+            domain=arm.domain,
+            benchmark=split.benchmark,
+            arm=arm.arm,
+            stage="evolution",
+        )
+        requested_stage = str(arm.parameters.get("stage") or "")
+        if arm.arm == "noisy" and requested_stage in {"N3", "N4"}:
+            spec = (
+                self.project_root
+                / "benchmark"
+                / "core1"
+                / "runtime"
+                / split.benchmark
+                / f"{requested_stage}.json"
+            )
+            if not spec.is_file():
+                raise FileNotFoundError(f"SkillOpt evidence spec missing: {spec}")
+            environment.update(
+                {
+                    "RSEBENCH_EVIDENCE_SPEC": str(spec),
+                    "RSEBENCH_EVIDENCE_AUDIT_ROOT": str(output_dir.resolve()),
+                    "RSEBENCH_EVIDENCE_ARM": arm.arm,
+                }
+            )
         self._run(
             command,
             output_dir / "command",
-            environment=self._token_environment(
-                domain=arm.domain,
-                benchmark=split.benchmark,
-                arm=arm.arm,
-                stage="evolution",
-            ),
+            environment=environment,
         )
         artifact = native_output / "best_skill.md"
         if not artifact.is_file():

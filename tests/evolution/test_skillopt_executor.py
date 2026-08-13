@@ -159,6 +159,86 @@ def test_skillopt_executor_runs_native_train_and_parses_eval(tmp_path: Path):
     assert "must-not-be-written" not in persisted
 
 
+def test_skillopt_noisy_runtime_arm_exposes_only_requested_evidence_spec(
+    tmp_path: Path,
+):
+    method_root = tmp_path / "skillopt"
+    (method_root / ".venv/bin").mkdir(parents=True)
+    (method_root / ".venv/bin/python").write_text("", encoding="utf-8")
+    (method_root / "scripts").mkdir()
+    (method_root / "scripts/train.py").write_text("", encoding="utf-8")
+    (method_root / "configs/officeqa").mkdir(parents=True)
+    (method_root / "configs/officeqa/default.yaml").write_text(
+        "env: {name: officeqa}", encoding="utf-8"
+    )
+    data_root = tmp_path / "data"
+    (data_root / "materialized/officeqa_full/corpus").mkdir(parents=True)
+    (data_root / "materialized/officeqa_full/parsed/jsons").mkdir(parents=True)
+    project_root = tmp_path / "project"
+    spec = project_root / "benchmark/core1/runtime/officeqa_full/N3.json"
+    spec.parent.mkdir(parents=True)
+    spec.write_text("{}", encoding="utf-8")
+    captured = {}
+
+    def fake_run(command, **kwargs):
+        captured.update(kwargs["env"])
+        out_root = Path(command[command.index("--out_root") + 1])
+        out_root.mkdir(parents=True)
+        (out_root / "best_skill.md").write_text("evolved", encoding="utf-8")
+        return SimpleNamespace(returncode=0, stdout="ok", stderr="")
+
+    executor = SkillOptExecutor(
+        method_root=method_root,
+        data_root=data_root,
+        project_root=project_root,
+        command_runner=fake_run,
+        environment={"DEEPSEEK_API_KEY": "secret"},
+    )
+    seed = tmp_path / "seed.md"
+    seed.write_text("seed", encoding="utf-8")
+    arm = EvolutionArmManifest(
+        arm="noisy",
+        benchmark="officeqa_full",
+        domain="document",
+        method="skillopt",
+        method_seed=11,
+        split_seed=7,
+        split_source_hash="2" * 64,
+        seed_skill_hash="1" * 64,
+        train=[
+            ArmTaskRef(
+                pair_id="a-pair",
+                task_id="a",
+                payload_hash="3" * 64,
+                noise_id="officeqa-n3-a",
+            )
+        ],
+        validation=[],
+        clean_test=[],
+        parameters={"stage": "N3"},
+    )
+    split = SimpleNamespace(
+        benchmark="officeqa_full",
+        train=[SimpleNamespace(clean=_task("a"), noisy=_task("a"))],
+        validation=[],
+        clean_test=[],
+        source_hash="4" * 64,
+    )
+
+    executor.evolve(
+        arm=arm,
+        split=split,
+        seed_skill_path=seed,
+        output_dir=tmp_path / "run/noisy",
+    )
+
+    assert captured["RSEBENCH_EVIDENCE_SPEC"] == str(spec)
+    assert captured["RSEBENCH_EVIDENCE_AUDIT_ROOT"] == str(
+        (tmp_path / "run/noisy").resolve()
+    )
+    assert captured["RSEBENCH_EVIDENCE_ARM"] == "noisy"
+
+
 def test_skillopt_executor_selects_dapo_config(tmp_path: Path):
     method_root = tmp_path / "skillopt"
     (method_root / ".venv" / "bin").mkdir(parents=True)
