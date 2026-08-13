@@ -59,12 +59,8 @@ class EvolutionExecutionAudit(StrictModel):
 
 
 class CleanQualificationPolicy(StrictModel):
-    min_parseable_answer_rate: float | None = Field(
-        default=None, ge=0.0, le=1.0
-    )
-    max_systemic_failure_rate: float | None = Field(
-        default=None, ge=0.0, le=1.0
-    )
+    min_parseable_answer_rate: float | None = Field(default=None, ge=0.0, le=1.0)
+    max_systemic_failure_rate: float | None = Field(default=None, ge=0.0, le=1.0)
 
 
 class CleanQualificationDecision(StrictModel):

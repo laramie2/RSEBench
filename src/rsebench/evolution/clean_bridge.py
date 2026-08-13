@@ -43,8 +43,6 @@ def build_clean_runtime_split(
         seed=split.seed,
         source_hash=split.source_hash,
         train=[_identity_pair(task, seed=split.seed) for task in split.train],
-        validation=[
-            _identity_pair(task, seed=split.seed) for task in split.validation
-        ],
+        validation=[_identity_pair(task, seed=split.seed) for task in split.validation],
         clean_test=list(split.clean_test),
     )
