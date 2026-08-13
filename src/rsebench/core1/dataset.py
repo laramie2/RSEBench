@@ -17,6 +17,7 @@ from rsebench.contracts import (
 )
 from rsebench.core1.materialize import Core1NoiseProfile
 from rsebench.evidence import canonical_hash
+from rsebench.evolution.clean_contracts import CleanEvolutionSplitManifest
 from rsebench.evolution.contracts import EvolutionSplitManifest, EvolutionTaskPair
 
 
@@ -218,6 +219,81 @@ def resolve_split_paths(
     """Resolve release references for one local baseline execution."""
 
     return _map_split_paths(
+        split,
+        roots=_root_mapping(
+            project_root=project_root,
+            data_root=data_root,
+            methods_root=methods_root,
+        ),
+        portable=False,
+    )
+
+
+def _map_clean_split_paths(
+    split: CleanEvolutionSplitManifest,
+    *,
+    roots: dict[str, Path],
+    portable: bool,
+) -> CleanEvolutionSplitManifest:
+    train = [
+        _map_task_paths(task, roots, portable=portable) for task in split.train
+    ]
+    validation = [
+        _map_task_paths(task, roots, portable=portable)
+        for task in split.validation
+    ]
+    clean_test = [
+        _map_task_paths(task, roots, portable=portable)
+        for task in split.clean_test
+    ]
+    updated = split.model_copy(
+        update={"train": train, "validation": validation, "clean_test": clean_test},
+        deep=True,
+    )
+    if portable:
+        payload = {
+            "benchmark": updated.benchmark,
+            "domain": updated.domain,
+            "seed": updated.seed,
+            "train": [task.model_dump(mode="json") for task in train],
+            "validation": [task.model_dump(mode="json") for task in validation],
+            "clean_test": [task.model_dump(mode="json") for task in clean_test],
+            "metadata": updated.metadata,
+        }
+        updated = updated.model_copy(update={"source_hash": canonical_hash(payload)})
+    return updated
+
+
+def make_clean_split_paths_portable(
+    split: CleanEvolutionSplitManifest,
+    *,
+    project_root: Path | str,
+    data_root: Path | str,
+    methods_root: Path | str,
+) -> CleanEvolutionSplitManifest:
+    """Encode clean-manifest paths as release-stable root references."""
+
+    return _map_clean_split_paths(
+        split,
+        roots=_root_mapping(
+            project_root=project_root,
+            data_root=data_root,
+            methods_root=methods_root,
+        ),
+        portable=True,
+    )
+
+
+def resolve_clean_split_paths(
+    split: CleanEvolutionSplitManifest,
+    *,
+    project_root: Path | str,
+    data_root: Path | str,
+    methods_root: Path | str,
+) -> CleanEvolutionSplitManifest:
+    """Resolve clean-manifest root references for one local execution."""
+
+    return _map_clean_split_paths(
         split,
         roots=_root_mapping(
             project_root=project_root,

@@ -27,15 +27,15 @@ def _pair_refs(
     return refs
 
 
-def build_arm_manifests(
+def _shared_arm_fields(
     split: EvolutionSplitManifest,
     *,
     method: str,
     method_seed: int,
     seed_skill_hash: str,
-    parameters: dict | None = None,
-) -> tuple[EvolutionArmManifest, EvolutionArmManifest]:
-    shared = {
+    parameters: dict | None,
+) -> dict:
+    return {
         "benchmark": split.benchmark,
         "domain": split.domain,
         "method": method,
@@ -53,6 +53,47 @@ def build_arm_manifests(
             for task in split.clean_test
         ],
     }
+
+
+def build_clean_arm_manifest(
+    split: EvolutionSplitManifest,
+    *,
+    method: str,
+    method_seed: int,
+    seed_skill_hash: str,
+    parameters: dict | None = None,
+) -> EvolutionArmManifest:
+    """Construct one clean arm without allocating a noisy-arm manifest."""
+
+    return EvolutionArmManifest(
+        arm="clean",
+        train=_pair_refs(split.train, "clean"),
+        validation=_pair_refs(split.validation, "clean"),
+        **_shared_arm_fields(
+            split,
+            method=method,
+            method_seed=method_seed,
+            seed_skill_hash=seed_skill_hash,
+            parameters=parameters,
+        ),
+    )
+
+
+def build_arm_manifests(
+    split: EvolutionSplitManifest,
+    *,
+    method: str,
+    method_seed: int,
+    seed_skill_hash: str,
+    parameters: dict | None = None,
+) -> tuple[EvolutionArmManifest, EvolutionArmManifest]:
+    shared = _shared_arm_fields(
+        split,
+        method=method,
+        method_seed=method_seed,
+        seed_skill_hash=seed_skill_hash,
+        parameters=parameters,
+    )
     clean = EvolutionArmManifest(
         arm="clean",
         train=_pair_refs(split.train, "clean"),

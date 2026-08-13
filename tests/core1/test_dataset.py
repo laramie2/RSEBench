@@ -6,10 +6,13 @@ from rsebench.contracts import TaskManifest
 from rsebench.core1.dataset import (
     build_core1_pair,
     build_core1_split,
+    make_clean_split_paths_portable,
     make_split_paths_portable,
     rehash_task,
+    resolve_clean_split_paths,
     resolve_split_paths,
 )
+from rsebench.evolution.clean_contracts import CleanEvolutionSplitManifest
 from rsebench.core1.materialize import load_core1_noise_profile
 
 
@@ -123,6 +126,63 @@ def test_core1_split_paths_round_trip_without_machine_absolute_paths(
     assert resolved.train[0].clean.metadata["retrieval_fixture"] == str(
         fixture.resolve()
     )
+    assert resolved.source_hash == portable.source_hash
+
+
+def test_clean_split_paths_round_trip_across_all_declared_roots(
+    tmp_path: Path,
+) -> None:
+    project_root = tmp_path / "project"
+    data_root = tmp_path / "data"
+    methods_root = tmp_path / "methods"
+    tasks = []
+    for index, root in enumerate((project_root, data_root, methods_root), start=1):
+        artifact = root / f"artifacts/task-{index}.json"
+        artifact.parent.mkdir(parents=True, exist_ok=True)
+        artifact.write_text("{}", encoding="utf-8")
+        tasks.append(
+            TaskManifest(
+                task_id=f"task-{index}",
+                benchmark="fixture",
+                domain="document",
+                prompt=f"clean {index}",
+                gold_answers=["x"],
+                source_hash=str(index) * 64,
+                artifact_path=str(artifact),
+            )
+        )
+    split = CleanEvolutionSplitManifest(
+        benchmark="fixture",
+        domain="document",
+        seed=7,
+        source_hash="a" * 64,
+        train=[tasks[0]],
+        validation=[tasks[1]],
+        clean_test=[tasks[2]],
+        metadata={"config_version": "clean-qualification-v1"},
+    )
+
+    portable = make_clean_split_paths_portable(
+        split,
+        project_root=project_root,
+        data_root=data_root,
+        methods_root=methods_root,
+    )
+    encoded = portable.model_dump_json()
+
+    assert "/home/" not in encoded
+    assert portable.train[0].artifact_path.startswith("rsebench-project://")
+    assert portable.validation[0].artifact_path.startswith("rsebench-data://")
+    assert portable.clean_test[0].artifact_path.startswith("rsebench-methods://")
+    resolved = resolve_clean_split_paths(
+        portable,
+        project_root=project_root,
+        data_root=data_root,
+        methods_root=methods_root,
+    )
+    assert [task.task_id for task in resolved.train] == ["task-1"]
+    assert [task.task_id for task in resolved.validation] == ["task-2"]
+    assert [task.task_id for task in resolved.clean_test] == ["task-3"]
     assert resolved.source_hash == portable.source_hash
 
 
