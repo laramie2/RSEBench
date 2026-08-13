@@ -1,0 +1,32 @@
+"""Stable public interface for RSEBench runtime evidence noise."""
+
+from rsebench.evidence.contracts import (
+    EvidenceRecord,
+    EvidenceStage,
+    FeedbackRecord,
+    HookContext,
+    MutationAudit,
+    MutationResult,
+    RuntimeNoiseSpec,
+    TraceEvent,
+    TraceKind,
+    TrajectoryRecord,
+)
+from rsebench.evidence.io import canonical_hash, canonical_json, read_record, write_record
+
+__all__ = [
+    "EvidenceRecord",
+    "EvidenceStage",
+    "FeedbackRecord",
+    "HookContext",
+    "MutationAudit",
+    "MutationResult",
+    "RuntimeNoiseSpec",
+    "TraceEvent",
+    "TraceKind",
+    "TrajectoryRecord",
+    "canonical_hash",
+    "canonical_json",
+    "read_record",
+    "write_record",
+]
