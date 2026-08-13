@@ -1,0 +1,60 @@
+diff --git a/core/skill_runner.py b/core/skill_runner.py
+index 60d3635..0cf2f31 100644
+--- a/core/skill_runner.py
++++ b/core/skill_runner.py
+@@ -213,9 +213,55 @@ def _call_llm_gemini(prompt: str, model: str, system: str | None) -> str:
+     return (r.text or "").strip()
+ 
+ 
++def _call_llm_deepseek(prompt: str, model: str, system: str | None) -> str:
++    """Direct OpenAI-compatible DeepSeek call with observable token usage."""
++    api_key = os.environ.get("DEEPSEEK_API_KEY", "").strip()
++    if not api_key:
++        print("[b3] Error: DEEPSEEK_API_KEY not set on host", file=sys.stderr)
++        return ""
++    try:
++        from openai import OpenAI
++    except ImportError:
++        print("[b3] Error: 'openai' package not installed", file=sys.stderr)
++        return ""
++    client = OpenAI(api_key=api_key, base_url="https://api.deepseek.com")
++    messages = []
++    if system:
++        messages.append({"role": "system", "content": system})
++    messages.append({"role": "user", "content": prompt})
++    response = client.chat.completions.create(
++        model="deepseek-v4-flash",
++        messages=messages,
++        temperature=0,
++        max_tokens=2048 if system else 4096,
++        extra_body={"thinking": {"type": "disabled"}},
++    )
++    usage = response.usage.model_dump() if response.usage else None
++    try:
++        from rsebench.usage import record_token_event
++
++        record_token_event(
++            usage=usage,
++            cache_hit=False,
++            billed=True,
++            status="success",
++            source="skilllearnbench.direct_deepseek",
++            provider="deepseek",
++            model="deepseek-v4-flash",
++            stage=os.environ.get("RSEBENCH_TOKEN_STAGE") or (
++                "skilllearn_teacher" if system else "skilllearn_student"
++            ),
++        )
++    except ImportError:
++        pass
++    return (response.choices[0].message.content or "").strip()
++
++
+ def _call_llm(prompt: str, model: str | None = None, system: str | None = None) -> str:
+     """Direct LLM call on host (used by b3 teacher-student loop). Routes to Anthropic or Gemini based on model name."""
+     resolved = model or "claude-sonnet-4-6"
++    if resolved == "deepseek-v4-flash":
++        return _call_llm_deepseek(prompt, resolved, system)
+     if resolved.startswith("gemini"):
+         return _call_llm_gemini(prompt, resolved, system)
+     return _call_llm_anthropic(prompt, resolved, system)
