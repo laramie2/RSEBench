@@ -29,11 +29,21 @@ def main() -> None:
     )
     parser.add_argument("--output-root", type=Path, default=Path("outputs/runs/core1-screen"))
     parser.add_argument("--method-seed", type=int, default=20260813)
+    parser.add_argument("--train-limit", type=int, default=1)
+    parser.add_argument("--test-limit", type=int, default=4)
     args = parser.parse_args()
 
     split = EvolutionSplitManifest.model_validate_json(
         args.split.read_text(encoding="utf-8")
     )
+    split = split.model_copy(
+        update={
+            "train": split.train[: args.train_limit],
+            "clean_test": split.clean_test[: args.test_limit],
+        }
+    )
+    if not split.train or not split.clean_test:
+        raise ValueError("SkillLearn paired run requires nonempty train and clean test")
     spec = (
         RuntimeNoiseSpec.model_validate_json(
             args.evidence_spec.read_text(encoding="utf-8")
