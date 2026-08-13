@@ -15,6 +15,7 @@ from openai import OpenAI
 from pydantic import BaseModel, ConfigDict, Field
 
 from rsebench.providers.contracts import ToolCall
+from rsebench.usage import record_token_event
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
@@ -160,6 +161,17 @@ class DeepSeekClient:
         )
         cached = self._read_cache(key)
         if cached is not None:
+            record_token_event(
+                usage=cached.usage,
+                cache_hit=True,
+                billed=False,
+                status="success",
+                source="rsebench.deepseek",
+                provider="deepseek",
+                model=cached.model,
+                stage=os.environ.get("RSEBENCH_TOKEN_STAGE") or role,
+                request_key=key,
+            )
             return cached
 
         load_project_environment()
@@ -193,6 +205,18 @@ class DeepSeekClient:
         try:
             completion = client.chat.completions.create(**kwargs)
         except Exception as exc:
+            record_token_event(
+                usage=None,
+                cache_hit=False,
+                billed=True,
+                status="error",
+                source="rsebench.deepseek",
+                provider="deepseek",
+                model=self.config.model,
+                stage=os.environ.get("RSEBENCH_TOKEN_STAGE") or role,
+                request_key=key,
+                error_type=type(exc).__name__,
+            )
             message = str(exc).replace(api_key, "[REDACTED]")
             raise RuntimeError(f"DeepSeek request failed: {message}") from exc
 
@@ -224,6 +248,17 @@ class DeepSeekClient:
             usage=completion.usage.model_dump() if completion.usage else {},
             model=completion.model or self.config.model,
             finish_reason=choice.finish_reason,
+        )
+        record_token_event(
+            usage=response.usage,
+            cache_hit=False,
+            billed=True,
+            status="success",
+            source="rsebench.deepseek",
+            provider="deepseek",
+            model=response.model,
+            stage=os.environ.get("RSEBENCH_TOKEN_STAGE") or role,
+            request_key=key,
         )
         self.write_cache(key, response.model_dump(exclude={"cache_hit"}))
         return response
