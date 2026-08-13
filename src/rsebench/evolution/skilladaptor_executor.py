@@ -12,8 +12,11 @@ import copy
 import json
 import os
 import re
+import subprocess
+import sys
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 from rsebench.evidence import (
     EvidenceNoiseHook,
@@ -24,6 +27,11 @@ from rsebench.evidence import (
     TraceEvent,
     TrajectoryRecord,
 )
+from rsebench.contracts import TaskManifest
+from rsebench.evolution.contracts import EvolutionArmManifest, EvolutionSplitManifest
+from rsebench.evolution.runner import EvaluationResult, EvolutionArtifact
+from rsebench.hashing import sha256_file
+from rsebench.usage import token_context_environment
 
 
 _ACTION_RE = re.compile(r"^\s*([a-zA-Z_]+)\[(.*)]\s*$")
@@ -37,6 +45,23 @@ _RESERVED_CLICKS = {
     "features",
     "reviews",
 }
+MODEL = "deepseek-v4-flash"
+
+
+@dataclass(frozen=True)
+class SkillAdaptorBudget:
+    max_iterations: int = 1
+    max_episode_steps: int = 8
+
+
+def _goal_index(task_id: str, metadata: dict[str, Any] | None = None) -> int:
+    value = (metadata or {}).get("goal_idx")
+    if value is not None:
+        return int(value)
+    match = re.fullmatch(r"goal[_-](\d+)", task_id)
+    if match is None:
+        raise ValueError(f"WebShop task ID lacks goal index: {task_id}")
+    return int(match.group(1))
 
 
 def _action_tags(action: str, task_description: str) -> list[str]:
@@ -244,3 +269,253 @@ def apply_skilladaptor_fault_from_env(fault: Any, trajectory: Any) -> Any:
     return mutate_skilladaptor_fault(
         fault, trajectory, spec=spec, context=context
     )
+
+
+class SkillAdaptorExecutor:
+    """Subprocess wrapper around the pinned SkillAdaptor WebShop runner."""
+
+    def __init__(
+        self,
+        *,
+        method_root: Path | str,
+        webshop_root: Path | str,
+        project_root: Path | str,
+        budget: SkillAdaptorBudget | None = None,
+        command_runner: Callable[..., Any] = subprocess.run,
+        environment: dict[str, str] | None = None,
+    ) -> None:
+        self.method_root = Path(method_root).resolve()
+        self.webshop_root = Path(webshop_root).resolve()
+        self.project_root = Path(project_root).resolve()
+        self.budget = budget or SkillAdaptorBudget()
+        self.command_runner = command_runner
+        if environment is None:
+            from scripts.baselines.common_env import combined_method_env
+
+            environment = combined_method_env("skilladaptor")
+        self.environment = dict(environment)
+        inherited = self.environment.get("PYTHONPATH", "").strip()
+        pythonpath = [str(self.project_root / "src")]
+        if inherited:
+            pythonpath.append(inherited)
+        self.environment["PYTHONPATH"] = os.pathsep.join(pythonpath)
+        self.environment["WEBSHOP_PATH"] = str(self.webshop_root)
+        self.environment["SkillAdaptor_LEXICAL_MATCHING"] = "1"
+        self._token_run_dir: Path | None = None
+
+    def configure_token_run(
+        self, run_dir: Path | str, *, default_arm: str | None = None
+    ) -> None:
+        del default_arm
+        self._token_run_dir = Path(run_dir).resolve()
+
+    def _token_environment(self, *, arm: str, stage: str) -> dict[str, str]:
+        if self._token_run_dir is None:
+            return dict(self.environment)
+        return token_context_environment(
+            self.environment,
+            ledger_dir=self._token_run_dir / "token_usage",
+            run_id=self._token_run_dir.name,
+            domain="interactive",
+            benchmark="webshop",
+            arm=arm,
+            stage=stage,
+        )
+
+    def _run(
+        self,
+        command: list[str],
+        record_dir: Path,
+        *,
+        environment: dict[str, str],
+    ) -> None:
+        record_dir.mkdir(parents=True, exist_ok=True)
+        (record_dir / "command.json").write_text(
+            json.dumps(command, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        completed = self.command_runner(
+            command,
+            cwd=self.method_root,
+            env=environment,
+            capture_output=True,
+            text=True,
+        )
+        secret = self.environment.get("DEEPSEEK_API_KEY", "").strip()
+
+        def redact(text: str) -> str:
+            return text.replace(secret, "[REDACTED]") if secret else text
+
+        (record_dir / "stdout.log").write_text(
+            redact(str(completed.stdout or "")), encoding="utf-8"
+        )
+        (record_dir / "stderr.log").write_text(
+            redact(str(completed.stderr or "")), encoding="utf-8"
+        )
+        if completed.returncode != 0:
+            tail = redact(str(completed.stderr or completed.stdout or ""))[-2000:]
+            raise RuntimeError(
+                f"SkillAdaptor command failed with exit {completed.returncode}: {tail}"
+            )
+
+    @staticmethod
+    def _tasks_for_arm(
+        pairs: list[Any], arm: str
+    ) -> list[TaskManifest]:
+        return [pair.clean if arm == "clean" else pair.noisy for pair in pairs]
+
+    @staticmethod
+    def _manifest_payload(
+        train: list[TaskManifest],
+        validation: list[TaskManifest],
+        test: list[TaskManifest],
+    ) -> dict[str, list[int]]:
+        return {
+            "input_tasks": [
+                _goal_index(task.task_id, task.metadata) for task in train
+            ],
+            "validation_tasks": [
+                _goal_index(task.task_id, task.metadata) for task in validation
+            ],
+            "test_tasks": [
+                _goal_index(task.task_id, task.metadata) for task in test
+            ],
+        }
+
+    def evolve(
+        self,
+        *,
+        arm: EvolutionArmManifest,
+        split: EvolutionSplitManifest,
+        seed_skill_path: Path,
+        output_dir: Path,
+    ) -> EvolutionArtifact:
+        train = self._tasks_for_arm(split.train, arm.arm)
+        validation = self._tasks_for_arm(split.validation, arm.arm)
+        task_manifest = output_dir / "webshop_task_manifest.json"
+        output_dir.mkdir(parents=True, exist_ok=True)
+        task_manifest.write_text(
+            json.dumps(
+                self._manifest_payload(train, validation, split.clean_test),
+                indent=2,
+                sort_keys=True,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        native_output = output_dir / "native_train"
+        environment = self._token_environment(arm=arm.arm, stage="evolution")
+        stage = str(arm.parameters.get("stage") or "")
+        if arm.arm == "noisy" and stage in {"N3", "N4"}:
+            spec = (
+                self.project_root
+                / "benchmark"
+                / "core1"
+                / "runtime"
+                / "webshop"
+                / f"{stage}.json"
+            )
+            if not spec.is_file():
+                raise FileNotFoundError(f"WebShop runtime evidence spec missing: {spec}")
+            environment.update(
+                {
+                    "RSEBENCH_EVIDENCE_SPEC": str(spec),
+                    "RSEBENCH_EVIDENCE_AUDIT_ROOT": str(output_dir),
+                    "RSEBENCH_EVIDENCE_ARM": arm.arm,
+                }
+            )
+        elif arm.arm == "noisy" and stage in {"N1", "N2"}:
+            static_path = Path(
+                str(arm.parameters.get("static_noise_path") or "")
+            )
+            if not static_path.is_file():
+                raise FileNotFoundError(
+                    "WebShop N1/N2 requires parameters.static_noise_path"
+                )
+            environment["RSEBENCH_WEBSHOP_STATIC_NOISE"] = str(
+                static_path.resolve()
+            )
+        command = [
+            sys.executable,
+            str(self.method_root / "run_skill_adaptor.py"),
+            "--env",
+            "webshop",
+            "--provider",
+            "deepseek",
+            "--model",
+            MODEL,
+            "--max-iterations",
+            str(self.budget.max_iterations),
+            "--max-episode-steps",
+            str(self.budget.max_episode_steps),
+            "--task-manifest",
+            str(task_manifest),
+            "--skills",
+            str(seed_skill_path.resolve()),
+            "--output",
+            str(native_output),
+        ]
+        self._run(command, output_dir / "command", environment=environment)
+        artifact = native_output / "skill_bank_final.json"
+        if not artifact.is_file():
+            raise RuntimeError(f"SkillAdaptor produced no skill bank: {artifact}")
+        diagnostics: dict[str, Any] = {}
+        report = native_output / "SkillAdaptor_report.json"
+        if report.is_file():
+            diagnostics["report"] = json.loads(report.read_text(encoding="utf-8"))
+        return EvolutionArtifact(
+            skill_path=str(artifact.resolve()),
+            skill_hash=sha256_file(artifact),
+            diagnostics=diagnostics,
+        )
+
+    def evaluate(
+        self,
+        *,
+        skill_path: Path,
+        clean_test: list[TaskManifest],
+        output_dir: Path,
+        stage: str,
+    ) -> EvaluationResult:
+        output_dir.mkdir(parents=True, exist_ok=True)
+        task_manifest = output_dir / "webshop_task_manifest.json"
+        task_manifest.write_text(
+            json.dumps(
+                self._manifest_payload([], [], clean_test),
+                indent=2,
+                sort_keys=True,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        result_path = output_dir / "result.json"
+        script = self.project_root / "scripts" / "eval_skilladaptor_webshop.py"
+        command = [
+            sys.executable,
+            str(script),
+            "--method-root",
+            str(self.method_root),
+            "--webshop-root",
+            str(self.webshop_root),
+            "--manifest",
+            str(task_manifest),
+            "--skills",
+            str(skill_path.resolve()),
+            "--max-episode-steps",
+            str(self.budget.max_episode_steps),
+            "--output",
+            str(result_path),
+        ]
+        environment = self._token_environment(arm=stage, stage="eval")
+        for key in (
+            "RSEBENCH_EVIDENCE_SPEC",
+            "RSEBENCH_EVIDENCE_AUDIT_ROOT",
+            "RSEBENCH_EVIDENCE_ARM",
+            "RSEBENCH_WEBSHOP_STATIC_NOISE",
+        ):
+            environment.pop(key, None)
+        self._run(command, output_dir / "command", environment=environment)
+        if not result_path.is_file():
+            raise RuntimeError(f"SkillAdaptor evaluation produced no result: {result_path}")
+        payload = json.loads(result_path.read_text(encoding="utf-8"))
+        return EvaluationResult.model_validate(payload)

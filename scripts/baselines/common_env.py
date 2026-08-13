@@ -23,6 +23,7 @@ _ROLES = {
     "skills_coach": {"generator", "optimizer", "executor", "judge"},
     "skillflow": {"worker", "patcher"},
     "federatedskill": {"worker", "patcher", "merger"},
+    "skilladaptor": {"chat"},
 }
 
 
@@ -102,6 +103,17 @@ def deepseek_role_env(
             **common,
             "DEEPSEEK_API_KEY": key,
             "PYTHONPATH": pythonpath,
+        }
+    if method == "skilladaptor":
+        return {
+            **common,
+            "DEEPSEEK_API_KEY": key,
+            "DEEPSEEK_MODEL": MODEL,
+            "SkillAdaptor_PROVIDER": "deepseek",
+            "SkillAdaptor_API_KEY": key,
+            "SkillAdaptor_BASE_URL": BASE_URL,
+            "SkillAdaptor_MODEL": MODEL,
+            "SkillAdaptor_LEXICAL_MATCHING": "1",
         }
     return {
         **common,
