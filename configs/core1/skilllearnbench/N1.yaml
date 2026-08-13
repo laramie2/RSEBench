@@ -1,0 +1,15 @@
+version: 1
+benchmark: skilllearnbench
+domain: skill_learning
+primary_method: skilllearn_self_feedback
+stage: N1
+operator: skilllearn_n1_brittle_handover
+form: static
+mode: rule
+severity: L2
+seed: 20260813
+sizes: {evolution: 1, validation: 0, clean_test: 4}
+token_cap: 8192
+source_revision: a0da045a8bf64b8a8ff20730c4d6ef10dc4e2c5b
+model: deepseek-v4-flash
+thinking: false

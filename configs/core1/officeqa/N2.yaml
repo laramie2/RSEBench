@@ -1,0 +1,15 @@
+version: 1
+benchmark: officeqa_full
+domain: document
+primary_method: skillopt
+stage: N2
+operator: officeqa_n2_conflicting_period_source
+form: static
+mode: rule
+severity: L2
+seed: 20260813
+sizes: {evolution: 6, validation: 3, clean_test: 10}
+token_cap: 4096
+source_revision: hf-main-officeqa-full-20260813
+model: deepseek-v4-flash
+thinking: false

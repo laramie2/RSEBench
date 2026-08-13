@@ -1,0 +1,22 @@
+version: 1
+benchmark: skilllearnbench
+domain: skill_learning
+primary_method: skilllearn_self_feedback
+stage: N3
+operator: skilllearn_n3_omit_artifact_event
+form: runtime
+mode: rule
+severity: L2
+seed: 20260813
+sizes: {evolution: 1, validation: 0, clean_test: 4}
+selector: tag_priority
+selector_parameters:
+  tags: [filesystem_change, artifact_write]
+budget: 1
+protected_fields: [reward, success, instruction, environment, hidden_tests, reference_solution]
+failure_policy: record_inapplicable
+operator_version: v1
+token_cap: 8192
+source_revision: a0da045a8bf64b8a8ff20730c4d6ef10dc4e2c5b
+model: deepseek-v4-flash
+thinking: false

@@ -1,0 +1,1 @@
+{"benchmark":"spreadsheetbench_verified","budget":1,"domain":"spreadsheet","failure_policy":"record_inapplicable","operator":"spreadsheet_n3_omit_workbook_edit","protected_fields":["reward","success","task_text","environment","save_event","final_response"],"seed":20260813,"selector":"tag_priority","selector_parameters":{"tags":["workbook_write"]},"stage":"N3","version":"v1"}

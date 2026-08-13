@@ -1,0 +1,15 @@
+version: 1
+benchmark: webshop
+domain: interactive
+primary_method: skilladaptor
+stage: N1
+operator: webshop_n1_near_match_session
+form: static
+mode: rule
+severity: L2
+seed: 20260813
+sizes: {evolution: 5, validation: 3, clean_test: 10}
+token_cap: 4096
+source_revision: 64fa2a5c15c7daa698b9ac93f5bb5437b634c9bd
+model: deepseek-v4-flash
+thinking: false

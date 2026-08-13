@@ -35,15 +35,26 @@ from rsebench.core1.webshop import (
     parse_goal_constraints,
     select_near_match,
 )
+from rsebench.core1.materialize import (
+    Core1NoiseProfile,
+    Core1Sizes,
+    StaticPairManifest,
+    freeze_static_pair,
+    load_core1_noise_profile,
+    materialize_core1_profile,
+)
 
 __all__ = [
     "Core1OperatorProfile",
     "Core1Profile",
+    "Core1NoiseProfile",
+    "Core1Sizes",
     "OfficeQAPromptPair",
     "SkillLearnArtifactPair",
     "SkillLearnFamily",
     "SkillLearnPromptPair",
     "SkillLearnSplit",
+    "StaticPairManifest",
     "WebShopGoalConstraints",
     "WebShopN1Context",
     "WebShopNearMatch",
@@ -61,5 +72,8 @@ __all__ = [
     "build_webshop_n2_overlay",
     "parse_goal_constraints",
     "select_near_match",
+    "freeze_static_pair",
+    "load_core1_noise_profile",
+    "materialize_core1_profile",
     "load_core1_profiles",
 ]
