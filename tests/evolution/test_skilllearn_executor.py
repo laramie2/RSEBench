@@ -104,6 +104,47 @@ def task(tmp_path: Path) -> TaskManifest:
     )
 
 
+def _evolution_pair(item: TaskManifest) -> EvolutionTaskPair:
+    noisy = item.model_copy(update={"source_hash": "b" * 64})
+    return EvolutionTaskPair(
+        pair_id=f"pair-{item.task_id}",
+        task_id=item.task_id,
+        clean=item,
+        noisy=noisy,
+        noise=NoiseManifest(
+            noise_id=f"noise-{item.task_id}",
+            task_id=item.task_id,
+            channel="C1",
+            mechanism="M1",
+            operator="fixture",
+            domain="skill_learning",
+            benchmark="skilllearnbench",
+            severity=Severity(level="L1", budget=1),
+            seed=1,
+            clean_hash=item.source_hash,
+            noisy_hash=noisy.source_hash,
+            timing="evolution",
+        ),
+    )
+
+
+def _family_evolution_split(base_task: TaskManifest) -> EvolutionSplitManifest:
+    train_tasks = [
+        base_task.model_copy(update={"task_id": f"family-{index}"})
+        for index in (1, 2)
+    ]
+    validation_task = base_task.model_copy(update={"task_id": "family-3"})
+    return EvolutionSplitManifest(
+        benchmark="skilllearnbench",
+        domain="skill_learning",
+        seed=1,
+        source_hash="c" * 64,
+        train=[_evolution_pair(item) for item in train_tasks],
+        validation=[_evolution_pair(validation_task)],
+        clean_test=[],
+    )
+
+
 def _docker_task(tmp_path: Path) -> tuple[TaskManifest, Path]:
     instance = tmp_path / "docker-family-1"
     environment = instance / "environment"
@@ -353,44 +394,7 @@ def test_evolve_uses_family_validation_to_accept_revised_skills(tmp_path: Path) 
         run_id="run-validation",
     )
     base_task = task(tmp_path)
-    train_tasks = [
-        base_task.model_copy(update={"task_id": f"family-{index}"})
-        for index in (1, 2)
-    ]
-    validation_task = base_task.model_copy(update={"task_id": "family-3"})
-
-    def pair(item: TaskManifest) -> EvolutionTaskPair:
-        noisy = item.model_copy(update={"source_hash": "b" * 64})
-        return EvolutionTaskPair(
-            pair_id=f"pair-{item.task_id}",
-            task_id=item.task_id,
-            clean=item,
-            noisy=noisy,
-            noise=NoiseManifest(
-                noise_id=f"noise-{item.task_id}",
-                task_id=item.task_id,
-                channel="C1",
-                mechanism="M1",
-                operator="fixture",
-                domain="skill_learning",
-                benchmark="skilllearnbench",
-                severity=Severity(level="L1", budget=1),
-                seed=1,
-                clean_hash=item.source_hash,
-                noisy_hash=noisy.source_hash,
-                timing="evolution",
-            ),
-        )
-
-    split = EvolutionSplitManifest(
-        benchmark="skilllearnbench",
-        domain="skill_learning",
-        seed=1,
-        source_hash="c" * 64,
-        train=[pair(item) for item in train_tasks],
-        validation=[pair(validation_task)],
-        clean_test=[],
-    )
+    split = _family_evolution_split(base_task)
     seed = tmp_path / "seed.md"
     seed.write_text("seed skill", encoding="utf-8")
     clean_arm, _ = build_arm_manifests(
@@ -414,3 +418,60 @@ def test_evolve_uses_family_validation_to_accept_revised_skills(tmp_path: Path) 
     ]
     assert artifact.diagnostics["validation_seed_score"] == 0.0
     assert (tmp_path / "evolve/evolution/round-1-family-1/acceptance.json").is_file()
+    assert artifact.execution_audit is not None
+    assert artifact.execution_audit.train_task_ids == ["family-1", "family-2"]
+    assert artifact.execution_audit.validation_task_ids == ["family-3"]
+    assert artifact.execution_audit.accepted_update_count == 2
+    assert artifact.execution_audit.metadata["round_count"] == 2
+    assert artifact.execution_audit.metadata["validation_evaluation_count"] == 3
+
+
+def test_skilllearn_execution_audit_counts_only_accepted_candidates(
+    tmp_path: Path,
+) -> None:
+    class RejectSecondBackend(FakeBackend):
+        def evaluate(
+            self,
+            task: TaskManifest,
+            skill: str,
+            output_dir: Path,
+        ) -> float:
+            self.skills.append(skill)
+            if "one" in skill:
+                return 1.0
+            return 0.0
+
+    executor = SkillLearnExecutor(
+        client=ScriptedClient(
+            ["diagnosis one", "revised skill one", "diagnosis two", "revised skill two"]
+        ),
+        backend=RejectSecondBackend(),
+        evidence_spec=None,
+        feedback_mode="self",
+        ledger_dir=tmp_path / "tokens",
+        run_id="run-rejection",
+    )
+    split = _family_evolution_split(task(tmp_path))
+    seed = tmp_path / "seed.md"
+    seed.write_text("seed skill", encoding="utf-8")
+    clean_arm, _ = build_arm_manifests(
+        split,
+        method="skilllearn_self_feedback",
+        method_seed=1,
+        seed_skill_hash=sha256_file(seed),
+    )
+
+    artifact = executor.evolve(
+        arm=clean_arm,
+        split=split,
+        seed_skill_path=seed,
+        output_dir=tmp_path / "evolve",
+    )
+
+    assert [row["accepted"] for row in artifact.diagnostics["validation"]] == [
+        True,
+        False,
+    ]
+    assert artifact.execution_audit is not None
+    assert artifact.execution_audit.accepted_update_count == 1
+    assert artifact.execution_audit.train_task_ids == ["family-1", "family-2"]

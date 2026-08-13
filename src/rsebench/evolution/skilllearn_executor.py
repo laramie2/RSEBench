@@ -24,6 +24,7 @@ from rsebench.evidence import (
     TrajectoryRecord,
 )
 from rsebench.evolution.contracts import EvolutionArmManifest, EvolutionSplitManifest
+from rsebench.evolution.clean_contracts import EvolutionExecutionAudit
 from rsebench.evolution.runner import EvaluationResult, EvolutionArtifact
 from rsebench.hashing import sha256_file, sha256_tree
 from rsebench.usage import token_context_scope
@@ -782,6 +783,8 @@ class SkillLearnExecutor:
             for task_ref in arm.validation
         ]
         rounds: list[str] = []
+        completed_train_ids: list[str] = []
+        completed_validation_ids: set[str] = set()
         validation_records: list[dict[str, Any]] = []
         validation_score = (
             self._validation_score(
@@ -793,6 +796,8 @@ class SkillLearnExecutor:
             if validation_tasks
             else None
         )
+        if validation_tasks:
+            completed_validation_ids.update(task.task_id for task in validation_tasks)
         validation_seed_score = validation_score
         for index, task_ref in enumerate(arm.train, start=1):
             pair = by_id[task_ref.task_id]
@@ -804,6 +809,7 @@ class SkillLearnExecutor:
                 arm=arm.arm,
                 output_dir=round_dir,
             )
+            completed_train_ids.append(task.task_id)
             if validation_tasks:
                 candidate_score = self._validation_score(
                     tasks=validation_tasks,
@@ -842,6 +848,20 @@ class SkillLearnExecutor:
                 "validation_final_score": validation_score,
                 "validation": validation_records,
             },
+            execution_audit=EvolutionExecutionAudit(
+                train_task_ids=completed_train_ids,
+                validation_task_ids=sorted(completed_validation_ids),
+                accepted_update_count=sum(
+                    bool(row["accepted"]) for row in validation_records
+                ),
+                metadata={
+                    "round_count": len(rounds),
+                    "validation_evaluation_count": len(validation_tasks)
+                    * (1 + len(validation_records)),
+                    "validation_seed_score": validation_seed_score,
+                    "validation_final_score": validation_score,
+                },
+            ),
         )
 
     def evaluate(
