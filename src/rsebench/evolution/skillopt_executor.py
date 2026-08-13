@@ -226,6 +226,10 @@ class SkillOptExecutor:
         seed_skill_path: Path,
         output_dir: Path,
     ) -> EvolutionArtifact:
+        # Commands run with ``cwd=method_root``. Resolve benchmark-owned paths
+        # before crossing that subprocess boundary so a caller may safely use
+        # a relative output root.
+        output_dir = Path(output_dir).resolve()
         native_split = materialize_skillopt_split(
             split, arm=arm.arm, output_dir=output_dir / "native_split"
         )
@@ -336,6 +340,7 @@ class SkillOptExecutor:
         output_dir: Path,
         stage: str,
     ) -> EvaluationResult:
+        output_dir = Path(output_dir).resolve()
         benchmark = clean_test[0].benchmark
         native_split = materialize_skillopt_clean_test(
             clean_test, output_dir=output_dir / "native_split"

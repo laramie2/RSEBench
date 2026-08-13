@@ -13,6 +13,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from rsebench.evolution.contracts import EvolutionSplitManifest  # noqa: E402
+from rsebench.core1.dataset import resolve_split_paths  # noqa: E402
 from rsebench.evolution.runner import PairedEvolutionRunner  # noqa: E402
 from rsebench.evolution.skilladaptor_executor import (  # noqa: E402
     SkillAdaptorBudget,
@@ -27,6 +28,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--seed-skill", type=Path, required=True)
     parser.add_argument("--stage", choices=["N1", "N2", "N3", "N4"], required=True)
     parser.add_argument("--output-root", type=Path)
+    parser.add_argument("--static-noise-path", type=Path)
     parser.add_argument("--train-limit", type=int, default=5)
     parser.add_argument("--validation-limit", type=int, default=3)
     parser.add_argument("--test-limit", type=int, default=10)
@@ -41,6 +43,14 @@ def main() -> None:
     split = EvolutionSplitManifest.model_validate_json(
         args.manifest.read_text(encoding="utf-8")
     )
+    environment = combined_method_env("skilladaptor")
+    root = methods_root()
+    split = resolve_split_paths(
+        split,
+        project_root=PROJECT_ROOT,
+        data_root=Path(environment["RSEBENCH_DATA_ROOT"]),
+        methods_root=root,
+    )
     subset = split.model_copy(
         update={
             "train": split.train[: args.train_limit],
@@ -50,8 +60,6 @@ def main() -> None:
     )
     if subset.benchmark != "webshop" or not subset.train or not subset.clean_test:
         raise ValueError("SkillAdaptor paired run requires a nonempty WebShop split")
-    environment = combined_method_env("skilladaptor")
-    root = methods_root()
     output_root = args.output_root or Path(
         environment.get("RSEBENCH_OUTPUT_ROOT", str(PROJECT_ROOT / "outputs"))
     ) / "runs/paired-evolution"
@@ -79,6 +87,11 @@ def main() -> None:
             "clean_test_tasks": len(subset.clean_test),
             "max_iterations": args.max_iterations,
             "max_episode_steps": args.max_episode_steps,
+            "static_noise_path": (
+                str(args.static_noise_path.resolve())
+                if args.static_noise_path is not None
+                else None
+            ),
         },
         output_root=output_root,
     )

@@ -49,6 +49,71 @@ _DOCKER_TOOL = [
 ]
 
 
+def _tool_argument_recovery_prompt(error: Exception) -> str | None:
+    """Return a narrow retry instruction for malformed provider tool JSON."""
+
+    if "returned invalid JSON arguments" not in str(error):
+        return None
+    return (
+        "Your previous tool call arguments were malformed JSON. Retry the same "
+        "step with one short single-line command and a valid JSON object. Do "
+        "not combine multiple shell programs into one tool call."
+    )
+
+
+def _command_tags(command: str) -> list[str]:
+    """Classify shell evidence without treating every Python read as a write."""
+
+    lower = command.casefold()
+    tags: set[str] = set()
+    write_markers = (
+        "wb.save(",
+        ".save(",
+        "write_text(",
+        "write_bytes(",
+        ".to_csv(",
+        ".to_excel(",
+        "json.dump(",
+        "yaml.dump(",
+        "shutil.copy",
+        " cp ",
+        "mv ",
+        "mkdir",
+        "touch ",
+        "tee ",
+        "convert ",
+        "ffmpeg",
+    )
+    writes_with_open = bool(
+        re.search(r"open\([^\n]{0,240},\s*['\"][wax+]", lower)
+    )
+    shell_redirection = bool(
+        re.search(r"(?:^|[;|&]\s*|\s)>{1,2}\s*(?!/?dev/null\b)", lower)
+    )
+    if any(marker in lower for marker in write_markers) or writes_with_open or shell_redirection:
+        tags.update({"filesystem_change", "artifact_write"})
+    if any(
+        marker in lower
+        for marker in (
+            "cat ",
+            "head ",
+            "sed ",
+            "ls ",
+            "find ",
+            "read_text(",
+            "load_workbook(",
+        )
+    ):
+        tags.add("input_read")
+    return sorted(tags)
+
+
+def _docker_volume_spec(host: Path | str, container: str) -> str:
+    """Render an absolute host bind mount for the Docker CLI."""
+
+    return f"{Path(host).resolve()}:{container}"
+
+
 class SkillLearnExecution(StrictModel):
     task_id: str = Field(min_length=1)
     reward: float
@@ -110,25 +175,7 @@ class DockerSkillLearnBackend:
 
     @staticmethod
     def _tag(command: str) -> list[str]:
-        lower = command.casefold()
-        tags: set[str] = set()
-        if any(
-            marker in lower
-            for marker in (
-                ">",
-                "cp ",
-                "mv ",
-                "mkdir",
-                "touch ",
-                "python",
-                "convert ",
-                "ffmpeg",
-            )
-        ):
-            tags.update({"filesystem_change", "artifact_write"})
-        if any(marker in lower for marker in ("cat ", "head ", "sed ", "ls ", "find ")):
-            tags.add("input_read")
-        return sorted(tags)
+        return _command_tags(command)
 
     def _build_image(self, environment: Path, output_dir: Path) -> tuple[str, str]:
         dockerfile = environment / "Dockerfile"
@@ -173,6 +220,7 @@ class DockerSkillLearnBackend:
         skill: str,
         output_dir: Path,
     ) -> SkillLearnExecution:
+        output_dir = Path(output_dir).resolve()
         output_dir.mkdir(parents=True, exist_ok=True)
         instance = Path(task.artifact_path or "").resolve()
         official = Path(task.metadata.get("official_instance_path") or instance).resolve()
@@ -197,9 +245,9 @@ class DockerSkillLearnBackend:
                 "--name",
                 container,
                 "-v",
-                f"{tests}:/tests:ro",
+                _docker_volume_spec(tests, "/tests:ro"),
                 "-v",
-                f"{output_dir}:/logs",
+                _docker_volume_spec(output_dir, "/logs"),
                 image,
                 "sleep",
                 "3600",
@@ -223,15 +271,58 @@ class DockerSkillLearnBackend:
             {"role": "user", "content": task.prompt},
         ]
         final_text = ""
+        tool_argument_retries = 0
+        artifact_retries = 0
         try:
             for turn in range(self.max_turns):
-                response = self.client.complete(
-                    messages,
-                    tools=_DOCKER_TOOL,
-                    tool_choice="auto",
-                    role="skilllearn_executor",
-                )
+                try:
+                    response = self.client.complete(
+                        messages,
+                        tools=_DOCKER_TOOL,
+                        tool_choice="auto",
+                        role="skilllearn_executor",
+                    )
+                except RuntimeError as exc:
+                    recovery = _tool_argument_recovery_prompt(exc)
+                    if recovery is None or tool_argument_retries >= 2:
+                        raise
+                    tool_argument_retries += 1
+                    messages.append({"role": "user", "content": recovery})
+                    events.append(
+                        TraceEvent(
+                            event_id=f"protocol-recovery-{tool_argument_retries}",
+                            step_index=len(events),
+                            kind="message",
+                            observation=recovery,
+                            tags=["provider_protocol_recovery"],
+                            metadata={"protected": True},
+                        )
+                    )
+                    continue
                 if not response.tool_calls:
+                    wrote_artifact = any(
+                        "artifact_write" in event.tags for event in events
+                    )
+                    if not wrote_artifact and artifact_retries < 2:
+                        artifact_retries += 1
+                        recovery = (
+                            "You have inspected the workspace but have not executed an "
+                            "artifact-producing command. Perform the requested changes "
+                            "inside the container and save the required output now; do "
+                            "not return another plan."
+                        )
+                        messages.append({"role": "user", "content": recovery})
+                        events.append(
+                            TraceEvent(
+                                event_id=f"artifact-recovery-{artifact_retries}",
+                                step_index=len(events),
+                                kind="message",
+                                observation=recovery,
+                                tags=["execution_recovery"],
+                                metadata={"protected": True},
+                            )
+                        )
+                        continue
                     final_text = response.content
                     break
                 messages.append(
@@ -270,6 +361,8 @@ class DockerSkillLearnBackend:
                             ],
                             capture_output=True,
                             text=True,
+                            encoding="utf-8",
+                            errors="replace",
                             timeout=self.command_timeout,
                         )
                         observation = (completed.stdout or "") + (completed.stderr or "")

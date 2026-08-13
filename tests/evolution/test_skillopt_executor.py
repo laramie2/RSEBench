@@ -19,7 +19,9 @@ def _task(task_id: str) -> TaskManifest:
     )
 
 
-def test_skillopt_executor_runs_native_train_and_parses_eval(tmp_path: Path):
+def test_skillopt_executor_runs_native_train_and_parses_eval(
+    tmp_path: Path, monkeypatch
+):
     method_root = tmp_path / "skillopt"
     (method_root / ".venv" / "bin").mkdir(parents=True)
     (method_root / "scripts").mkdir()
@@ -88,7 +90,8 @@ def test_skillopt_executor_runs_native_train_and_parses_eval(tmp_path: Path):
         command_runner=fake_run,
         environment={"DEEPSEEK_API_KEY": "must-not-be-written"},
     )
-    run_dir = tmp_path / "paired-run"
+    monkeypatch.chdir(tmp_path)
+    run_dir = Path("paired-run")
     run_dir.mkdir()
     executor.configure_token_run(run_dir)
     seed = tmp_path / "seed.md"
@@ -143,7 +146,9 @@ def test_skillopt_executor_runs_native_train_and_parses_eval(tmp_path: Path):
     assert all(
         any("openai_compatible" in arg for arg in command) for command in commands
     )
-    assert command_envs[0]["RSEBENCH_TOKEN_LEDGER_DIR"] == str(run_dir / "token_usage")
+    assert command_envs[0]["RSEBENCH_TOKEN_LEDGER_DIR"] == str(
+        (run_dir / "token_usage").resolve()
+    )
     assert command_envs[0]["RSEBENCH_TOKEN_RUN_ID"] == "paired-run"
     assert command_envs[0]["RSEBENCH_TOKEN_DOMAIN"] == "document"
     assert command_envs[0]["RSEBENCH_TOKEN_BENCHMARK"] == "officeqa_full"
@@ -151,6 +156,11 @@ def test_skillopt_executor_runs_native_train_and_parses_eval(tmp_path: Path):
     assert command_envs[0]["RSEBENCH_TOKEN_STAGE"] == "evolution"
     assert command_envs[1]["RSEBENCH_TOKEN_ARM"] == "clean"
     assert command_envs[1]["RSEBENCH_TOKEN_STAGE"] == "eval"
+    for command in commands:
+        assert Path(command[command.index("--out_root") + 1]).is_absolute()
+        split_flag = "--split_dir" if "--split_dir" in command else None
+        if split_flag:
+            assert Path(command[command.index(split_flag) + 1]).is_absolute()
     persisted = "".join(
         path.read_text(encoding="utf-8")
         for path in (run_dir / "clean").rglob("*")

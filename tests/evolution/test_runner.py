@@ -9,6 +9,7 @@ from rsebench.evolution.runner import (
     EvaluationResult,
     EvolutionArtifact,
     PairedEvolutionRunner,
+    SeedCalibrationError,
 )
 from rsebench.evolution.splits import build_evolution_split
 from rsebench.usage import record_token_event
@@ -190,6 +191,40 @@ def test_runner_rejects_seed_hash_mutation(tmp_path: Path):
             parameters={},
             output_root=tmp_path / "runs",
         )
+
+
+def test_runner_stops_before_evolution_when_seed_score_is_outside_gate(
+    tmp_path: Path,
+):
+    split = build_evolution_split(
+        benchmark="fixture",
+        domain="document",
+        seed=3,
+        source_hash=_hash("source"),
+        train=[_pair("train")],
+        validation=[],
+        clean_test=[_task("test", "clean test")],
+    )
+    seed = tmp_path / "seed.md"
+    seed.write_text("seed skill", encoding="utf-8")
+    executor = FixtureExecutor()
+
+    with pytest.raises(SeedCalibrationError, match="outside calibration interval") as exc:
+        PairedEvolutionRunner(executor).run(
+            method="fixture",
+            split=split,
+            seed_skill_path=seed,
+            method_seed=1,
+            parameters={},
+            output_root=tmp_path / "runs",
+            seed_score_interval=(0.6, 0.9),
+        )
+
+    assert executor.evolve_calls == []
+    calibration_path = Path(exc.value.run_dir, "seed", "calibration.json")
+    assert calibration_path.is_file()
+    assert calibration_path.read_text(encoding="utf-8")
+    assert Path(exc.value.run_dir, "token_usage", "summary.json").is_file()
 
 
 def test_runner_reuses_clean_test_result_for_identical_skill_hash(tmp_path: Path):

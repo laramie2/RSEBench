@@ -3,7 +3,9 @@ from __future__ import annotations
 from rsebench.core1.officeqa import (
     build_conflicting_period_fixture,
     build_officeqa_n1_pair,
+    select_structurally_calibrated_tasks,
 )
+from rsebench.contracts import TaskManifest
 from rsebench.domains.officeqa import (
     CorpusDocument,
     OfficeQATask,
@@ -21,6 +23,52 @@ def office_task() -> OfficeQATask:
         answers=["2,602"],
         gold_document_id="treasury_bulletin_1941_01.txt",
     )
+
+
+def _manifest(
+    task_id: str,
+    question: str,
+    *,
+    difficulty: str = "easy",
+    source_file_count: int = 1,
+) -> TaskManifest:
+    return TaskManifest(
+        task_id=task_id,
+        benchmark="officeqa_full",
+        domain="document",
+        prompt=question,
+        gold_answers=["1"],
+        source_hash="0" * 64,
+        metadata={
+            "difficulty": difficulty,
+            "source_file_count": source_file_count,
+        },
+    )
+
+
+def test_structural_calibration_prefers_easy_single_source_direct_lookup() -> None:
+    tasks = [
+        _manifest("hard", "What is the value?", difficulty="hard"),
+        _manifest("multi", "What is the value?", source_file_count=2),
+        _manifest(
+            "stats",
+            "Calculate the standard deviation and regression coefficient.",
+        ),
+        _manifest("direct", "What is the reported value?"),
+    ]
+
+    selected = select_structurally_calibrated_tasks(tasks, count=2)
+
+    assert [task.task_id for task in selected] == ["direct", "stats"]
+
+
+def test_structural_calibration_is_deterministic_and_does_not_read_predictions() -> None:
+    first = _manifest("b", "What is the reported value?")
+    second = _manifest("a", "What is the reported value?")
+
+    selected = select_structurally_calibrated_tasks([first, second], count=2)
+
+    assert [task.task_id for task in selected] == ["a", "b"]
 
 
 def corpus() -> list[CorpusDocument]:

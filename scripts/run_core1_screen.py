@@ -245,7 +245,9 @@ class SubprocessDispatcher:
                 "--output-root", str(cell_output),
                 *common_limits,
                 "--max-steps", "1",
-                "--max-turns", "3",
+                "--max-turns", (
+                    "6" if cell.benchmark == "officeqa_full" else "3"
+                ),
             ]
         if cell.method.startswith("skilllearn_"):
             command = [
@@ -257,6 +259,8 @@ class SubprocessDispatcher:
                 "--output-root", str(cell_output),
                 "--train-limit", str(train),
                 "--test-limit", str(test),
+                "--seed-score-min", "0.0",
+                "--seed-score-max", "1.0",
             ]
             if cell.form == "runtime":
                 command.extend(
@@ -266,7 +270,7 @@ class SubprocessDispatcher:
                     ]
                 )
             return command
-        return [
+        command = [
             sys.executable,
             str(self.root / "scripts/run_paired_skilladaptor.py"),
             "--manifest", str(split),
@@ -274,8 +278,24 @@ class SubprocessDispatcher:
             "--stage", cell.stage,
             "--output-root", str(cell_output),
             *common_limits,
-            "--max-episode-steps", "4" if smoke_only else "8",
+            # WebShop normally requires search, product selection, option
+            # selection, and purchase.  A four-step smoke budget creates an
+            # artificial zero floor, so smoke and efficacy share the native
+            # eight-step horizon while differing only in sample counts.
+            "--max-episode-steps", "8",
         ]
+        if cell.form == "static":
+            command.extend(
+                [
+                    "--static-noise-path",
+                    str(
+                        self.root
+                        / "benchmark/core1/static_data/webshop"
+                        / f"{cell.stage}.json"
+                    ),
+                ]
+            )
+        return command
 
     def __call__(self, cell: ScreenCell, smoke_only: bool) -> dict[str, Any]:
         command = self._command(cell, smoke_only)

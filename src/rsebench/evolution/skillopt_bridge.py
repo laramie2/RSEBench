@@ -36,6 +36,7 @@ def _officeqa_item(task: TaskManifest) -> dict:
     source_files = [
         Path(str(value)).name for value in metadata.get("gold_document_ids", [])
     ]
+    source_docs = [str(value) for value in metadata.get("source_docs", [])]
     expected_gold_rank: int | None = None
     retrieval_fixture = str(metadata.get("retrieval_fixture") or "").strip()
     if retrieval_fixture:
@@ -52,7 +53,21 @@ def _officeqa_item(task: TaskManifest) -> dict:
         ]
         if not ranked:
             raise ValueError(f"OfficeQA retrieval fixture is empty: {fixture_path}")
+        oracle_docs_by_file = {
+            filename: source_docs[index]
+            for index, filename in enumerate(source_files)
+            if index < len(source_docs) and source_docs[index]
+        }
         source_files = ranked
+        # Keep source_docs positionally aligned with the ranked files. Decoys
+        # receive a page-less URI so OfficeQA's oracle-page parser skips them,
+        # while the genuine source retains its released page URL.
+        source_docs = [
+            oracle_docs_by_file.get(
+                filename, f"rsebench://retrieval-decoy/{filename}"
+            )
+            for filename in ranked
+        ]
         expected_gold_rank = int(fixture.get("expected_gold_rank") or 0) or None
     item = {
         "id": task.task_id,
@@ -61,7 +76,7 @@ def _officeqa_item(task: TaskManifest) -> dict:
         "ground_truth": task.gold_answers[0] if task.gold_answers else "",
         "category": str(metadata.get("category", "officeqa")),
         "source_files": source_files,
-        "source_docs": list(metadata.get("source_docs", [])),
+        "source_docs": source_docs,
         "external_evidence_required": bool(
             metadata.get("external_evidence_required", False)
         ),

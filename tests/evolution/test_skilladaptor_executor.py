@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import sys
 import json
+import os
+import subprocess
 from types import SimpleNamespace
 from pathlib import Path
 
@@ -10,6 +12,7 @@ from rsebench.evolution.skilladaptor_executor import (
     SkillAdaptorBudget,
     SkillAdaptorEvidenceAdapter,
     SkillAdaptorExecutor,
+    canonicalize_skill_bank_artifact,
     mutate_skilladaptor_fault,
     mutate_skilladaptor_trajectory,
 )
@@ -23,17 +26,21 @@ if str(METHOD_ROOT) not in sys.path:
 
 from core.types import FaultType, LocalizedFault, Step, Trajectory  # noqa: E402
 from core.orchestrator import (  # noqa: E402
+    SkillAdaptorOrchestrator,
     _rsebench_after_localizer,
     _rsebench_after_rollout,
 )
 from core.llm_factory import _RetryingChatCompletions  # noqa: E402
 from core.skill_matcher import SemanticSkillMatcher  # noqa: E402
-from core.types import Skill  # noqa: E402
+from core.types import Skill, ValidationResult  # noqa: E402
+from core.task_context import load_task_context_for_inference  # noqa: E402
 from rsebench.usage import aggregate_token_usage, token_context_scope
 from adapters.webshop_adapter.env_wrapper import (  # noqa: E402
+    WebShopEnvWrapper,
     apply_goal_context,
     apply_product_overlay,
 )
+from adapters.webshop_adapter.llm_policy import SkillAugmentedLLMPolicy  # noqa: E402
 from rsebench.contracts import TaskManifest
 from rsebench.evolution.contracts import ArmTaskRef, EvolutionArmManifest
 
@@ -332,6 +339,112 @@ def test_webshop_static_overlay_changes_view_not_catalog_or_goal() -> None:
     assert clean == "Instruction: buy a red shirt under $40"
 
 
+def test_skill_bank_artifact_hash_ignores_wall_clock_metadata(tmp_path: Path) -> None:
+    left = tmp_path / "left.json"
+    right = tmp_path / "right.json"
+    template = {
+        "skills": {
+            "check": {
+                "id": "check",
+                "body": "verify every constraint",
+                "created_at": "{stamp}",
+                "updated_at": "{stamp}",
+            }
+        },
+        "history": [{"action": "add", "skill_id": "check", "timestamp": "{stamp}"}],
+    }
+    for path, stamp in ((left, "2026-01-01"), (right, "2026-08-13")):
+        payload = json.loads(json.dumps(template).replace("{stamp}", stamp))
+        path.write_text(json.dumps(payload), encoding="utf-8")
+
+    left_hash = canonicalize_skill_bank_artifact(left)
+    right_hash = canonicalize_skill_bank_artifact(right)
+
+    assert left_hash == right_hash
+    assert "created_at" not in left.read_text(encoding="utf-8")
+    assert "timestamp" not in right.read_text(encoding="utf-8")
+
+
+def test_webshop_policy_requests_bounded_deterministic_action_completion() -> None:
+    captured = {}
+
+    class FakeCompletions:
+        def create(self, **kwargs):
+            captured.update(kwargs)
+            return SimpleNamespace(
+                choices=[
+                    SimpleNamespace(
+                        message=SimpleNamespace(
+                            content="Thought: inspect options.\nAction: search[red shirt]"
+                        )
+                    )
+                ],
+                usage=None,
+            )
+
+    policy = SkillAugmentedLLMPolicy.__new__(SkillAugmentedLLMPolicy)
+    policy.client = SimpleNamespace(
+        chat=SimpleNamespace(completions=FakeCompletions())
+    )
+    policy.config = {"model": "deepseek-v4-flash", "max_retries": 1}
+
+    action = policy._call_llm(  # noqa: SLF001
+        "respond with action",
+        {"has_search_bar": True, "clickables": []},
+    )
+
+    assert action == "search[red shirt]"
+    assert captured["max_tokens"] >= 512
+    assert captured["temperature"] == 0
+
+
+def test_webshop_episode_records_policy_format_failure_as_zero_reward() -> None:
+    wrapper = WebShopEnvWrapper.__new__(WebShopEnvWrapper)
+    wrapper.env = object()
+    wrapper.reset = lambda goal_idx: ("instruction", {})
+    wrapper.get_available_actions = lambda: {
+        "has_search_bar": True,
+        "clickables": [],
+    }
+
+    class BrokenPolicy:
+        def forward(self, *args, **kwargs):
+            raise RuntimeError("no Action field")
+
+    episode = wrapper.run_episode(7, BrokenPolicy(), max_steps=2)
+
+    assert episode["total_reward"] == 0.0
+    assert episode["success"] is False
+    assert episode["num_steps"] == 0
+    assert episode["error_type"] == "RuntimeError"
+
+
+def test_interactive_task_context_can_fall_back_to_trajectory_text(monkeypatch) -> None:
+    monkeypatch.delenv("TASKS_PATH", raising=False)
+    monkeypatch.delenv("BENCHMARK_TASKS_PATH", raising=False)
+
+    assert load_task_context_for_inference("goal_1503") == ""
+
+
+def test_rejection_feedback_tolerates_failed_validation_episode() -> None:
+    result = ValidationResult(
+        skill_id="skill-1",
+        delta_success=0.0,
+        delta_avg_score=0.0,
+        regression_detected=False,
+        sample_size=1,
+        baseline_metrics={},
+        revised_metrics={"task_results": {"goal_1503": None}},
+    )
+
+    feedback = SkillAdaptorOrchestrator._validation_feedback_for_rejection(
+        object(), result, "goal_1503"
+    )
+
+    assert "task=goal_1503" in feedback
+    assert "score=0.00" in feedback
+
+
 def _webshop_task(goal_idx: int) -> TaskManifest:
     return TaskManifest(
         task_id=f"goal_{goal_idx}",
@@ -345,7 +458,7 @@ def _webshop_task(goal_idx: int) -> TaskManifest:
 
 
 def test_skilladaptor_executor_runs_native_pair_boundary_and_clean_eval(
-    tmp_path: Path,
+    tmp_path: Path, monkeypatch
 ) -> None:
     method_root = tmp_path / "skilladaptor" / "skill-adaptor"
     method_root.mkdir(parents=True)
@@ -391,7 +504,8 @@ def test_skilladaptor_executor_runs_native_pair_boundary_and_clean_eval(
         budget=SkillAdaptorBudget(max_iterations=1, max_episode_steps=3),
         command_runner=fake_run,
     )
-    run_dir = tmp_path / "paired-run"
+    monkeypatch.chdir(tmp_path)
+    run_dir = Path("paired-run")
     run_dir.mkdir()
     executor.configure_token_run(run_dir)
     seed = tmp_path / "seed.json"
@@ -460,6 +574,7 @@ def test_skilladaptor_executor_runs_native_pair_boundary_and_clean_eval(
     assert evaluation.per_task_scores == {"goal_3": 1.0, "goal_4": 0.0}
     assert "--provider" in commands[0] and "deepseek" in commands[0]
     assert "--max-episode-steps" in commands[0]
+    assert "--skip-held-out-test" in commands[0]
     assert command_envs[0]["RSEBENCH_EVIDENCE_SPEC"].endswith(
         "benchmark/core1/runtime/webshop/N3.json"
     )
@@ -467,9 +582,47 @@ def test_skilladaptor_executor_runs_native_pair_boundary_and_clean_eval(
     assert "RSEBENCH_EVIDENCE_SPEC" not in command_envs[1]
     assert command_envs[0]["RSEBENCH_TOKEN_STAGE"] == "evolution"
     assert command_envs[1]["RSEBENCH_TOKEN_STAGE"] == "eval"
+    assert command_envs[0]["SkillAdaptor_MIN_SAMPLE_SIZE"] == "1"
+    training_manifest = json.loads(
+        (run_dir / "noisy" / "webshop_task_manifest.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    evaluation_manifest = json.loads(
+        (
+            run_dir
+            / "noisy"
+            / "clean_test_evaluation"
+            / "webshop_task_manifest.json"
+        ).read_text(encoding="utf-8")
+    )
+    # The paired harness owns the untouched clean test.  Passing it into the
+    # native trainer would evaluate it redundantly before the frozen-bank eval.
+    assert training_manifest["test_tasks"] == []
+    assert evaluation_manifest["test_tasks"] == [3, 4]
+    for command in commands:
+        for flag in ("--task-manifest", "--manifest", "--skills", "--output"):
+            if flag in command:
+                assert Path(command[command.index(flag) + 1]).is_absolute()
     persisted = "".join(
         path.read_text(encoding="utf-8")
         for path in run_dir.rglob("*")
         if path.is_file()
     )
     assert "must-not-be-written" not in persisted
+
+
+def test_skilladaptor_eval_script_imports_from_nonproject_cwd(tmp_path: Path) -> None:
+    root = Path(__file__).resolve().parents[2]
+    environment = dict(os.environ)
+    environment["PYTHONPATH"] = str(root / "src")
+
+    completed = subprocess.run(
+        [sys.executable, str(root / "scripts/eval_skilladaptor_webshop.py"), "--help"],
+        cwd=tmp_path,
+        env=environment,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode == 0, completed.stderr

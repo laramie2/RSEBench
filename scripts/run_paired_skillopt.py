@@ -13,6 +13,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from rsebench.evolution.contracts import EvolutionSplitManifest  # noqa: E402
+from rsebench.core1.dataset import resolve_split_paths  # noqa: E402
 from rsebench.evolution.runner import PairedEvolutionRunner  # noqa: E402
 from rsebench.evolution.skillopt_executor import (  # noqa: E402
     SkillOptBudget,
@@ -54,6 +55,15 @@ def run_manifest(args: argparse.Namespace) -> Path:
     split = EvolutionSplitManifest.model_validate_json(
         args.manifest.read_text(encoding="utf-8")
     )
+    environment = combined_method_env("skillopt")
+    method_root = methods_root() / "skillopt"
+    data_root = Path(environment["RSEBENCH_DATA_ROOT"])
+    split = resolve_split_paths(
+        split,
+        project_root=PROJECT_ROOT,
+        data_root=data_root,
+        methods_root=methods_root(),
+    )
     subset = split.model_copy(
         update={
             "train": split.train[: args.train_limit],
@@ -63,9 +73,6 @@ def run_manifest(args: argparse.Namespace) -> Path:
     )
     if not subset.train or not subset.clean_test:
         raise ValueError("paired run needs non-empty train and clean test splits")
-    environment = combined_method_env("skillopt")
-    method_root = methods_root() / "skillopt"
-    data_root = Path(environment["RSEBENCH_DATA_ROOT"])
     output_root = args.output_root or Path(
         environment.get("RSEBENCH_OUTPUT_ROOT", str(PROJECT_ROOT / "outputs"))
     ) / "runs/paired-evolution"

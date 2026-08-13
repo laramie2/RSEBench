@@ -46,6 +46,32 @@ _RESERVED_CLICKS = {
     "reviews",
 }
 MODEL = "deepseek-v4-flash"
+_WALL_CLOCK_FIELDS = frozenset({"created_at", "updated_at", "timestamp"})
+
+
+def canonicalize_skill_bank_artifact(path: Path | str) -> str:
+    """Remove non-semantic clocks and return the persisted artifact hash."""
+
+    artifact = Path(path)
+    payload = json.loads(artifact.read_text(encoding="utf-8"))
+
+    def strip_clocks(value: Any) -> Any:
+        if isinstance(value, dict):
+            return {
+                key: strip_clocks(child)
+                for key, child in value.items()
+                if key not in _WALL_CLOCK_FIELDS
+            }
+        if isinstance(value, list):
+            return [strip_clocks(child) for child in value]
+        return value
+
+    artifact.write_text(
+        json.dumps(strip_clocks(payload), ensure_ascii=False, indent=2, sort_keys=True)
+        + "\n",
+        encoding="utf-8",
+    )
+    return sha256_file(artifact)
 
 
 @dataclass(frozen=True)
@@ -295,12 +321,14 @@ class SkillAdaptorExecutor:
             environment = combined_method_env("skilladaptor")
         self.environment = dict(environment)
         inherited = self.environment.get("PYTHONPATH", "").strip()
-        pythonpath = [str(self.project_root / "src")]
+        pythonpath = [str(self.project_root), str(self.project_root / "src")]
         if inherited:
             pythonpath.append(inherited)
         self.environment["PYTHONPATH"] = os.pathsep.join(pythonpath)
         self.environment["WEBSHOP_PATH"] = str(self.webshop_root)
         self.environment["SkillAdaptor_LEXICAL_MATCHING"] = "1"
+        webshop_python = self.webshop_root / ".venv/bin/python"
+        self.python = str(webshop_python) if webshop_python.is_file() else sys.executable
         self._token_run_dir: Path | None = None
 
     def configure_token_run(
@@ -390,13 +418,17 @@ class SkillAdaptorExecutor:
         seed_skill_path: Path,
         output_dir: Path,
     ) -> EvolutionArtifact:
+        output_dir = Path(output_dir).resolve()
         train = self._tasks_for_arm(split.train, arm.arm)
         validation = self._tasks_for_arm(split.validation, arm.arm)
         task_manifest = output_dir / "webshop_task_manifest.json"
         output_dir.mkdir(parents=True, exist_ok=True)
         task_manifest.write_text(
             json.dumps(
-                self._manifest_payload(train, validation, split.clean_test),
+                # The paired runner evaluates the frozen bank on the untouched
+                # clean split.  Keep test goals out of the native evolution
+                # subprocess to avoid a redundant, costly pre-evaluation.
+                self._manifest_payload(train, validation, []),
                 indent=2,
                 sort_keys=True,
             )
@@ -405,6 +437,12 @@ class SkillAdaptorExecutor:
         )
         native_output = output_dir / "native_train"
         environment = self._token_environment(arm=arm.arm, stage="evolution")
+        # SkillAdaptor defaults to five validation samples.  Core-1's bounded
+        # pilot uses one (smoke) or three (efficacy), so retaining the default
+        # would make skill adoption impossible by construction.
+        environment["SkillAdaptor_MIN_SAMPLE_SIZE"] = str(
+            max(1, len(validation))
+        )
         stage = str(arm.parameters.get("stage") or "")
         if arm.arm == "noisy" and stage in {"N3", "N4"}:
             spec = (
@@ -436,7 +474,7 @@ class SkillAdaptorExecutor:
                 static_path.resolve()
             )
         command = [
-            sys.executable,
+            self.python,
             str(self.method_root / "run_skill_adaptor.py"),
             "--env",
             "webshop",
@@ -448,6 +486,7 @@ class SkillAdaptorExecutor:
             str(self.budget.max_iterations),
             "--max-episode-steps",
             str(self.budget.max_episode_steps),
+            "--skip-held-out-test",
             "--task-manifest",
             str(task_manifest),
             "--skills",
@@ -459,13 +498,14 @@ class SkillAdaptorExecutor:
         artifact = native_output / "skill_bank_final.json"
         if not artifact.is_file():
             raise RuntimeError(f"SkillAdaptor produced no skill bank: {artifact}")
+        artifact_hash = canonicalize_skill_bank_artifact(artifact)
         diagnostics: dict[str, Any] = {}
         report = native_output / "SkillAdaptor_report.json"
         if report.is_file():
             diagnostics["report"] = json.loads(report.read_text(encoding="utf-8"))
         return EvolutionArtifact(
             skill_path=str(artifact.resolve()),
-            skill_hash=sha256_file(artifact),
+            skill_hash=artifact_hash,
             diagnostics=diagnostics,
         )
 
@@ -477,6 +517,7 @@ class SkillAdaptorExecutor:
         output_dir: Path,
         stage: str,
     ) -> EvaluationResult:
+        output_dir = Path(output_dir).resolve()
         output_dir.mkdir(parents=True, exist_ok=True)
         task_manifest = output_dir / "webshop_task_manifest.json"
         task_manifest.write_text(
@@ -491,7 +532,7 @@ class SkillAdaptorExecutor:
         result_path = output_dir / "result.json"
         script = self.project_root / "scripts" / "eval_skilladaptor_webshop.py"
         command = [
-            sys.executable,
+            self.python,
             str(script),
             "--method-root",
             str(self.method_root),

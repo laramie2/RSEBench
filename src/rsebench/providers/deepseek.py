@@ -43,6 +43,30 @@ class CredentialsMissingError(RuntimeError):
     """Raised instead of silently substituting another model or provider."""
 
 
+def _parse_tool_arguments(raw: str, *, tool_name: str) -> dict[str, Any]:
+    """Parse a provider tool object, tolerating only literal control chars.
+
+    DeepSeek occasionally returns otherwise-valid JSON with literal newlines
+    inside a shell command string. ``strict=False`` accepts that narrow JSON
+    deviation; arbitrary text and non-object payloads remain rejected.
+    """
+
+    try:
+        parsed = json.loads(raw or "{}")
+    except json.JSONDecodeError:
+        try:
+            parsed = json.loads(raw or "{}", strict=False)
+        except json.JSONDecodeError as exc:
+            raise RuntimeError(
+                f"DeepSeek tool call {tool_name!r} returned invalid JSON arguments"
+            ) from exc
+    if not isinstance(parsed, dict):
+        raise RuntimeError(
+            f"DeepSeek tool call {tool_name!r} arguments must be an object"
+        )
+    return parsed
+
+
 class DeepSeekConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
     provider: str = "deepseek"
@@ -225,16 +249,9 @@ class DeepSeekClient:
         choice = completion.choices[0]
         normalized_tool_calls: list[ToolCall] = []
         for item in getattr(choice.message, "tool_calls", None) or []:
-            try:
-                arguments = json.loads(item.function.arguments or "{}")
-            except json.JSONDecodeError as exc:
-                raise RuntimeError(
-                    f"DeepSeek tool call {item.function.name!r} returned invalid JSON arguments"
-                ) from exc
-            if not isinstance(arguments, dict):
-                raise RuntimeError(
-                    f"DeepSeek tool call {item.function.name!r} arguments must be an object"
-                )
+            arguments = _parse_tool_arguments(
+                item.function.arguments or "{}", tool_name=item.function.name
+            )
             normalized_tool_calls.append(
                 ToolCall(
                     id=item.id,

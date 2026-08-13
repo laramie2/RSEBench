@@ -1,11 +1,43 @@
 from __future__ import annotations
 
+import os
+import subprocess
+import sys
+from pathlib import Path
+
 from rsebench.core1.webshop import (
     build_webshop_n1_context,
     build_webshop_n2_overlay,
     parse_goal_constraints,
+    select_structurally_calibrated_goals,
     select_near_match,
 )
+
+
+def test_webshop_core1_import_does_not_require_spreadsheet_dependencies() -> None:
+    root = Path(__file__).parents[2]
+    code = """
+import importlib.abc
+import sys
+class RejectOpenpyxl(importlib.abc.MetaPathFinder):
+    def find_spec(self, fullname, path=None, target=None):
+        if fullname == 'openpyxl' or fullname.startswith('openpyxl.'):
+            raise ModuleNotFoundError('blocked optional spreadsheet dependency')
+        return None
+sys.meta_path.insert(0, RejectOpenpyxl())
+from rsebench.core1 import build_webshop_n1_context
+assert callable(build_webshop_n1_context)
+"""
+    environment = dict(os.environ)
+    environment["PYTHONPATH"] = str(root / "src")
+    completed = subprocess.run(
+        [sys.executable, "-c", code],
+        cwd=root,
+        env=environment,
+        capture_output=True,
+        text=True,
+    )
+    assert completed.returncode == 0, completed.stderr
 
 
 def goal() -> dict[str, object]:
@@ -93,3 +125,32 @@ def test_webshop_static_noise_is_deterministic() -> None:
     first = build_webshop_n1_context(goal(), catalog(), seed=13)
     second = build_webshop_n1_context(goal(), catalog(), seed=13)
     assert first == second
+
+
+def test_structural_calibration_prefers_retrievable_low_complexity_goals() -> None:
+    goals = {
+        1: {"asin": "A", "attributes": ["x", "y"], "goal_options": {}},
+        2: {
+            "asin": "B",
+            "attributes": ["x"],
+            "goal_options": {"size": "large"},
+        },
+        3: {"asin": "C", "attributes": ["x"], "goal_options": {}},
+        4: {"asin": "D", "attributes": [], "goal_options": {}},
+    }
+    rankings = {
+        1: ["Z", "A"],
+        2: ["B"],
+        3: ["Z"] * 10 + ["C"],
+        4: ["Z", "D"],
+    }
+
+    selected = select_structurally_calibrated_goals(
+        goals, rankings, count=2, min_options=0
+    )
+    option_selected = select_structurally_calibrated_goals(
+        goals, rankings, count=1, min_options=1
+    )
+
+    assert selected == [4, 1]
+    assert option_selected == [2]

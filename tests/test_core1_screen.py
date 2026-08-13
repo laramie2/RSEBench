@@ -4,6 +4,7 @@ import json
 
 from scripts.run_core1_screen import (
     Core1Screen,
+    SubprocessDispatcher,
     build_core1_cells,
     classify_result,
 )
@@ -87,3 +88,70 @@ def test_screen_rejects_dispatch_when_estimate_exceeds_profile_cap(tmp_path) -> 
     assert called is False
     assert result["cells"][0]["status"] == "blocked"
     assert "token cap" in result["cells"][0]["detail"]
+
+
+def test_webshop_static_cell_passes_frozen_overlay_to_paired_runner(tmp_path) -> None:
+    cell = next(
+        cell
+        for cell in build_core1_cells()
+        if cell.benchmark == "webshop" and cell.stage == "N1"
+    )
+    split = tmp_path / "benchmark/core1/splits/webshop/N1.json"
+    split.parent.mkdir(parents=True)
+    split.write_text("{}", encoding="utf-8")
+    dispatcher = SubprocessDispatcher(output_dir=tmp_path, root=tmp_path)
+
+    command = dispatcher._command(cell, smoke_only=True)  # noqa: SLF001
+
+    assert "--static-noise-path" in command
+    path = command[command.index("--static-noise-path") + 1]
+    assert path.endswith("benchmark/core1/static_data/webshop/N1.json")
+
+
+def test_webshop_smoke_keeps_enough_steps_to_avoid_artificial_floor(tmp_path) -> None:
+    cell = next(
+        cell
+        for cell in build_core1_cells()
+        if cell.benchmark == "webshop" and cell.stage == "N3"
+    )
+    split = tmp_path / "benchmark/core1/splits/webshop/N3.json"
+    split.parent.mkdir(parents=True)
+    split.write_text("{}", encoding="utf-8")
+    dispatcher = SubprocessDispatcher(output_dir=tmp_path, root=tmp_path)
+
+    command = dispatcher._command(cell, smoke_only=True)  # noqa: SLF001
+
+    assert command[command.index("--max-episode-steps") + 1] == "8"
+
+
+def test_officeqa_gets_multidocument_turn_budget(tmp_path) -> None:
+    cell = next(
+        cell
+        for cell in build_core1_cells()
+        if cell.benchmark == "officeqa_full" and cell.stage == "N3"
+    )
+    split = tmp_path / "benchmark/core1/splits/officeqa_full/N3.json"
+    split.parent.mkdir(parents=True)
+    split.write_text("{}", encoding="utf-8")
+    dispatcher = SubprocessDispatcher(output_dir=tmp_path, root=tmp_path)
+
+    command = dispatcher._command(cell, smoke_only=True)  # noqa: SLF001
+
+    assert command[command.index("--max-turns") + 1] == "6"
+
+
+def test_skilllearn_screen_rejects_floor_and_ceiling_before_evolution(tmp_path) -> None:
+    cell = next(
+        cell
+        for cell in build_core1_cells()
+        if cell.benchmark == "skilllearnbench" and cell.stage == "N3"
+    )
+    split = tmp_path / "benchmark/core1/splits/skilllearnbench/N3.json"
+    split.parent.mkdir(parents=True)
+    split.write_text("{}", encoding="utf-8")
+    dispatcher = SubprocessDispatcher(output_dir=tmp_path, root=tmp_path)
+
+    command = dispatcher._command(cell, smoke_only=True)  # noqa: SLF001
+
+    assert command[command.index("--seed-score-min") + 1] == "0.0"
+    assert command[command.index("--seed-score-max") + 1] == "1.0"

@@ -62,9 +62,58 @@ class EvidenceNoiseHook:
         specs: dict[str | EvidenceStage, RuntimeNoiseSpec] | None = None,
     ) -> None:
         self.adapter = adapter
-        self.specs = {
-            EvidenceStage(key): value for key, value in (specs or {}).items()
-        }
+        self.specs: dict[EvidenceStage, RuntimeNoiseSpec] = {}
+        for key, value in (specs or {}).items():
+            stage = EvidenceStage(key)
+            if stage != value.stage:
+                raise ValueError(
+                    f"runtime spec key {stage.value} does not match spec stage "
+                    f"{value.stage.value}"
+                )
+            self.specs[stage] = value
+
+    @classmethod
+    def from_spec_files(
+        cls,
+        *,
+        adapter: EvidenceAdapter,
+        spec_paths: list[Path | str],
+    ) -> "EvidenceNoiseHook":
+        """Build a hook directly from fixed benchmark release artifacts."""
+
+        specs: dict[EvidenceStage, RuntimeNoiseSpec] = {}
+        for raw_path in spec_paths:
+            path = Path(raw_path)
+            spec = RuntimeNoiseSpec.model_validate_json(
+                path.read_text(encoding="utf-8")
+            )
+            if spec.stage in specs:
+                raise ValueError(
+                    f"duplicate runtime spec for stage {spec.stage.value}"
+                )
+            specs[spec.stage] = spec
+        return cls(adapter=adapter, specs=specs)
+
+    def _spec_for(
+        self, stage: EvidenceStage, context: HookContext
+    ) -> RuntimeNoiseSpec | None:
+        # The same configured hook can safely be installed in both experiment
+        # arms. Clean calls never normalize, mutate, or denormalize native data.
+        if context.arm == "clean":
+            return None
+        spec = self.specs.get(stage)
+        if spec is None:
+            return None
+        if spec.benchmark != context.benchmark:
+            raise ValueError(
+                "runtime spec benchmark mismatch: "
+                f"{spec.benchmark!r} != {context.benchmark!r}"
+            )
+        if spec.domain != context.domain:
+            raise ValueError(
+                f"runtime spec domain mismatch: {spec.domain!r} != {context.domain!r}"
+            )
+        return spec
 
     def _write_replay(
         self,
@@ -85,7 +134,7 @@ class EvidenceNoiseHook:
         return replay_dir
 
     def after_rollout(self, native: Any, context: HookContext) -> Any:
-        spec = self.specs.get(EvidenceStage.trajectory)
+        spec = self._spec_for(EvidenceStage.trajectory, context)
         if spec is None:
             return native
         normalized = self.adapter.normalize_trajectory(native, context)
@@ -101,7 +150,7 @@ class EvidenceNoiseHook:
         trajectory_native: Any,
         context: HookContext,
     ) -> Any:
-        spec = self.specs.get(EvidenceStage.feedback)
+        spec = self._spec_for(EvidenceStage.feedback, context)
         if spec is None:
             return native
         normalized = self.adapter.normalize_feedback(native, context)
@@ -113,4 +162,3 @@ class EvidenceNoiseHook:
         return self.adapter.denormalize_feedback(
             native, result.output_record, context
         )
-

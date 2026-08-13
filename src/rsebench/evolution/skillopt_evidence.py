@@ -192,6 +192,33 @@ def _enrich_n4_spec(
     return spec.model_copy(update={"selector_parameters": parameters}, deep=True)
 
 
+def _enrich_n3_spec(
+    spec: RuntimeNoiseSpec, item: dict[str, Any]
+) -> RuntimeNoiseSpec:
+    """Bind benchmark-owned oracle identities to the generic N3 selector.
+
+    Runtime specs are portable and therefore cannot contain task-specific file
+    names. SkillOpt's native OfficeQA item does contain those names, so the
+    adapter resolves them at the hook boundary without exposing answer text.
+    """
+
+    if spec.selector != "oracle_resource_open":
+        return spec
+    parameters = copy.deepcopy(spec.selector_parameters)
+    refs: set[str] = set()
+    for key in ("source_files", "gold_document_ids"):
+        values = item.get(key, [])
+        if not isinstance(values, list):
+            continue
+        for value in values:
+            rendered = str(value).strip()
+            if rendered:
+                refs.update({rendered, Path(rendered).name})
+    if refs:
+        parameters["oracle_resource_refs"] = sorted(refs)
+    return spec.model_copy(update={"selector_parameters": parameters}, deep=True)
+
+
 def mutate_skillopt_conversation(
     conversation: list[dict[str, Any]],
     *,
@@ -251,8 +278,11 @@ def apply_skillopt_evidence_from_env(
         run_dir=Path(audit_root),
     )
     if spec.stage == EvidenceStage.trajectory:
+        enriched = _enrich_n3_spec(spec, item)
         return (
-            mutate_skillopt_conversation(conversation, spec=spec, context=context),
+            mutate_skillopt_conversation(
+                conversation, spec=enriched, context=context
+            ),
             item,
         )
     return (
@@ -261,4 +291,3 @@ def apply_skillopt_evidence_from_env(
             item, conversation, spec=spec, context=context
         ),
     )
-

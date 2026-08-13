@@ -7,7 +7,7 @@ import re
 
 from pydantic import Field
 
-from rsebench.contracts import StrictModel
+from rsebench.contracts import StrictModel, TaskManifest
 from rsebench.domains.officeqa import (
     CorpusDocument,
     OfficeQATask,
@@ -27,6 +27,49 @@ class OfficeQAPromptPair(StrictModel):
     original: str = Field(min_length=1)
     replacement: str = Field(min_length=1)
     seed: int
+
+
+_COMPUTATION_TERMS = re.compile(
+    r"\b(?:skewness|kurtosis|estimator|forecast|smoothed|regression|correlation|"
+    r"winsorized|quartile|standard deviation|median|average|mean|range|share|"
+    r"exponent|index of dispersion|variance|coefficient|compound|growth rate|"
+    r"percentage change|year-over-year|ratio)\b",
+    flags=re.IGNORECASE,
+)
+_AGGREGATION_TERMS = re.compile(
+    r"\b(?:sum|total|highest|lowest|difference|gap|combined|how many|how much)\b",
+    flags=re.IGNORECASE,
+)
+
+
+def _officeqa_structural_key(task: TaskManifest) -> tuple[int, int, int, int, int, str]:
+    """Rank OfficeQA tasks without observing any model prediction or score."""
+
+    difficulty = str(task.metadata.get("difficulty", "")).casefold()
+    difficulty_rank = {"easy": 0, "hard": 1}.get(difficulty, 2)
+    source_count = int(task.metadata.get("source_file_count", 1))
+    computation_count = len(_COMPUTATION_TERMS.findall(task.prompt))
+    aggregation_count = len(_AGGREGATION_TERMS.findall(task.prompt))
+    return (
+        difficulty_rank,
+        source_count,
+        computation_count,
+        aggregation_count,
+        len(task.prompt),
+        task.task_id,
+    )
+
+
+def select_structurally_calibrated_tasks(
+    tasks: list[TaskManifest], count: int
+) -> list[TaskManifest]:
+    """Select a reproducible low-floor pilot subset from public task structure."""
+
+    if count < 1:
+        raise ValueError("count must be positive")
+    if len(tasks) < count:
+        raise ValueError(f"need {count} tasks, received {len(tasks)}")
+    return sorted(tasks, key=_officeqa_structural_key)[:count]
 
 
 def _question_axis(question: str) -> tuple[str, str, str, str]:
@@ -171,4 +214,3 @@ def build_conflicting_period_fixture(
     if len(decoys) < decoy_budget:
         raise ValueError("not enough real conflicting-period OfficeQA sources")
     return build_rank_fixture(task, decoys, gold_rank=2)
-

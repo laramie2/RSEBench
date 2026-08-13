@@ -33,6 +33,14 @@ class EvaluationResult(StrictModel):
     diagnostics: dict[str, Any] = Field(default_factory=dict)
 
 
+class SeedCalibrationError(RuntimeError):
+    """Raised after seed evaluation when a validation run is uninformative."""
+
+    def __init__(self, message: str, *, run_dir: Path):
+        super().__init__(message)
+        self.run_dir = run_dir
+
+
 class EvolutionExecutor(Protocol):
     def evolve(
         self,
@@ -97,6 +105,7 @@ class PairedEvolutionRunner:
         method_seed: int,
         parameters: dict[str, Any],
         output_root: Path | str,
+        seed_score_interval: tuple[float, float] | None = None,
     ) -> PairedEvolutionResult:
         source_seed = Path(seed_skill_path).resolve()
         if not source_seed.is_file():
@@ -138,6 +147,23 @@ class PairedEvolutionRunner:
             output_dir=seed_eval_dir,
             stage="seed",
         )
+        if seed_score_interval is not None:
+            lower, upper = seed_score_interval
+            if not lower < upper:
+                raise ValueError("seed score interval must have lower < upper")
+            calibration = {
+                "score": seed_evaluation.score,
+                "exclusive_interval": [lower, upper],
+                "passed": lower < seed_evaluation.score < upper,
+            }
+            self._write_json(seed_dir / "calibration.json", calibration)
+            if not calibration["passed"]:
+                write_token_usage_artifacts(run_dir / "token_usage")
+                raise SeedCalibrationError(
+                    f"seed score {seed_evaluation.score} is outside calibration "
+                    f"interval ({lower}, {upper})",
+                    run_dir=run_dir,
+                )
         evaluation_cache: dict[str, tuple[str, EvaluationResult]] = {
             seed_hash: ("seed", seed_evaluation)
         }

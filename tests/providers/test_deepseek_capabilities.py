@@ -2,7 +2,11 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import rsebench.providers.deepseek as deepseek
-from rsebench.providers.deepseek import DeepSeekClient, DeepSeekConfig
+from rsebench.providers.deepseek import (
+    DeepSeekClient,
+    DeepSeekConfig,
+    _parse_tool_arguments,
+)
 
 
 READ_TOOL = {
@@ -61,6 +65,16 @@ def test_tool_call_response_is_normalized(tmp_path: Path, monkeypatch):
     assert response.tool_calls[0].id == "call-1"
     assert response.tool_calls[0].name == "read_text"
     assert response.tool_calls[0].arguments == {"path": "note.txt"}
+
+
+def test_tool_call_arguments_allow_only_json_object_with_literal_newlines() -> None:
+    raw = '{"command":"cat > /root/poem.txt << \'EOF\'\nline one\nEOF"}'
+
+    parsed = _parse_tool_arguments(raw, tool_name="run_shell")
+
+    assert parsed == {
+        "command": "cat > /root/poem.txt << 'EOF'\nline one\nEOF"
+    }
 
 
 def test_cache_key_isolated_by_role_and_tools(tmp_path: Path):

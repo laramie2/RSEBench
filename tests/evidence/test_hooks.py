@@ -2,12 +2,15 @@ from __future__ import annotations
 
 import json
 
+import pytest
+
 from rsebench.evidence import (
     FeedbackRecord,
     HookContext,
     RuntimeNoiseSpec,
     TraceEvent,
     TrajectoryRecord,
+    write_record,
 )
 from rsebench.evidence.hooks import EvidenceNoiseHook
 
@@ -86,6 +89,42 @@ def test_identity_hook_returns_same_native_object(tmp_path) -> None:
     assert not (tmp_path / "mutation_audit").exists()
 
 
+def test_clean_arm_is_identity_even_when_runtime_specs_are_installed(tmp_path) -> None:
+    native = native_trajectory()
+    spec = RuntimeNoiseSpec(
+        stage="N3",
+        operator="omit_critical_event",
+        benchmark="webshop",
+        domain="interactive",
+        seed=7,
+        selector="tag_priority",
+        selector_parameters={"tags": ["required_option"]},
+    )
+    hook = EvidenceNoiseHook(adapter=DictAdapter(), specs={"N3": spec})
+
+    output = hook.after_rollout(native, context(tmp_path, arm="clean"))
+
+    assert output is native
+    assert not (tmp_path / "mutation_audit").exists()
+
+
+def test_runtime_spec_must_match_hook_context(tmp_path) -> None:
+    native = native_trajectory()
+    spec = RuntimeNoiseSpec(
+        stage="N3",
+        operator="omit_critical_event",
+        benchmark="officeqa_full",
+        domain="document",
+        seed=7,
+        selector="tag_priority",
+        selector_parameters={"tags": ["required_option"]},
+    )
+    hook = EvidenceNoiseHook(adapter=DictAdapter(), specs={"N3": spec})
+
+    with pytest.raises(ValueError, match="benchmark mismatch"):
+        hook.after_rollout(native, context(tmp_path, arm="noisy"))
+
+
 def test_noisy_hook_writes_replay_pack(tmp_path) -> None:
     native = native_trajectory()
     spec = RuntimeNoiseSpec(
@@ -111,6 +150,29 @@ def test_noisy_hook_writes_replay_pack(tmp_path) -> None:
     audit = json.loads((replay / "audit.json").read_text())
     assert audit["applicable"] is True
     assert audit["input_hash"] != audit["output_hash"]
+
+
+def test_hook_can_load_release_specs_from_files(tmp_path) -> None:
+    spec = RuntimeNoiseSpec(
+        stage="N3",
+        operator="omit_critical_event",
+        benchmark="webshop",
+        domain="interactive",
+        seed=7,
+        selector="tag_priority",
+        selector_parameters={"tags": ["required_option"]},
+    )
+    spec_path = tmp_path / "N3.json"
+    write_record(spec_path, spec)
+    hook = EvidenceNoiseHook.from_spec_files(
+        adapter=DictAdapter(), spec_paths=[spec_path]
+    )
+
+    output = hook.after_rollout(
+        native_trajectory(), context(tmp_path, arm="noisy")
+    )
+
+    assert [event["event_id"] for event in output["events"]] == ["e0"]
 
 
 def test_feedback_hook_mutates_after_feedback_only(tmp_path) -> None:
@@ -141,4 +203,3 @@ def test_feedback_hook_mutates_after_feedback_only(tmp_path) -> None:
     assert output["blamed_event_ids"] == ["e0"]
     replay = tmp_path / "mutation_audit" / "noisy" / "task_1" / "N4"
     assert (replay / "audit.json").exists()
-

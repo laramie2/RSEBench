@@ -6,6 +6,9 @@ from pathlib import Path
 from rsebench.contracts import TaskManifest
 from rsebench.evidence import RuntimeNoiseSpec, TraceEvent
 from rsebench.evolution.skilllearn_executor import (
+    _command_tags,
+    _docker_volume_spec,
+    _tool_argument_recovery_prompt,
     SkillLearnExecution,
     SkillLearnExecutor,
 )
@@ -90,6 +93,43 @@ def task(tmp_path: Path) -> TaskManifest:
         verifier="official:/tests/test.sh",
         metadata={"task_family": "family"},
     )
+
+
+def test_docker_volume_spec_resolves_relative_host_path(
+    tmp_path: Path, monkeypatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+
+    spec = _docker_volume_spec(Path("relative/run"), "/logs")
+
+    assert spec == f"{(tmp_path / 'relative/run').resolve()}:/logs"
+
+
+def test_container_tool_output_uses_replacement_decoding() -> None:
+    source = Path(
+        __import__("rsebench.evolution.skilllearn_executor", fromlist=["__file__"]).__file__
+    ).read_text(encoding="utf-8")
+
+    assert 'encoding="utf-8"' in source
+    assert 'errors="replace"' in source
+
+
+def test_command_tags_do_not_treat_read_only_python_as_artifact_write() -> None:
+    inspection = "python3 - <<'PY'\nimport openpyxl\nprint(wb.sheetnames)\nPY"
+    save = "python3 - <<'PY'\nwb.save('/root/gdp.xlsx')\nPY"
+
+    assert "artifact_write" not in _command_tags(inspection)
+    assert "artifact_write" in _command_tags(save)
+
+
+def test_malformed_tool_arguments_get_a_bounded_retry_prompt() -> None:
+    prompt = _tool_argument_recovery_prompt(
+        RuntimeError("DeepSeek tool call 'run_shell' returned invalid JSON arguments")
+    )
+
+    assert prompt is not None
+    assert "short single-line command" in prompt
+    assert _tool_argument_recovery_prompt(RuntimeError("provider unavailable")) is None
 
 
 def test_n3_trace_is_mutated_before_self_reflection_and_hidden_text_is_absent(tmp_path: Path) -> None:

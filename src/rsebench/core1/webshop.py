@@ -58,6 +58,45 @@ class WebShopRankingOverlay(StrictModel):
     seed: int
 
 
+def select_structurally_calibrated_goals(
+    goals: dict[int, dict[str, Any]],
+    rankings: dict[int, list[str]],
+    *,
+    count: int,
+    min_options: int = 0,
+    retrieval_cutoff: int = 10,
+) -> list[int]:
+    """Select reachable low-complexity goals without using model outcomes.
+
+    The ordering is entirely benchmark-owned: option count, total explicit
+    constraints, deterministic retrieval rank, then official goal index.
+    """
+
+    candidates: list[tuple[int, int, int, int]] = []
+    for goal_idx, goal in goals.items():
+        options = goal.get("goal_options") or {}
+        attributes = goal.get("attributes") or []
+        option_count = len(options) if isinstance(options, dict) else len(options)
+        if option_count < min_options:
+            continue
+        attribute_count = len(attributes) if isinstance(attributes, list) else 1
+        target = str(goal.get("asin") or goal.get("target_product_id") or "")
+        ranked = [str(value) for value in rankings.get(goal_idx, [])]
+        if not target or target not in ranked[:retrieval_cutoff]:
+            continue
+        rank = ranked.index(target)
+        # Category and price are always part of WebShop matching.  Their
+        # constant contribution is omitted because it cannot change ordering.
+        complexity = attribute_count + option_count
+        candidates.append((option_count, complexity, rank, goal_idx))
+    selected = [row[-1] for row in sorted(candidates)[:count]]
+    if len(selected) != count:
+        raise ValueError(
+            f"found only {len(selected)} structurally calibrated goals; need {count}"
+        )
+    return selected
+
+
 def _options_from_goal(goal: dict[str, Any]) -> dict[str, str]:
     raw = goal.get("goal_options", goal.get("instruction_options", {}))
     if isinstance(raw, dict):
@@ -318,4 +357,3 @@ def build_webshop_n2_overlay(
         valid_target_ids=sorted(valid_ids),
         seed=seed,
     )
-

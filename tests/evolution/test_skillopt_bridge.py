@@ -198,7 +198,10 @@ def test_officeqa_noisy_arm_uses_ranked_retrieval_fixture(tmp_path: Path):
         "document",
         "office question",
         gold_answers=["answer"],
-        metadata={"gold_document_ids": ["docs/gold.txt"]},
+        metadata={
+            "gold_document_ids": ["docs/gold.txt"],
+            "source_docs": ["https://example.test/gold?page=7"],
+        },
     )
     noisy = clean.model_copy(
         update={
@@ -234,6 +237,11 @@ def test_officeqa_noisy_arm_uses_ranked_retrieval_fixture(tmp_path: Path):
         "gold.txt",
     ]
     assert _items(noisy_dir, "train")[0]["rsebench_expected_gold_rank"] == 3
+    assert _items(noisy_dir, "train")[0]["source_docs"] == [
+        "rsebench://retrieval-decoy/decoy-a.txt",
+        "rsebench://retrieval-decoy/decoy-b.txt",
+        "https://example.test/gold?page=7",
+    ]
 
 
 def test_materializes_docvqa_image_and_answers(tmp_path: Path):
