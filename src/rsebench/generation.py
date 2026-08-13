@@ -693,7 +693,7 @@ def generate_from_profile(
             "officeqa_full": "document",
             "officeqa_demo_10": "document",
             "dapo_fixed_1000": "math",
-        }[benchmark]
+        }.get(benchmark, "unknown")
     )
     with token_context_scope(
         ledger_dir=run_dir / "token_usage",
