@@ -1,52 +1,174 @@
 version: 1
 operators:
   failed_attempt:
+    active: false
     channel: C1
     mechanism: M2
     domains: [spreadsheet, document, math]
     modes: [rule, model]
   related_distractor:
+    active: false
     channel: C1
     mechanism: M1
     domains: [spreadsheet, document, math]
     modes: [model]
   stale_backup_sheet:
+    active: false
     channel: C2
     mechanism: M4
     domains: [spreadsheet]
     modes: [rule]
   semantic_decoy_sheet:
+    active: false
     channel: C2
     mechanism: M1
     domains: [spreadsheet]
     modes: [hybrid]
   semantic_decoy_document:
+    active: false
     channel: C2
     mechanism: M1
     domains: [document]
     modes: [rule, hybrid]
   gold_rank_displacement:
+    active: false
     channel: C3
     mechanism: M5
     domains: [document]
     modes: [rule]
   margin_clutter:
+    active: false
     channel: C2
     mechanism: M1
     domains: [document]
     modes: [rule]
   flawed_partial_solution:
+    active: false
     channel: C1
     mechanism: M2
     domains: [math]
     modes: [model]
   plausible_false_lemma:
+    active: false
     channel: C2
     mechanism: M2
     domains: [math]
     modes: [model]
   feedback_dropout:
+    active: false
     channel: C4
     mechanism: M3
     domains: [spreadsheet, document, math]
+    modes: [rule]
+  spreadsheet_n1_erroneous_handover:
+    active: true
+    stage: N1
+    channel: C1
+    mechanism: M2
+    domains: [spreadsheet]
+    modes: [rule]
+  spreadsheet_n2_unlabeled_stale_sheet:
+    active: true
+    stage: N2
+    channel: C2
+    mechanism: M4
+    domains: [spreadsheet]
+    modes: [rule]
+  spreadsheet_n3_omit_workbook_edit:
+    active: true
+    stage: N3
+    channel: C3
+    mechanism: M3
+    domains: [spreadsheet]
+    modes: [rule]
+  spreadsheet_n4_replace_blamed_range:
+    active: true
+    stage: N4
+    channel: C4
+    mechanism: M2
+    domains: [spreadsheet]
+    modes: [rule]
+  officeqa_n1_one_axis_derivation:
+    active: true
+    stage: N1
+    channel: C1
+    mechanism: M2
+    domains: [document]
+    modes: [rule, model]
+  officeqa_n2_conflicting_period_source:
+    active: true
+    stage: N2
+    channel: C2
+    mechanism: M1
+    domains: [document]
+    modes: [rule]
+  officeqa_n3_omit_oracle_source:
+    active: true
+    stage: N3
+    channel: C3
+    mechanism: M3
+    domains: [document]
+    modes: [rule]
+  officeqa_n4_replace_failure_axis:
+    active: true
+    stage: N4
+    channel: C4
+    mechanism: M2
+    domains: [document]
+    modes: [rule]
+  skilllearn_n1_brittle_handover:
+    active: true
+    stage: N1
+    channel: C1
+    mechanism: M2
+    domains: [skill_learning]
+    modes: [rule]
+  skilllearn_n2_competing_stale_resource:
+    active: true
+    stage: N2
+    channel: C2
+    mechanism: M4
+    domains: [skill_learning]
+    modes: [rule]
+  skilllearn_n3_omit_artifact_event:
+    active: true
+    stage: N3
+    channel: C3
+    mechanism: M3
+    domains: [skill_learning]
+    modes: [rule]
+  skilllearn_n4_replace_revision_diagnosis:
+    active: true
+    stage: N4
+    channel: C4
+    mechanism: M2
+    domains: [skill_learning]
+    modes: [rule]
+  webshop_n1_near_match_session:
+    active: true
+    stage: N1
+    channel: C1
+    mechanism: M2
+    domains: [interactive]
+    modes: [rule]
+  webshop_n2_promote_near_match:
+    active: true
+    stage: N2
+    channel: C2
+    mechanism: M5
+    domains: [interactive]
+    modes: [rule]
+  webshop_n3_omit_constraint_event:
+    active: true
+    stage: N3
+    channel: C3
+    mechanism: M3
+    domains: [interactive]
+    modes: [rule]
+  webshop_n4_replace_fault_step:
+    active: true
+    stage: N4
+    channel: C4
+    mechanism: M2
+    domains: [interactive]
     modes: [rule]

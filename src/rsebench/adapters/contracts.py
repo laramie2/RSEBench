@@ -31,6 +31,7 @@ class BaselineAdapterSpec(StrictModel):
     model: str
     roles: list[str] = Field(min_length=1)
     native_domains: list[str] = Field(min_length=1)
+    active: bool = False
 
     @model_validator(mode="after")
     def locked_model(self) -> "BaselineAdapterSpec":

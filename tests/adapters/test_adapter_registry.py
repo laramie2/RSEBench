@@ -17,6 +17,9 @@ def test_registry_lists_every_runnable_method():
         "skills_coach",
         "skillflow",
         "federatedskill",
+        "skilllearn_self_feedback",
+        "skilllearn_teacher_feedback",
+        "skilladaptor",
     }
     assert all(
         spec.model == "deepseek-v4-flash" for spec in registry.adapters.values()
