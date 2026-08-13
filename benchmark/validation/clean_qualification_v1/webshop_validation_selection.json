@@ -1,0 +1,269 @@
+{
+  "baseline": {
+    "name": "skilladaptor",
+    "patch_hashes": {
+      "skilladaptor-clean-qualification.patch": "9e97f8a52f4970006f3f01e960dc33a49ca0f0a8a3cef9d4ed4ef9120e4bdb1f",
+      "skilladaptor-core1-calibration.patch": "28f62cebd9658a9cf491c26009fc6cda5188bce5777d39ef4265a21178730209",
+      "skilladaptor-deepseek-runtime.patch": "f4480b18a554f1e00c851c2c07766f784ad5a78b6e3f78df8696b083a38504d0",
+      "skilladaptor-evidence-hook.patch": "b3468abe3422ff4ab65412b12c994b588aa7d51ef9ed82f2876527523e33ab89",
+      "skilladaptor-lexical-fault-dedup.patch": "9af83645d0ddf943cb3c142d9d800e5fd816297085d6ea08a33f00cda8ddf1e7",
+      "skilladaptor-webshop-static-overlay.patch": "6dd9f00d8f5ac5f01c0e990488021535ace9b6f2cf2b1bb830b6d0f64f5a268c"
+    },
+    "revision": "b26d1ab5a798f07e53048b5ff509e8535e9fa228",
+    "seed_skill_hash": "b8babe420a6c8c6a7cf103a4db6e444f8e9911f0efdfbc5f15b394cfca0a0f3e"
+  },
+  "candidate_ids": [
+    735,
+    994,
+    1036,
+    1177,
+    1195,
+    1202,
+    893,
+    788,
+    1180,
+    841,
+    1251,
+    1302,
+    1303,
+    1031,
+    611,
+    1362,
+    502,
+    1268,
+    1038,
+    857,
+    600,
+    508,
+    1128,
+    1425
+  ],
+  "candidate_partition": "official_validation_500_1500",
+  "candidate_seed_scores": {
+    "1031": 0.0,
+    "1036": 0.0,
+    "1038": 0.0,
+    "1128": 0.0,
+    "1177": 0.0,
+    "1180": 0.0,
+    "1195": 1.0,
+    "1202": 0.0,
+    "1251": 0.0,
+    "1268": 0.0,
+    "1302": 0.0,
+    "1303": 0.0,
+    "1362": 1.0,
+    "1425": 0.0,
+    "502": 0.0,
+    "508": 0.0,
+    "600": 0.0,
+    "611": 0.0,
+    "735": 0.0,
+    "788": 0.0,
+    "841": 0.0,
+    "857": 0.0,
+    "893": 0.0,
+    "994": 0.0
+  },
+  "evaluation_artifacts": [
+    "outputs/preflight/clean-qualification-v1/webshop/validation_calibration/seed_evaluation/result.json",
+    "outputs/preflight/clean-qualification-v1/webshop/validation_calibration/seed_evaluation_incremental_12/result.json"
+  ],
+  "execution_failures": {},
+  "policy": "first_two_seed_successes_plus_first_three_seed_failures",
+  "runtime": {
+    "max_episode_steps": 15,
+    "model": "deepseek-v4-flash",
+    "retrieval_mode": "lexical",
+    "retrieval_threshold": 0.1
+  },
+  "schema_version": "rsebench.clean-webshop-validation-selection.v1",
+  "selected_ids": [
+    1195,
+    1362,
+    735,
+    994,
+    1036
+  ],
+  "selected_seed_score": 0.4,
+  "token_usage": {
+    "attempted_calls": 356,
+    "billed_tokens": {
+      "completion_tokens": 42582,
+      "prompt_tokens": 232397,
+      "total_tokens": 274979
+    },
+    "cache_hit_calls": 0,
+    "event_count": 356,
+    "failed_calls": 0,
+    "groups": {
+      "arm": {
+        "calibration": {
+          "attempted_calls": 356,
+          "billed_tokens": {
+            "completion_tokens": 42582,
+            "prompt_tokens": 232397,
+            "total_tokens": 274979
+          },
+          "cache_hit_calls": 0,
+          "failed_calls": 0,
+          "interrupted_calls": 0,
+          "logical_tokens": {
+            "completion_tokens": 42582,
+            "prompt_tokens": 232397,
+            "total_tokens": 274979
+          },
+          "observed_calls": 356,
+          "observed_coverage": 1.0,
+          "successful_calls": 356,
+          "unobservable_calls": 0
+        }
+      },
+      "benchmark": {
+        "webshop": {
+          "attempted_calls": 356,
+          "billed_tokens": {
+            "completion_tokens": 42582,
+            "prompt_tokens": 232397,
+            "total_tokens": 274979
+          },
+          "cache_hit_calls": 0,
+          "failed_calls": 0,
+          "interrupted_calls": 0,
+          "logical_tokens": {
+            "completion_tokens": 42582,
+            "prompt_tokens": 232397,
+            "total_tokens": 274979
+          },
+          "observed_calls": 356,
+          "observed_coverage": 1.0,
+          "successful_calls": 356,
+          "unobservable_calls": 0
+        }
+      },
+      "domain": {
+        "interactive": {
+          "attempted_calls": 356,
+          "billed_tokens": {
+            "completion_tokens": 42582,
+            "prompt_tokens": 232397,
+            "total_tokens": 274979
+          },
+          "cache_hit_calls": 0,
+          "failed_calls": 0,
+          "interrupted_calls": 0,
+          "logical_tokens": {
+            "completion_tokens": 42582,
+            "prompt_tokens": 232397,
+            "total_tokens": 274979
+          },
+          "observed_calls": 356,
+          "observed_coverage": 1.0,
+          "successful_calls": 356,
+          "unobservable_calls": 0
+        }
+      },
+      "model": {
+        "deepseek-v4-flash": {
+          "attempted_calls": 356,
+          "billed_tokens": {
+            "completion_tokens": 42582,
+            "prompt_tokens": 232397,
+            "total_tokens": 274979
+          },
+          "cache_hit_calls": 0,
+          "failed_calls": 0,
+          "interrupted_calls": 0,
+          "logical_tokens": {
+            "completion_tokens": 42582,
+            "prompt_tokens": 232397,
+            "total_tokens": 274979
+          },
+          "observed_calls": 356,
+          "observed_coverage": 1.0,
+          "successful_calls": 356,
+          "unobservable_calls": 0
+        }
+      },
+      "source": {
+        "skilladaptor.webshop_policy": {
+          "attempted_calls": 356,
+          "billed_tokens": {
+            "completion_tokens": 42582,
+            "prompt_tokens": 232397,
+            "total_tokens": 274979
+          },
+          "cache_hit_calls": 0,
+          "failed_calls": 0,
+          "interrupted_calls": 0,
+          "logical_tokens": {
+            "completion_tokens": 42582,
+            "prompt_tokens": 232397,
+            "total_tokens": 274979
+          },
+          "observed_calls": 356,
+          "observed_coverage": 1.0,
+          "successful_calls": 356,
+          "unobservable_calls": 0
+        }
+      },
+      "stage": {
+        "eval": {
+          "attempted_calls": 356,
+          "billed_tokens": {
+            "completion_tokens": 42582,
+            "prompt_tokens": 232397,
+            "total_tokens": 274979
+          },
+          "cache_hit_calls": 0,
+          "failed_calls": 0,
+          "interrupted_calls": 0,
+          "logical_tokens": {
+            "completion_tokens": 42582,
+            "prompt_tokens": 232397,
+            "total_tokens": 274979
+          },
+          "observed_calls": 356,
+          "observed_coverage": 1.0,
+          "successful_calls": 356,
+          "unobservable_calls": 0
+        }
+      },
+      "status": {
+        "success": {
+          "attempted_calls": 356,
+          "billed_tokens": {
+            "completion_tokens": 42582,
+            "prompt_tokens": 232397,
+            "total_tokens": 274979
+          },
+          "cache_hit_calls": 0,
+          "failed_calls": 0,
+          "interrupted_calls": 0,
+          "logical_tokens": {
+            "completion_tokens": 42582,
+            "prompt_tokens": 232397,
+            "total_tokens": 274979
+          },
+          "observed_calls": 356,
+          "observed_coverage": 1.0,
+          "successful_calls": 356,
+          "unobservable_calls": 0
+        }
+      }
+    },
+    "interrupted_calls": 0,
+    "logical_tokens": {
+      "completion_tokens": 42582,
+      "prompt_tokens": 232397,
+      "total_tokens": 274979
+    },
+    "observed_calls": 356,
+    "observed_coverage": 1.0,
+    "schema_version": "rsebench.token-summary.v1",
+    "successful_calls": 356,
+    "unobservable_calls": 0
+  },
+  "uses_clean_test_outcomes": false,
+  "uses_evolved_outcomes": false
+}

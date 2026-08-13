@@ -1,0 +1,852 @@
+{
+  "goals": {
+    "100": {
+      "asin": "B09P8D2Q1Q",
+      "attributes": [
+        "storage space",
+        "living room"
+      ],
+      "category": "garden",
+      "goal_options": {},
+      "instruction_text": "Find me home office cabinets with storage space for living room, and price lower than 210.00 dollars",
+      "name": "Tiamu File Cabinet - Vertical Filing Cabinet - Office Cabinet with Open Storage Shelf and Drawer - Letter Size Large Modern Storage Cabinet Printer Stand, for Office, Study, Living Room",
+      "price_upper": 210.0,
+      "product_category": "Office Products › Office Furniture & Lighting › Cabinets, Racks & Shelves › File Cabinets › Vertical File Cabinets",
+      "query": "home office cabinets",
+      "weight": 0.01866359447004608
+    },
+    "1031": {
+      "asin": "B07BFLJQCX",
+      "attributes": [
+        "coconut oil",
+        "hair loss"
+      ],
+      "category": "beauty",
+      "goal_options": {},
+      "instruction_text": "Find me hair loss products with coconut oil for hair loss, and price lower than 50.00 dollars",
+      "name": "artnaturals Black Castor Oil Conditioner – (16 Fl Oz / 473ml) – Strengthen, Grow and Restore – Jamaican Castor – For Color Treated Hair",
+      "price_upper": 50.0,
+      "product_category": "Beauty & Personal Care › Hair Care › Shampoo & Conditioner › Conditioners",
+      "query": "hair loss products",
+      "weight": 0.18333333333333332
+    },
+    "1036": {
+      "asin": "B07V3WXX85",
+      "attributes": [
+        "machine wash",
+        "imported zipper"
+      ],
+      "category": "fashion",
+      "goal_options": {},
+      "instruction_text": "Find me machine wash men's jackets & coats with imported zipper, and price lower than 80.00 dollars",
+      "name": "PUMA Men's Amplified Hooded Fleece Jacket",
+      "price_upper": 80.0,
+      "product_category": "Clothing, Shoes & Jewelry › Men › Clothing › Jackets & Coats › Lightweight Jackets › Denim",
+      "query": "men's jackets & coats",
+      "weight": 0.5001945525291829
+    },
+    "1038": {
+      "asin": "B08W874R8Z",
+      "attributes": [
+        "ultra hd",
+        "1080p hd",
+        "stereo sound"
+      ],
+      "category": "electronics",
+      "goal_options": {},
+      "instruction_text": "Find me ultra hd, 1080p hd digital cameras for stereo sound",
+      "name": "Nikon D7500 DSLR Camera 2 Lens Kit with 18-55mm VR + 70-300mm Zoom Lens + Deluxe Starter Bundle Including 2 32GB Sandisk SD Memory Cards, Wide Angle and Telephoto Lens, Gadget Bag Plus More",
+      "price_upper": 1000000,
+      "product_category": "Electronics › Camera & Photo › Digital Cameras › DSLR Cameras",
+      "query": "digital cameras",
+      "weight": 0.4166666666666667
+    },
+    "1128": {
+      "asin": "B08L373FLK",
+      "attributes": [
+        "machine washable",
+        "cotton spandex"
+      ],
+      "category": "fashion",
+      "goal_options": {
+        "color": "red"
+      },
+      "instruction_text": "Find me machine washable women's shorts with cotton spandex with color: red, and price lower than 50.00 dollars",
+      "name": "Athletic Works Women's Commuter Shorts (XS 0-2",
+      "price_upper": 50.0,
+      "product_category": "Clothing, Shoes & Jewelry › Women › Clothing › Active › Active Shorts",
+      "query": "women's shorts",
+      "weight": 0.0029946603935626
+    },
+    "1177": {
+      "asin": "B09P65MG4G",
+      "attributes": [
+        "fully assembled",
+        "contemporary style"
+      ],
+      "category": "garden",
+      "goal_options": {},
+      "instruction_text": "Find me fully assembled sofa tables with contemporary style, and price lower than 160.00 dollars",
+      "name": "Rustic Luxe Large Wooden Sofa Table, Gray",
+      "price_upper": 160.0,
+      "product_category": "Home & Kitchen › Furniture › Living Room Furniture › Tables › Sofa & Console Tables",
+      "query": "sofa tables",
+      "weight": 0.35
+    },
+    "1180": {
+      "asin": "B000YG3DWC",
+      "attributes": [
+        "protein serving",
+        "quality ingredients"
+      ],
+      "category": "grocery",
+      "goal_options": {},
+      "instruction_text": "Find me protein serving meat substitutes with quality ingredients, and price lower than 130.00 dollars",
+      "name": "Stouffer's Party Size Lasagna with Meat Sauce Frozen Meal",
+      "price_upper": 130.0,
+      "product_category": "Grocery & Gourmet Food › Frozen › Meals & Entrees",
+      "query": "meat substitutes",
+      "weight": 0.17424242424242423
+    },
+    "1195": {
+      "asin": "B083ZK4NRS",
+      "attributes": [
+        "tempered glass",
+        "glass screen"
+      ],
+      "category": "electronics",
+      "goal_options": {},
+      "instruction_text": "Find me screen protectors with tempered glass, glass screen, and price lower than 50.00 dollars",
+      "name": "Spigen Tempered Glass Screen Protector [GlasTR Slim] Designed for Google Pixelbook Go (13.3inch) [9H Hardness]",
+      "price_upper": 50.0,
+      "product_category": "Cell Phones & Accessories › Accessories › Maintenance, Upkeep & Repairs › Screen Protectors",
+      "query": "screen protectors",
+      "weight": 0.09401709401709402
+    },
+    "1202": {
+      "asin": "B00B04344Y",
+      "attributes": [
+        "rich creamy",
+        "ready use"
+      ],
+      "category": "grocery",
+      "goal_options": {},
+      "instruction_text": "Find me rich creamy, ready use deli & prepared foods, and price lower than 70.00 dollars",
+      "name": "Rich's JW Allen Filling, Bavarian Cream, 496 Oz",
+      "price_upper": 70.0,
+      "product_category": "Grocery & Gourmet Food › Pantry Staples › Cooking & Baking › Pie & Pastry Fillings",
+      "query": "deli & prepared foods",
+      "weight": 0.5555555555555556
+    },
+    "1251": {
+      "asin": "B09GBF12CY",
+      "attributes": [
+        "living room",
+        "dining room"
+      ],
+      "category": "garden",
+      "goal_options": {},
+      "instruction_text": "Find me floor lamps for living room, dining room, and price lower than 90.00 dollars",
+      "name": "Corner Floor Lamp, Smart RBG Floor Lamp with App Control, Timer, Magiacous Music Sync Modern Floor Lamp, Full Spectrum Color Changing Standing Lamp, for Living Room, Bedroom, Game, Party，Reading",
+      "price_upper": 90.0,
+      "product_category": "Tools & Home Improvement › Lighting & Ceiling Fans › Lamps & Shades › Floor Lamps",
+      "query": "floor lamps",
+      "weight": 0.002378778656928383
+    },
+    "1268": {
+      "asin": "B096G437B4",
+      "attributes": [
+        "mid century",
+        "bronze finish",
+        "steel frame"
+      ],
+      "category": "garden",
+      "goal_options": {},
+      "instruction_text": "Find me mid century table lamps with bronze finish, steel frame, and price lower than 110.00 dollars",
+      "name": "Henn&Hart Mid-Century Modern Metal Table Lamp with Fabric Shade in Blackened Bronze (TL0483)",
+      "price_upper": 110.0,
+      "product_category": "Tools & Home Improvement › Lighting & Ceiling Fans › Lamps & Shades › Table Lamps",
+      "query": "table lamps",
+      "weight": 0.10381836945304439
+    },
+    "1302": {
+      "asin": "B09NX4RGK7",
+      "attributes": [
+        "plant based",
+        "artificial flavors"
+      ],
+      "category": "grocery",
+      "goal_options": {},
+      "instruction_text": "Find me plant based meat & seafood with artificial flavors, and price lower than 140.00 dollars",
+      "name": "Good Catch Plant-Based Seafood Sandwich Variety Pack | 6 Boxes of Frozen Vegan and Vegetarian Salmon Burgers, Fish Burgers, and Fish Fillets |Kosher, Fish-Free & Crab-Free| 12 Total Servings",
+      "price_upper": 140.0,
+      "product_category": "Grocery & Gourmet Food › Meat Substitutes",
+      "query": "meat & seafood",
+      "weight": 0.05
+    },
+    "1303": {
+      "asin": "B087TR48KK",
+      "attributes": [
+        "non slip",
+        "stainless steel"
+      ],
+      "category": "beauty",
+      "goal_options": {},
+      "instruction_text": "Find me non slip shave & hair removal with stainless steel, and price lower than 40.00 dollars",
+      "name": "Minkissy Eyebrow Hair Razors Eyebrow Trimmer Portable Facial Hair Remover Facail Hair Trimmer Hair Beauty Grooming Tool for Women and Men 4pcs",
+      "price_upper": 40.0,
+      "product_category": "Beauty & Personal Care › Shave & Hair Removal › Men's › Eyebrow Trimmers",
+      "query": "shave & hair removal",
+      "weight": 0.014424260325899671
+    },
+    "132": {
+      "asin": "B09QXF3V3X",
+      "attributes": [
+        "non slip",
+        "rubber sole"
+      ],
+      "category": "fashion",
+      "goal_options": {},
+      "instruction_text": "Find me non slip men's outdoor shoes with rubber sole, and price lower than 140.00 dollars",
+      "name": "DEUVOUM Summer Trend Mesh Shoes Men's Sports Shoes Solid Color Lace-Up Sneakers Fashion All-Match Walking Shoes Outdoor Hiking Shoes Non-Slip Shock-Absorbing Casual Sports Shoes",
+      "price_upper": 140.0,
+      "product_category": "Clothing, Shoes & Jewelry › Men › Shoes › Athletic › Golf",
+      "query": "men's outdoor shoes",
+      "weight": 0.0016364362173208447
+    },
+    "1362": {
+      "asin": "B093YT83QR",
+      "attributes": [
+        "blouse hosiery",
+        "laundry bag"
+      ],
+      "category": "fashion",
+      "goal_options": {},
+      "instruction_text": "Find me women's socks & hosiery with blouse hosiery for laundry bag, and price lower than 50.00 dollars",
+      "name": "Set of 2 Mesh Laundry Bags Mini Pineapple And Starfish-1 Medium & 1 Small Bags Laundry,Blouse, Hosiery, Stocking, Underwear, Bra Lingerie, Travel Laundry Bag(8rp9i)",
+      "price_upper": 50.0,
+      "product_category": "Clothing, Shoes & Jewelry › Women › Accessories › Wallets, Card Cases & Money Organizers › Wallets",
+      "query": "women's socks & hosiery",
+      "weight": 0.23809523809523808
+    },
+    "1425": {
+      "asin": "B09KXCHWGD",
+      "attributes": [
+        "short sleeve",
+        "button closure"
+      ],
+      "category": "fashion",
+      "goal_options": {
+        "color": "orange"
+      },
+      "instruction_text": "Find me men's polos with short sleeve, button closure with color: orange, and price lower than 30.00 dollars",
+      "name": "Custom Polo Shirts for Men Design Your Own Personalized Logo Text Photo Polo Shirt Customize Classic Polo Shirt",
+      "price_upper": 30.0,
+      "product_category": "Clothing, Shoes & Jewelry › Novelty & More › Clothing › Novelty › Men › Shirts › Polos",
+      "query": "men's polos",
+      "weight": 0.0016657827079001029
+    },
+    "1554": {
+      "asin": "B09KXCHWGD",
+      "attributes": [
+        "short sleeve",
+        "button closure"
+      ],
+      "category": "fashion",
+      "goal_options": {
+        "color": "black"
+      },
+      "instruction_text": "Find me men's polos with short sleeve, button closure with color: black, and price lower than 30.00 dollars",
+      "name": "Custom Polo Shirts for Men Design Your Own Personalized Logo Text Photo Polo Shirt Customize Classic Polo Shirt",
+      "price_upper": 30.0,
+      "product_category": "Clothing, Shoes & Jewelry › Novelty & More › Clothing › Novelty › Men › Shirts › Polos",
+      "query": "men's polos",
+      "weight": 0.0016657827079001029
+    },
+    "1665": {
+      "asin": "B07VVVDRCX",
+      "attributes": [
+        "compatible apple",
+        "case cover"
+      ],
+      "category": "electronics",
+      "goal_options": {
+        "color": "red mandala"
+      },
+      "instruction_text": "Find me compatible apple online game services with case cover with color: red mandala, and price lower than 40.00 dollars",
+      "name": "iPad Case Fit 2018/2017 iPad 9.7 6th/5th Generation - 360 Degree Rotating iPad Air Case Cover with Auto Wake/Sleep Compatible with Apple iPad 9.7 Inch 2018/2017 (National Wind)",
+      "price_upper": 40.0,
+      "product_category": "Electronics › Computers & Accessories › Tablet Accessories › Bags, Cases & Sleeves › Cases",
+      "query": "online game services",
+      "weight": 0.04166666666666667
+    },
+    "206": {
+      "asin": "B09PY89B1S",
+      "attributes": [
+        "hair growth",
+        "hair loss"
+      ],
+      "category": "beauty",
+      "goal_options": {
+        "size": "3pcs"
+      },
+      "instruction_text": "Find me hair loss products for hair growth, hair loss with size: 3pcs, and price lower than 50.00 dollars",
+      "name": "Upgraded Version Regrowth Organic Hair Serum Roller Set, Biotin Hair Growth Serum,Triple Roll-On Massager Hair Growth Essence,for Men Women of All Hair Types (5PCS)",
+      "price_upper": 50.0,
+      "product_category": "Beauty & Personal Care › Hair Care › Hair Loss Products › Hair Regrowth Treatments",
+      "query": "hair loss products",
+      "weight": 0.04607843137254902
+    },
+    "234": {
+      "asin": "B09DBYG4XD",
+      "attributes": [
+        "gmo free",
+        "gluten free",
+        "kosher certified",
+        "non gmo"
+      ],
+      "category": "grocery",
+      "goal_options": {},
+      "instruction_text": "Find me gmo free, gluten free, kosher certified, non gmo snack food gifts, and price lower than 40.00 dollars",
+      "name": "Italian Herb Nuts - Vegan, Kosher, Gluten-free, GMO-free - 12oz (PACK OF 3 BAGS), Satisfaction Guarantee",
+      "price_upper": 40.0,
+      "product_category": "Grocery & Gourmet Food › Food & Beverage Gifts › Snack Gifts",
+      "query": "snack food gifts",
+      "weight": 0.5109054252199414
+    },
+    "2446": {
+      "asin": "B018A8MPJ2",
+      "attributes": [
+        "queen size",
+        "storage unit"
+      ],
+      "category": "garden",
+      "goal_options": {
+        "color": "bark grey"
+      },
+      "instruction_text": "Find me queen size beds with storage unit with color: bark grey",
+      "name": "Bestar Pur Collection, Queen Murphy Bed kit (101“)",
+      "price_upper": 1000000,
+      "product_category": "Home & Kitchen › Furniture › Bedroom Furniture › Beds, Frames & Bases › Beds",
+      "query": "beds",
+      "weight": 0.19298245614035087
+    },
+    "252": {
+      "asin": "B089R7JZHK",
+      "attributes": [
+        "easy use",
+        "aaa batteries"
+      ],
+      "category": "electronics",
+      "goal_options": {},
+      "instruction_text": "Find me easy use vcrs with aaa batteries, and price lower than 40.00 dollars",
+      "name": "New Replace Remote NB555 Fit for ZV450MW8 ZV450MW8A ZV420MW8 SV08R242 Magnavox Video Recorder",
+      "price_upper": 40.0,
+      "product_category": "Electronics › Accessories & Supplies › Audio & Video Accessories › Remote Controls & Accessories › Remote Controls",
+      "query": "vcrs",
+      "weight": 0.5111111111111111
+    },
+    "277": {
+      "asin": "B09MW563KN",
+      "attributes": [
+        "oral hygiene",
+        "fresh breath"
+      ],
+      "category": "beauty",
+      "goal_options": {
+        "color": "blue"
+      },
+      "instruction_text": "Find me tongue cleaners for oral hygiene, fresh breath with color: blue, and price lower than 60.00 dollars",
+      "name": "SWAGOFKGys Travel Toothbrushes， Double Side Tongue Cleaner Brush for Tongue Cleaning Oral Care Tool Silicone Tongue Scraper Toothbrush Fresh Breath (Color : Yellow)",
+      "price_upper": 60.0,
+      "product_category": "Beauty & Personal Care › Oral Care › Toothbrushes & Accessories › Manual Toothbrushes",
+      "query": "tongue cleaners",
+      "weight": 0.1388888888888889
+    },
+    "2826": {
+      "asin": "B091CNTBNS",
+      "attributes": [
+        "easy clean",
+        "light fixture"
+      ],
+      "category": "garden",
+      "goal_options": {
+        "color": "semi flush mount"
+      },
+      "instruction_text": "Find me easy clean pendants and chandeliers with light fixture with color: semi flush mount, and price lower than 90.00 dollars",
+      "name": "Wood Beaded Chandelier Farmhouse Flush Mount Ceiling Light 3-Light Boho Chandelier for Bedroom,Hallway,Entryway,Lounge and Foyer",
+      "price_upper": 90.0,
+      "product_category": "Tools & Home Improvement › Lighting & Ceiling Fans › Ceiling Lights › Chandeliers",
+      "query": "pendants and chandeliers",
+      "weight": 0.03662634408602151
+    },
+    "3": {
+      "asin": "B09LSKQF8C",
+      "attributes": [
+        "dual band",
+        "quad core"
+      ],
+      "category": "electronics",
+      "goal_options": {},
+      "instruction_text": "Find me dual band streaming media players with quad core, and price lower than 350.00 dollars",
+      "name": "Superbox S3 Pro Dual Band Wi-Fi 2.4Ghz 5Ghz Supports 6K Video",
+      "price_upper": 350.0,
+      "product_category": "Electronics › Television & Video › Streaming Media Players",
+      "query": "streaming media players",
+      "weight": 0.75
+    },
+    "32": {
+      "asin": "B096MM7XM4",
+      "attributes": [
+        "double sided",
+        "easy clean",
+        "easy use",
+        "hair extensions"
+      ],
+      "category": "beauty",
+      "goal_options": {},
+      "instruction_text": "Find me double sided, easy clean, easy use hair extensions, wigs & accessories for hair extensions, and price lower than 50.00 dollars",
+      "name": "36pcs / Bag Hair Extension Tape, Lace Front Wig Double Sided Adhesive Tape,Wigs Adhesive Tape Accessor for Hair Extensions Wigs Supplies",
+      "price_upper": 50.0,
+      "product_category": "Beauty & Personal Care › Hair Care › Hair Extensions, Wigs & Accessories › Adhesives",
+      "query": "hair extensions, wigs & accessories",
+      "weight": 0.06776753712237583
+    },
+    "331": {
+      "asin": "B01MTYK2T9",
+      "attributes": [
+        "quick release",
+        "aluminum alloy"
+      ],
+      "category": "electronics",
+      "goal_options": {},
+      "instruction_text": "Find me quick release tripods & monopods with aluminum alloy, and price lower than 40.00 dollars",
+      "name": "Sturdy 72\" Monopod Camera Stick with Quick Release for Sony Cyber-shot DSC-R1, DSC-RX1, DSC-RX10, DSC-RX10 II, DSC-RX10 III, RX10, RX100 II Pro Digital Cameras: Collapsible Mono pod, Mono-pod",
+      "price_upper": 40.0,
+      "product_category": "Electronics › Camera & Photo › Tripods & Monopods › Monopods",
+      "query": "tripods & monopods",
+      "weight": 0.11666666666666667
+    },
+    "333": {
+      "asin": "B08Q2YQ35N",
+      "attributes": [
+        "aluminum alloy",
+        "bird watching"
+      ],
+      "category": "electronics",
+      "goal_options": {},
+      "instruction_text": "Find me binoculars & scopes with aluminum alloy for bird watching, and price lower than 250.00 dollars",
+      "name": "whdz Telescopes for Kids Adults Astronomy Beginners 34-199X Magnification Travel Telescope with Portable Tripod for Professional Adults Kids Moon Star Spotting Scope",
+      "price_upper": 250.0,
+      "product_category": "Electronics › Camera & Photo › Binoculars & Scopes › Binoculars",
+      "query": "binoculars & scopes",
+      "weight": 0.15000000000000002
+    },
+    "350": {
+      "asin": "B09BWQZ68V",
+      "attributes": [
+        "dermatologist tested",
+        "sensitive skin"
+      ],
+      "category": "beauty",
+      "goal_options": {},
+      "instruction_text": "Find me dermatologist tested foot, hand & nail care for sensitive skin, and price lower than 30.00 dollars",
+      "name": "Gold Bond Medicated Advanced Healing Ointment, 7 oz., Hydrates and Protects Dry, Cracked Skin",
+      "price_upper": 30.0,
+      "product_category": "Beauty & Personal Care › Skin Care › Body › Moisturizers › Lotions",
+      "query": "foot, hand & nail care",
+      "weight": 0.29545454545454547
+    },
+    "352": {
+      "asin": "B07B6DVG41",
+      "attributes": [
+        "sulfate free",
+        "paraben free",
+        "hyaluronic acid",
+        "coconut oil",
+        "damaged hair",
+        "hair growth",
+        "hair loss"
+      ],
+      "category": "beauty",
+      "goal_options": {},
+      "instruction_text": "Find me sulfate free, paraben free shampoo & conditioner with hyaluronic acid, coconut oil for damaged hair, hair growth, hair loss, and price lower than 60.00 dollars",
+      "name": "100% PURE Glossy Locks: Repair Shampoo (13.5 Fl Oz), Sulfate Free Shampoo, Restores Damaged Hair, Moisturizing, Improves Hair Growth, Made with Biotin, Coconut Oil",
+      "price_upper": 60.0,
+      "product_category": "Beauty & Personal Care › Hair Care › Shampoo & Conditioner › Shampoos",
+      "query": "shampoo & conditioner",
+      "weight": 0.35748761042878685
+    },
+    "392": {
+      "asin": "B07VVVDRCX",
+      "attributes": [
+        "compatible apple",
+        "case cover"
+      ],
+      "category": "electronics",
+      "goal_options": {
+        "color": "cambridge blue"
+      },
+      "instruction_text": "Find me compatible apple online game services with case cover with color: cambridge blue, and price lower than 40.00 dollars",
+      "name": "iPad Case Fit 2018/2017 iPad 9.7 6th/5th Generation - 360 Degree Rotating iPad Air Case Cover with Auto Wake/Sleep Compatible with Apple iPad 9.7 Inch 2018/2017 (National Wind)",
+      "price_upper": 40.0,
+      "product_category": "Electronics › Computers & Accessories › Tablet Accessories › Bags, Cases & Sleeves › Cases",
+      "query": "online game services",
+      "weight": 0.04166666666666667
+    },
+    "399": {
+      "asin": "B09HY9XB8P",
+      "attributes": [
+        "machine wash",
+        "polyester spandex"
+      ],
+      "category": "fashion",
+      "goal_options": {},
+      "instruction_text": "Find me machine wash men's underwear with polyester spandex, and price lower than 50.00 dollars",
+      "name": "Brief INSANTIY Boxer Briefs for Men and Women | Bourbon Wine Print Boxer Shorts - Comfy, Casual Underwear (XX-Large)",
+      "price_upper": 50.0,
+      "product_category": "Clothing, Shoes & Jewelry › Men › Clothing › Underwear › Boxer Briefs",
+      "query": "men's underwear",
+      "weight": 0.0008823104383988353
+    },
+    "433": {
+      "asin": "B083WSK6F2",
+      "attributes": [
+        "double sided",
+        "dead skin",
+        "dry skin"
+      ],
+      "category": "beauty",
+      "goal_options": {},
+      "instruction_text": "Find me double sided bathing accessories for dead skin, dry skin, and price lower than 60.00 dollars",
+      "name": "Riffi Body & Shoulder Massage (767) - Massage Belt for Body and Shoulder, Riffi Shower and Massage Accessories for Men & Women - 2 Pack",
+      "price_upper": 60.0,
+      "product_category": "Beauty & Personal Care › Personal Care › Bath & Bathing Accessories › Bathing Accessories",
+      "query": "bathing accessories",
+      "weight": 0.08508403361344537
+    },
+    "444": {
+      "asin": "B00VI88X7U",
+      "attributes": [
+        "power amplifier",
+        "hands free",
+        "usb port"
+      ],
+      "category": "electronics",
+      "goal_options": {},
+      "instruction_text": "Find me power amplifier, hands free av receivers & amplifiers with usb port, and price lower than 320.00 dollars",
+      "name": "Retro Manufacturing HB-116-117-37-73 Hermosa Direct-Fit Radio for Classic Vehicle (Black Face and Buttons and Chrome Bezel)",
+      "price_upper": 320.0,
+      "product_category": "Electronics › Car & Vehicle Electronics › Car Electronics › Car Audio › Car Stereo Receivers",
+      "query": "av receivers & amplifiers",
+      "weight": 0.13654970760233917
+    },
+    "446": {
+      "asin": "B08532HWVM",
+      "attributes": [
+        "leak proof",
+        "travel bottles"
+      ],
+      "category": "beauty",
+      "goal_options": {},
+      "instruction_text": "Find me leak proof refillable containers with travel bottles, and price lower than 30.00 dollars",
+      "name": "Beaupretty 7Pcs Silicone Travel Bottles Set Empty Cosmetic Bottles Refillable Toiletry Containers Squeezable Travel Tube for Lotion Shampoo Toiletries",
+      "price_upper": 30.0,
+      "product_category": "Beauty & Personal Care › Tools & Accessories › Bags & Cases",
+      "query": "refillable containers",
+      "weight": 0.29166666666666663
+    },
+    "484": {
+      "asin": "B09FYBZNQL",
+      "attributes": [
+        "damaged hair",
+        "hair treatment",
+        "dry hair"
+      ],
+      "category": "beauty",
+      "goal_options": {},
+      "instruction_text": "Find me hair masks for damaged hair, hair treatment, dry hair, and price lower than 50.00 dollars",
+      "name": "7pcs Hair Conditioner For Damaged Dry Hair, Hair Mask Repairing Hair Deep Conditioner Conditioning Treatment for Damaged Hair",
+      "price_upper": 50.0,
+      "product_category": "Beauty & Personal Care › Hair Care",
+      "query": "hair masks",
+      "weight": 0.2973856209150327
+    },
+    "502": {
+      "asin": "B09PKHJN8P",
+      "attributes": [
+        "light weight",
+        "easy carry",
+        "aluminum alloy"
+      ],
+      "category": "electronics",
+      "goal_options": {},
+      "instruction_text": "Find me light weight, easy carry underwater photography with aluminum alloy, and price lower than 50.00 dollars",
+      "name": "Pinsofy Underwater Ball Arm Adapter, Diving Ball Head Base Adapter High Strength for Underwater Photography",
+      "price_upper": 50.0,
+      "product_category": "Electronics › Camera & Photo › Underwater Photography › Underwater Lighting › Parts & Accessories",
+      "query": "underwater photography",
+      "weight": 0.082790837854129
+    },
+    "508": {
+      "asin": "B07PX22S9F",
+      "attributes": [
+        "dining room",
+        "living room"
+      ],
+      "category": "garden",
+      "goal_options": {
+        "color": "black"
+      },
+      "instruction_text": "Find me bar stools for dining room, living room with color: black, and price lower than 70.00 dollars",
+      "name": "NOBPEINT Contemporary Chrome Air Lift Adjustable Swivel Bar Stool, Set of 2, Black",
+      "price_upper": 70.0,
+      "product_category": "Home & Kitchen › Furniture › Game & Recreation Room Furniture › Home Bar Furniture › Barstools",
+      "query": "bar stools",
+      "weight": 0.002378778656928383
+    },
+    "600": {
+      "asin": "B09GK4XTJG",
+      "attributes": [
+        "wall mounted",
+        "pendant light",
+        "dining room",
+        "living room"
+      ],
+      "category": "garden",
+      "goal_options": {},
+      "instruction_text": "Find me wall mounted pendants and chandeliers with pendant light for dining room, living room, and price lower than 60.00 dollars",
+      "name": "Modern Black Plug in Cord Pendant Lights with 11.5ft Cord LED Hanging Lamps for Ceiling Wall Mounted Industrial Chandelier Lighting Metal Aluminum Cylinder Nordic Design Included Warm Lighting 2700k",
+      "price_upper": 60.0,
+      "product_category": "Tools & Home Improvement › Lighting & Ceiling Fans › Ceiling Lights › Pendant Lights",
+      "query": "pendants and chandeliers",
+      "weight": 0.06434728406530629
+    },
+    "6018": {
+      "asin": "B08L373FLK",
+      "attributes": [
+        "machine washable",
+        "cotton spandex"
+      ],
+      "category": "fashion",
+      "goal_options": {
+        "color": "green"
+      },
+      "instruction_text": "Find me machine washable women's shorts with cotton spandex with color: green, and price lower than 50.00 dollars",
+      "name": "Athletic Works Women's Commuter Shorts (XS 0-2",
+      "price_upper": 50.0,
+      "product_category": "Clothing, Shoes & Jewelry › Women › Clothing › Active › Active Shorts",
+      "query": "women's shorts",
+      "weight": 0.0029946603935626
+    },
+    "611": {
+      "asin": "B09B7551X2",
+      "attributes": [
+        "easy install",
+        "compatible apple"
+      ],
+      "category": "electronics",
+      "goal_options": {},
+      "instruction_text": "Find me easy install, compatible apple wearable technology, and price lower than 50.00 dollars",
+      "name": "MNBVCXZ Watch Bands Compatible for Apple Watch Band 44mm 45mm 40mm 41mm with Protective Case for Men & Women, Sport Waterproof Strap for iWatch SE Series 7/6/5/4 (40mm 41mm,Midnight blue)",
+      "price_upper": 50.0,
+      "product_category": "Cell Phones & Accessories › Accessories › Smartwatch Accessories › Smartwatch Bands",
+      "query": "wearable technology",
+      "weight": 0.02687074829931973
+    },
+    "71": {
+      "asin": "B07JMXLXNY",
+      "attributes": [
+        "tempered glass",
+        "glass screen"
+      ],
+      "category": "electronics",
+      "goal_options": {},
+      "instruction_text": "Find me screen protectors with tempered glass, glass screen, and price lower than 40.00 dollars",
+      "name": "JETech Screen Protector for iPad Air 3 (10.5 Inch 2019 Model) and iPad Pro 10.5 (2017), Tempered Glass Film, 2-Pack",
+      "price_upper": 40.0,
+      "product_category": "Electronics › Computers & Accessories › Tablet Accessories › Screen Protectors",
+      "query": "screen protectors",
+      "weight": 0.09401709401709402
+    },
+    "735": {
+      "asin": "B01N9I1E62",
+      "attributes": [
+        "faux fur",
+        "rubber sole"
+      ],
+      "category": "fashion",
+      "goal_options": {},
+      "instruction_text": "Find me women's slippers with faux fur, rubber sole, and price lower than 60.00 dollars",
+      "name": "Woolrich Women's Autumn Ridge Ii Slipper",
+      "price_upper": 60.0,
+      "product_category": "Clothing, Shoes & Jewelry › Women › Shoes › Slippers",
+      "query": "women's slippers",
+      "weight": 0.007575004473427838
+    },
+    "788": {
+      "asin": "B08XQWJX8P",
+      "attributes": [
+        "long lasting",
+        "natural ingredients"
+      ],
+      "category": "beauty",
+      "goal_options": {},
+      "instruction_text": "Find me long lasting men's fragrance with natural ingredients, and price lower than 50.00 dollars",
+      "name": "Oriental Eau de Toilette – Natural Eau de Toilette for Men Woody Eau de Toilette Infused with Essential Oils Fragrance for Men with Oriental Woody Tones NOU Oliban Eau de Toilette for Men – 1.7 Fl Oz",
+      "price_upper": 50.0,
+      "product_category": "Beauty & Personal Care › Fragrance",
+      "query": "men's fragrance",
+      "weight": 0.035093582887700536
+    },
+    "841": {
+      "asin": "B09G9V3G1N",
+      "attributes": [
+        "easy carry",
+        "easy use"
+      ],
+      "category": "beauty",
+      "goal_options": {},
+      "instruction_text": "Find me easy carry, easy use sets fragrance, and price lower than 70.00 dollars",
+      "name": "ASOMI50ml Perfume Set Aromatherapy Fragrance Perfume with Portable Empty Refill Bottle",
+      "price_upper": 70.0,
+      "product_category": "Beauty & Personal Care › Tools & Accessories › Bags & Cases",
+      "query": "sets fragrance",
+      "weight": 0.02896825396825397
+    },
+    "857": {
+      "asin": "B08LD3XCPQ",
+      "attributes": [
+        "bpa free",
+        "easy clean",
+        "storage case",
+        "bad breath"
+      ],
+      "category": "beauty",
+      "goal_options": {},
+      "instruction_text": "Find me bpa free, easy clean tongue cleaners with storage case for bad breath, and price lower than 20.00 dollars",
+      "name": "Premium Tongue Scraper Cleaner, BPA Free Tongue Scrapers, Healthy Oral Care, Soft and 100% Effective Clean Tools, With Travel Carry Case",
+      "price_upper": 20.0,
+      "product_category": "Beauty & Personal Care › Oral Care › Tongue Cleaners",
+      "query": "tongue cleaners",
+      "weight": 0.39852150537634407
+    },
+    "87": {
+      "asin": "B01MSP2B0I",
+      "attributes": [
+        "slim fit",
+        "straight leg",
+        "quality materials"
+      ],
+      "category": "fashion",
+      "goal_options": {},
+      "instruction_text": "Find me slim fit, straight leg men's jeans with quality materials, and price lower than 100.00 dollars",
+      "name": "Wrangler Men's Retro Slim Fit Straight Leg Jean, Black, 42W x 32L",
+      "price_upper": 100.0,
+      "product_category": "Clothing, Shoes & Jewelry › Men › Clothing › Jeans",
+      "query": "men's jeans",
+      "weight": 0.014835183567157302
+    },
+    "893": {
+      "asin": "B07QXZL1K5",
+      "attributes": [
+        "eco friendly",
+        "sensitive skin"
+      ],
+      "category": "beauty",
+      "goal_options": {},
+      "instruction_text": "Find me eco friendly cotton balls & swabs for sensitive skin, and price lower than 30.00 dollars",
+      "name": "Bamboo Cotton Swab 1000PCS Double Cotton Buds bamboo Cotton Bud Eco organic bamboo ear swab for Ear Skin Jewelry Art Pet Cleaning Craft Paper Packaging (5 PACKS OF 200 STICKS)",
+      "price_upper": 30.0,
+      "product_category": "Beauty & Personal Care › Tools & Accessories › Cotton Balls & Swabs › Cotton Swabs",
+      "query": "cotton balls & swabs",
+      "weight": 0.04837852206273259
+    },
+    "994": {
+      "asin": "B00CQ7PQYU",
+      "attributes": [
+        "usda organic",
+        "gluten free"
+      ],
+      "category": "grocery",
+      "goal_options": {},
+      "instruction_text": "Find me usda organic, gluten free cream cheeses, and price lower than 120.00 dollars",
+      "name": "Native Forest Mushroom Pieces and Stems, 4 oz",
+      "price_upper": 120.0,
+      "product_category": "Grocery & Gourmet Food › Pantry Staples › Canned, Jarred & Packaged Foods › Vegetables › Mushrooms",
+      "query": "cream cheeses",
+      "weight": 0.5056818181818182
+    }
+  },
+  "schema_version": "rsebench.clean-webshop-source.v1",
+  "seed": 20260813,
+  "selection_policy": {
+    "name": "retrievable_low_complexity",
+    "requires_noise_overlays": false,
+    "retrieval_cutoff": 10,
+    "train_min_options": 1,
+    "uses_model_outcomes": false
+  },
+  "source_goal_count": 6910,
+  "source_product_count": 1000,
+  "test": [
+    3,
+    100,
+    132,
+    446,
+    71,
+    331,
+    333,
+    399,
+    350,
+    252,
+    87,
+    444,
+    484,
+    433,
+    32,
+    234,
+    352,
+    392,
+    277,
+    206
+  ],
+  "train": [
+    1554,
+    1665,
+    2446,
+    2826,
+    6018
+  ],
+  "validation": [
+    735,
+    994,
+    1036
+  ],
+  "validation_candidates": [
+    735,
+    994,
+    1036,
+    1177,
+    1195,
+    1202,
+    893,
+    788,
+    1180,
+    841,
+    1251,
+    1302,
+    1303,
+    1031,
+    611,
+    1362,
+    502,
+    1268,
+    1038,
+    857,
+    600,
+    508,
+    1128,
+    1425
+  ]
+}

@@ -40,6 +40,7 @@ def select_applicable(
     count: int,
     *,
     min_options: int,
+    require_noise_overlays: bool = True,
 ) -> list[int]:
     goals = {goal_idx: server.goals[goal_idx] for goal_idx in candidates}
     rankings = {
@@ -64,16 +65,17 @@ def select_applicable(
         query = " ".join(str(goal.get("query") or "").casefold().split())
         if not query or query in selected_queries:
             continue
-        try:
-            build_webshop_n1_context(goal, server.all_products, SEED)
-            build_webshop_n2_overlay(
-                goal,
-                server.all_products,
-                rankings[goal_idx],
-                SEED,
-            )
-        except ValueError:
-            continue
+        if require_noise_overlays:
+            try:
+                build_webshop_n1_context(goal, server.all_products, SEED)
+                build_webshop_n2_overlay(
+                    goal,
+                    server.all_products,
+                    rankings[goal_idx],
+                    SEED,
+                )
+            except ValueError:
+                continue
         selected.append(goal_idx)
         selected_queries.add(query)
         if len(selected) == count:
@@ -86,7 +88,9 @@ def select_applicable(
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--output", type=Path, required=True)
-    parser.add_argument("--validation-candidate-count", type=int, default=3)
+    parser.add_argument("--validation-candidate-count", type=int, default=12)
+    parser.add_argument("--test-count", type=int, default=20)
+    parser.add_argument("--clean-only", action="store_true")
     args = parser.parse_args()
     server = SimServer(
         "http://127.0.0.1:3000",
@@ -97,13 +101,18 @@ def main() -> None:
     # Official WebShop convention: test 0:500, validation 500:1500,
     # evolution/training from 1500 onward.
     train = select_applicable(
-        server, range(1500, len(server.goals)), 5, min_options=1
+        server,
+        range(1500, len(server.goals)),
+        5,
+        min_options=1,
+        require_noise_overlays=not args.clean_only,
     )
     validation_candidates = select_applicable(
         server,
         range(500, 1500),
         args.validation_candidate_count,
         min_options=0,
+        require_noise_overlays=not args.clean_only,
     )
     validation = validation_candidates[:3]
     test_goals = {goal_idx: server.goals[goal_idx] for goal_idx in range(500)}
@@ -112,7 +121,7 @@ def main() -> None:
         for goal_idx, goal in test_goals.items()
     }
     test = select_structurally_calibrated_goals(
-        test_goals, test_rankings, count=10, min_options=0
+        test_goals, test_rankings, count=args.test_count, min_options=0
     )
     selected = train + validation_candidates + test
     goals: dict[str, dict] = {}
@@ -121,7 +130,7 @@ def main() -> None:
     for goal_idx in selected:
         goal = server.goals[goal_idx]
         goals[str(goal_idx)] = goal
-        if goal_idx not in test:
+        if not args.clean_only and goal_idx not in test:
             n1[str(goal_idx)] = build_webshop_n1_context(
                 goal, server.all_products, SEED
             ).model_dump(mode="json")
@@ -132,13 +141,18 @@ def main() -> None:
                 SEED,
             ).model_dump(mode="json")
     payload = {
-        "schema_version": "rsebench.core1-webshop-source.v2",
+        "schema_version": (
+            "rsebench.clean-webshop-source.v1"
+            if args.clean_only
+            else "rsebench.core1-webshop-source.v2"
+        ),
         "seed": SEED,
         "selection_policy": {
             "name": "retrievable_low_complexity",
             "retrieval_cutoff": 10,
             "uses_model_outcomes": False,
             "train_min_options": 1,
+            "requires_noise_overlays": not args.clean_only,
         },
         "source_goal_count": len(server.goals),
         "source_product_count": len(server.all_products),
@@ -147,9 +161,10 @@ def main() -> None:
         "validation_candidates": validation_candidates,
         "test": test,
         "goals": goals,
-        "N1": {"stage": "N1", "goals": n1},
-        "N2": {"stage": "N2", "goals": n2},
     }
+    if not args.clean_only:
+        payload["N1"] = {"stage": "N1", "goals": n1}
+        payload["N2"] = {"stage": "N2", "goals": n2}
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(
         json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
