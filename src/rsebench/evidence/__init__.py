@@ -13,6 +13,11 @@ from rsebench.evidence.contracts import (
     TrajectoryRecord,
 )
 from rsebench.evidence.io import canonical_hash, canonical_json, read_record, write_record
+from rsebench.evidence.operators import (
+    mutate_record,
+    omit_selected_event,
+    replace_feedback_attribution,
+)
 
 __all__ = [
     "EvidenceRecord",
@@ -29,4 +34,7 @@ __all__ = [
     "canonical_json",
     "read_record",
     "write_record",
+    "mutate_record",
+    "omit_selected_event",
+    "replace_feedback_attribution",
 ]
