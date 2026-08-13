@@ -1,0 +1,51 @@
+diff --git a/skill-adaptor/core/orchestrator.py b/skill-adaptor/core/orchestrator.py
+index 8ec81c9..6c08eee 100644
+--- a/skill-adaptor/core/orchestrator.py
++++ b/skill-adaptor/core/orchestrator.py
+@@ -20,6 +20,30 @@ from .skill_matcher import SemanticSkillMatcher
+ from .task_context import load_task_markdown
+ from .skill_body_utils import refine_localized_fault, coerce_cold_start_fault, coerce_degraded_bank_fault
+ 
++
++def _rsebench_after_rollout(trajectory: Trajectory) -> Trajectory:
++    """Optional benchmark hook; exact identity when RSEBench is unavailable."""
++    try:
++        from rsebench.evolution.skilladaptor_executor import (
++            apply_skilladaptor_trajectory_from_env,
++        )
++    except ImportError:
++        return trajectory
++    return apply_skilladaptor_trajectory_from_env(trajectory)
++
++
++def _rsebench_after_localizer(
++    fault: LocalizedFault, trajectory: Trajectory,
++) -> LocalizedFault:
++    """Optional N4 hook after localization and before attribution/revision."""
++    try:
++        from rsebench.evolution.skilladaptor_executor import (
++            apply_skilladaptor_fault_from_env,
++        )
++    except ImportError:
++        return fault
++    return apply_skilladaptor_fault_from_env(fault, trajectory)
++
+ @dataclass
+ class SkillAdaptorIteration:
+     iteration: int
+@@ -335,10 +359,12 @@ class SkillAdaptorOrchestrator:
+         self._iteration_principles = []
+         all_faults: List[Tuple[Trajectory, LocalizedFault]] = []
+         for trajectory in failures:
+-            fault = self.localizer.localize(trajectory)
++            reflection_trajectory = _rsebench_after_rollout(trajectory)
++            fault = self.localizer.localize(reflection_trajectory)
+             if fault is not None:
+-                fault = self._finalize_localized_fault(trajectory, fault)
+-                all_faults.append((trajectory, fault))
++                fault = self._finalize_localized_fault(reflection_trajectory, fault)
++                fault = _rsebench_after_localizer(fault, reflection_trajectory)
++                all_faults.append((reflection_trajectory, fault))
+         unique_faults = self._deduplicate_faults_by_embedding(all_faults)
+         print(f'    Unique fault patterns: {len(unique_faults)}/{len(all_faults)}')
+         for i, (trajectory, fault) in enumerate(unique_faults):
