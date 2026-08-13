@@ -37,6 +37,15 @@ class SkillOptBudget:
     minibatch_size: int = 2
 
 
+@dataclass(frozen=True)
+class PreparedSkillOptEvolution:
+    command: list[str]
+    environment: dict[str, str]
+    output_dir: Path
+    native_split: Path
+    native_output: Path
+
+
 _CONFIGS = {
     "spreadsheetbench_verified": "configs/spreadsheetbench/default.yaml",
     "officeqa_full": "configs/officeqa/default.yaml",
@@ -257,14 +266,16 @@ class SkillOptExecutor:
                 f"SkillOpt command failed with exit {completed.returncode}: {tail}"
             )
 
-    def evolve(
+    def prepare_evolution(
         self,
         *,
         arm: EvolutionArmManifest,
         split: EvolutionSplitManifest,
         seed_skill_path: Path,
         output_dir: Path,
-    ) -> EvolutionArtifact:
+    ) -> PreparedSkillOptEvolution:
+        """Materialize inputs and render a native command without dispatching it."""
+
         # Commands run with ``cwd=method_root``. Resolve benchmark-owned paths
         # before crossing that subprocess boundary so a caller may safely use
         # a relative output root.
@@ -351,16 +362,38 @@ class SkillOptExecutor:
                     "RSEBENCH_EVIDENCE_ARM": arm.arm,
                 }
             )
-        self._run(
-            command,
-            output_dir / "command",
+        return PreparedSkillOptEvolution(
+            command=command,
             environment=environment,
+            output_dir=output_dir,
+            native_split=native_split,
+            native_output=native_output,
         )
-        artifact = native_output / "best_skill.md"
+
+    def evolve(
+        self,
+        *,
+        arm: EvolutionArmManifest,
+        split: EvolutionSplitManifest,
+        seed_skill_path: Path,
+        output_dir: Path,
+    ) -> EvolutionArtifact:
+        prepared = self.prepare_evolution(
+            arm=arm,
+            split=split,
+            seed_skill_path=seed_skill_path,
+            output_dir=output_dir,
+        )
+        self._run(
+            prepared.command,
+            prepared.output_dir / "command",
+            environment=prepared.environment,
+        )
+        artifact = prepared.native_output / "best_skill.md"
         if not artifact.is_file():
             raise RuntimeError(f"SkillOpt produced no best skill: {artifact}")
         diagnostics: dict[str, Any] = {}
-        summary_path = native_output / "summary.json"
+        summary_path = prepared.native_output / "summary.json"
         if not summary_path.is_file():
             raise RuntimeError(f"SkillOpt produced no training summary: {summary_path}")
         summary = json.loads(summary_path.read_text(encoding="utf-8"))
@@ -369,7 +402,7 @@ class SkillOptExecutor:
             skill_path=str(artifact.resolve()),
             skill_hash=sha256_file(artifact),
             diagnostics=diagnostics,
-            execution_audit=_execution_audit(native_output, summary),
+            execution_audit=_execution_audit(prepared.native_output, summary),
         )
 
     def evaluate(

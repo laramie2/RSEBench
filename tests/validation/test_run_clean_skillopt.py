@@ -1,4 +1,5 @@
 import hashlib
+import json
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -9,7 +10,10 @@ from rsebench.evolution.clean_contracts import (
     CleanEvolutionSplitManifest,
     CleanQualificationPolicy,
 )
-from rsebench.evolution.skillopt_executor import SkillOptBudget
+from rsebench.evolution.skillopt_executor import (
+    SkillOptBudget,
+    SkillOptExecutor as RealSkillOptExecutor,
+)
 from scripts import run_clean_skillopt
 
 
@@ -46,14 +50,32 @@ def _task(task_id: str, benchmark: str) -> TaskManifest:
 def _manifest(tmp_path: Path, benchmark: str) -> Path:
     budget = EXPECTED[benchmark]
     domain = "spreadsheet" if benchmark == "spreadsheetbench_verified" else "document"
+
+    def task(task_id: str) -> TaskManifest:
+        result = _task(task_id, benchmark)
+        if benchmark == "spreadsheetbench_verified":
+            workbook = tmp_path / f"workbooks/{task_id}/initial.xlsx"
+            workbook.parent.mkdir(parents=True, exist_ok=True)
+            workbook.write_bytes(b"workbook")
+            result = result.model_copy(
+                update={
+                    "artifact_path": str(workbook),
+                    "metadata": {
+                        "answer_range": "A1",
+                        "answer_sheet": "Sheet1",
+                    },
+                }
+            )
+        return result
+
     split = CleanEvolutionSplitManifest(
         benchmark=benchmark,
         domain=domain,
         seed=7,
         source_hash="a" * 64,
-        train=[_task("train", benchmark)],
-        validation=[_task("validation", benchmark)],
-        clean_test=[_task("test", benchmark)],
+        train=[task("train")],
+        validation=[task("validation")],
+        clean_test=[task("test")],
         metadata={
             "runtime": {
                 "max_steps": budget.max_steps,
@@ -84,8 +106,9 @@ def test_clean_skillopt_launcher_locks_budget_and_policy(
         "max_completion_tokens": EXPECTED[benchmark].max_completion_tokens,
     }
     methods = tmp_path / "methods"
+    method_root = methods / "skillopt"
     seed_relative = run_clean_skillopt._SEEDS[benchmark]
-    seed = methods / seed_relative
+    seed = method_root / seed_relative
     seed.parent.mkdir(parents=True)
     seed.write_text("seed", encoding="utf-8")
 
@@ -144,6 +167,7 @@ def test_clean_skillopt_cli_has_no_seed_gate_or_noise_stage() -> None:
         "manifest",
         "method_seed",
         "output_root",
+        "dry_run",
     }
 
 
@@ -163,3 +187,59 @@ def test_clean_skillopt_launcher_rejects_runtime_drift(
             method_seed=20260813,
             output_root=tmp_path / "runs",
         )
+
+
+def test_clean_skillopt_dry_run_renders_only_clean_native_command(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    calls = []
+    methods = tmp_path / "methods"
+    method_root = methods / "skillopt"
+    (method_root / ".venv/bin").mkdir(parents=True)
+    (method_root / ".venv/bin/python").write_text("", encoding="utf-8")
+    (method_root / "scripts").mkdir()
+    (method_root / "scripts/train.py").write_text("", encoding="utf-8")
+    config = method_root / "configs/spreadsheetbench/default.yaml"
+    config.parent.mkdir(parents=True)
+    config.write_text("env: {name: spreadsheetbench}", encoding="utf-8")
+    seed = method_root / run_clean_skillopt._SEEDS["spreadsheetbench_verified"]
+    seed.parent.mkdir(parents=True)
+    seed.write_text("seed", encoding="utf-8")
+
+    def forbidden_command_runner(*args, **kwargs):
+        calls.append((args, kwargs))
+        raise AssertionError("dry run must not invoke command runner")
+
+    class CapturingExecutor(RealSkillOptExecutor):
+        def __init__(self, **kwargs):
+            super().__init__(**kwargs, command_runner=forbidden_command_runner)
+
+    monkeypatch.setattr(run_clean_skillopt, "SkillOptExecutor", CapturingExecutor)
+    monkeypatch.setattr(run_clean_skillopt, "methods_root", lambda: methods)
+    monkeypatch.setattr(
+        run_clean_skillopt,
+        "combined_method_env",
+        lambda _: {"RSEBENCH_DATA_ROOT": str(tmp_path / "data")},
+    )
+
+    run_dir = run_clean_skillopt.run_manifest(
+        _manifest(tmp_path, "spreadsheetbench_verified"),
+        method_seed=20260813,
+        output_root=tmp_path / "preflight",
+        dry_run=True,
+    )
+
+    assert calls == []
+    raw = (run_dir / "dry_run.json").read_text(encoding="utf-8")
+    payload = json.loads(raw)
+    assert payload["arm_manifest"]["arm"] == "clean"
+    assert payload["task_counts"] == {
+        "train": 1,
+        "validation": 1,
+        "clean_test": 1,
+    }
+    assert "noisy" not in raw
+    assert "--eval_test" in payload["native_command"]
+    assert "false" in payload["native_command"]
+    assert list(run_dir.rglob("*.jsonl")) == []
