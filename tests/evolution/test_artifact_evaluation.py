@@ -38,7 +38,9 @@ class RecordingExecutor:
         stage: str,
     ) -> EvaluationResult:
         self.calls.append((skill_path.name, stage))
-        scores = {task.task_id: float(skill_path.read_text() == "good") for task in clean_test}
+        scores = {
+            task.task_id: float(skill_path.read_text() == "good") for task in clean_test
+        }
         return EvaluationResult(
             score=sum(scores.values()) / len(scores),
             per_task_scores=scores,
@@ -87,6 +89,9 @@ def test_identical_skill_hash_is_evaluated_once(tmp_path: Path) -> None:
     assert result.noisy_evolved_score == 0.0
     assert result.transitions.clean_correct_noisy_wrong == 1
     assert result.transitions.net_harmful_flips == 1
+    assert result.token_usage["attempted_calls"] == 0
+    assert (tmp_path / "run/token_usage/summary.json").is_file()
+    assert (tmp_path / "run/token_usage/report.md").is_file()
     assert (tmp_path / "run/clean/reused.json").is_file()
 
 

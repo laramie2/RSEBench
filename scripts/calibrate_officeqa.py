@@ -32,6 +32,7 @@ from rsebench.evolution.skillopt_executor import (  # noqa: E402
     SkillOptExecutor,
 )
 from rsebench.generation import _load_evolution_tasks  # noqa: E402
+from rsebench.usage import write_token_usage_artifacts  # noqa: E402
 from scripts.baselines.common_env import combined_method_env, methods_root  # noqa: E402
 
 
@@ -46,7 +47,11 @@ def _read_result_rows(evaluation_dir: Path) -> list[dict]:
     path = evaluation_dir / "native_eval/results.jsonl"
     if not path.is_file():
         return []
-    return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+    return [
+        json.loads(line)
+        for line in path.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
 
 
 def _report_from_rows(
@@ -143,7 +148,9 @@ def main() -> None:
             update={
                 "metadata": {
                     **task.metadata,
-                    "external_evidence_required": not eligibility[task.task_id].eligible,
+                    "external_evidence_required": not eligibility[
+                        task.task_id
+                    ].eligible,
                     "evidence_eligibility_reason": eligibility[task.task_id].reason,
                 }
             }
@@ -151,9 +158,11 @@ def main() -> None:
         for task in tasks
     ]
 
-    output_root = args.output_root or Path(
-        environment.get("RSEBENCH_OUTPUT_ROOT", PROJECT_ROOT / "outputs")
-    ) / "runs/officeqa-calibration"
+    output_root = (
+        args.output_root
+        or Path(environment.get("RSEBENCH_OUTPUT_ROOT", PROJECT_ROOT / "outputs"))
+        / "runs/officeqa-calibration"
+    )
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
     run_dir = output_root / f"{stamp}-skillopt"
     run_dir.mkdir(parents=True, exist_ok=False)
@@ -165,7 +174,8 @@ def main() -> None:
             {
                 "ids": calibration_ids,
                 "evidence_eligibility": {
-                    key: value.model_dump(mode="json") for key, value in eligibility.items()
+                    key: value.model_dump(mode="json")
+                    for key, value in eligibility.items()
                 },
             },
             ensure_ascii=False,
@@ -194,6 +204,7 @@ def main() -> None:
                 max_completion_tokens=runtime.max_completion_tokens,
             ),
         )
+        executor.configure_token_run(run_dir, default_arm="calibration")
         error: str | None = None
         try:
             executor.evaluate(
@@ -221,6 +232,7 @@ def main() -> None:
             break
 
     selected = select_runtime(reports, **gates)
+    token_usage = write_token_usage_artifacts(run_dir / "token_usage")
     result = OfficeQACalibrationRun(
         run_dir=str(run_dir),
         status="calibrated" if selected else "blocked",
@@ -228,6 +240,7 @@ def main() -> None:
         evidence_eligibility=eligibility,
         reports=reports,
         selected_runtime=selected.runtime if selected else None,
+        token_usage=token_usage,
     )
     (run_dir / "result.json").write_text(
         result.model_dump_json(indent=2) + "\n", encoding="utf-8"

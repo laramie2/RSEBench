@@ -1,4 +1,5 @@
 import hashlib
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -208,12 +209,22 @@ def test_profile_pipeline_materializes_only_evolution_pairs(tmp_path, monkeypatc
         "validation": ["validation"],
     }
     assert summary.selection_audit.test_ids == ["test"]
+    token_summary = __import__("json").loads(
+        (Path(summary.run_dir) / "token_usage" / "summary.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert token_summary["attempted_calls"] == 0
+    assert token_summary["billed_tokens"]["total_tokens"] == 0
 
 
 @pytest.mark.parametrize(
     ("name", "sizes"),
     [
-        ("spreadsheet-expanded.yaml", {"train": 20, "validation": 10, "clean_test": 30}),
+        (
+            "spreadsheet-expanded.yaml",
+            {"train": 20, "validation": 10, "clean_test": 30},
+        ),
         ("math-expanded.yaml", {"train": 15, "validation": 8, "clean_test": 50}),
     ],
 )
@@ -259,9 +270,7 @@ def test_calibrated_officeqa_profiles_freeze_split_and_runtime(name, operator):
 
 
 def test_profiled_runner_uses_profile_runtime_unless_cli_overrides():
-    config = {
-        "runtime": {"max_tool_turns": 12, "max_completion_tokens": 4096}
-    }
+    config = {"runtime": {"max_tool_turns": 12, "max_completion_tokens": 4096}}
 
     profile_budget = run_profiled_skillopt._runtime_budget(
         config,
@@ -286,9 +295,10 @@ def test_profile_split_path_falls_back_to_shared_data_root(tmp_path, monkeypatch
     monkeypatch.setattr(generation, "PROJECT_ROOT", project)
     monkeypatch.setenv("RSEBENCH_DATA_ROOT", str(data))
 
-    assert generation._resolve_split_path(
-        "data/splits/fixture/split_manifest.json", data
-    ) == split
+    assert (
+        generation._resolve_split_path("data/splits/fixture/split_manifest.json", data)
+        == split
+    )
 
 
 def test_prompt_length_selection_is_deterministic_and_label_free():
@@ -328,9 +338,7 @@ def test_context_length_selection_is_deterministic_and_label_free():
     long_b = base.model_copy(
         update={"task_id": "b", "metadata": {"context": "much longer context"}}
     )
-    long_a = long_b.model_copy(
-        update={"task_id": "a", "gold_answers": ["different"]}
-    )
+    long_a = long_b.model_copy(update={"task_id": "a", "gold_answers": ["different"]})
 
     ordered = generation._order_task_pool(
         ["short", "b", "a"],
@@ -414,19 +422,17 @@ def test_livemath_profile_builds_native_metadata_and_clean_test(tmp_path, monkey
                 },
             }
         )
-    (dataset / "qa_202601_final.json").write_text(
-        json.dumps(rows), encoding="utf-8"
-    )
+    (dataset / "qa_202601_final.json").write_text(json.dumps(rows), encoding="utf-8")
     split_path = data / "split.json"
     split_path.write_text(
         json.dumps(
-                {
-                    "benchmark": "livemathematicianbench",
-                    "seed": 7,
-                    "evolution": ["202601:1"],
-                    "pilot_evolve": ["202601:1", "202601:2"],
-                    "pilot_eval": ["202601:3"],
-                    "validation": ["202601:2"],
+            {
+                "benchmark": "livemathematicianbench",
+                "seed": 7,
+                "evolution": ["202601:1"],
+                "pilot_evolve": ["202601:1", "202601:2"],
+                "pilot_eval": ["202601:3"],
+                "validation": ["202601:2"],
                 "test": ["202601:3"],
             }
         ),

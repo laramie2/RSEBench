@@ -52,6 +52,7 @@ class OfficeQACalibrationRun(StrictModel):
     evidence_eligibility: dict[str, "EvidenceEligibility"]
     reports: list[OfficeQACalibrationReport]
     selected_runtime: OfficeQARuntime | None = None
+    token_usage: dict[str, Any] = Field(default_factory=dict)
 
 
 class EvidenceEligibility(StrictModel):
@@ -82,8 +83,12 @@ class OfficeQAPilotSplit(StrictModel):
         partitions = [self.calibration, self.evolution, self.validation, self.test]
         flattened = [task_id for partition in partitions for task_id in partition]
         if len(flattened) != len(set(flattened)):
-            raise ValueError("OfficeQA calibration and pilot partitions must be disjoint")
-        if not all(self.evidence_eligibility[task_id].eligible for task_id in self.all_ids):
+            raise ValueError(
+                "OfficeQA calibration and pilot partitions must be disjoint"
+            )
+        if not all(
+            self.evidence_eligibility[task_id].eligible for task_id in self.all_ids
+        ):
             raise ValueError("OfficeQA pilot contains an ineligible task")
         return self
 
@@ -109,7 +114,9 @@ def _source_file_count(value: Any) -> int:
         parsed = None
     if isinstance(parsed, list):
         return len([item for item in parsed if str(item).strip()])
-    return len([item for item in text.replace("\\r\\n", "\n").splitlines() if item.strip()])
+    return len(
+        [item for item in text.replace("\\r\\n", "\n").splitlines() if item.strip()]
+    )
 
 
 def officeqa_stratum(row: Mapping[str, Any]) -> str:
@@ -174,7 +181,11 @@ def officeqa_evidence_eligibility(row: Mapping[str, Any]) -> EvidenceEligibility
 
     task_id = _task_id(row)
     question = str(row.get("question") or "").casefold()
-    matched = [pattern for pattern in _EXTERNAL_EVIDENCE_PATTERNS if re.search(pattern, question)]
+    matched = [
+        pattern
+        for pattern in _EXTERNAL_EVIDENCE_PATTERNS
+        if re.search(pattern, question)
+    ]
     return EvidenceEligibility(
         task_id=task_id,
         eligible=not matched,
@@ -224,8 +235,7 @@ def freeze_officeqa_pilot(
     if missing:
         raise ValueError(f"calibration IDs missing from OfficeQA rows: {missing[:3]}")
     eligibility = {
-        task_id: officeqa_evidence_eligibility(row)
-        for task_id, row in by_id.items()
+        task_id: officeqa_evidence_eligibility(row) for task_id, row in by_id.items()
     }
     eligible_rows = [
         row

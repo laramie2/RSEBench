@@ -8,6 +8,8 @@ from rsebench.evolution.runner import PairedEvolutionResult
 
 def render_paired_report(result: PairedEvolutionResult) -> str:
     metrics = result.metrics
+    billed = result.token_usage["billed_tokens"]
+    logical = result.token_usage["logical_tokens"]
     rows = [
         ("Method", result.method),
         ("Clean-test tasks", str(metrics.n_test)),
@@ -22,6 +24,9 @@ def render_paired_report(result: PairedEvolutionResult) -> str:
             f"[{metrics.gap_ci_low:.4f}, {metrics.gap_ci_high:.4f}]",
         ),
         ("Reverse evolution", "yes" if metrics.reverse_evolution else "no"),
+        ("Billed tokens", str(billed["total_tokens"])),
+        ("Logical tokens", str(logical["total_tokens"])),
+        ("Token coverage", f"{result.token_usage['observed_coverage']:.4f}"),
     ]
     table = "\n".join(f"| {name} | {value} |" for name, value in rows)
     return (
@@ -39,6 +44,8 @@ def render_artifact_comparison(result: ArtifactComparisonResult) -> str:
 
     metrics = result.metrics
     transitions = result.transitions
+    billed = result.token_usage["billed_tokens"]
+    logical = result.token_usage["logical_tokens"]
     rows = [
         ("Clean-test tasks", str(metrics.n_test)),
         ("Seed score", f"{metrics.seed_score:.4f}"),
@@ -55,6 +62,9 @@ def render_artifact_comparison(result: ArtifactComparisonResult) -> str:
         ("Clean-wrong / noisy-correct", str(transitions.clean_wrong_noisy_correct)),
         ("Net harmful flips", str(transitions.net_harmful_flips)),
         ("Reverse evolution", "yes" if metrics.reverse_evolution else "no"),
+        ("Billed tokens", str(billed["total_tokens"])),
+        ("Logical tokens", str(logical["total_tokens"])),
+        ("Token coverage", f"{result.token_usage['observed_coverage']:.4f}"),
     ]
     table = "\n".join(f"| {name} | {value} |" for name, value in rows)
     return (

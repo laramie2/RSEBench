@@ -19,6 +19,7 @@ from rsebench.evolution.skillopt_bridge import (
     materialize_skillopt_split,
 )
 from rsebench.hashing import sha256_file
+from rsebench.usage import token_context_environment
 
 
 MODEL = "deepseek-v4-flash"
@@ -73,12 +74,44 @@ class SkillOptExecutor:
         self.python = self.method_root / ".venv/bin/python"
         if not self.python.is_file():
             raise FileNotFoundError(f"SkillOpt Python missing: {self.python}")
+        self._token_run_dir: Path | None = None
+        self._default_token_arm: str | None = None
+
+    def configure_token_run(
+        self, run_dir: Path | str, *, default_arm: str | None = None
+    ) -> None:
+        """Route subsequent SkillOpt subprocess calls into one run ledger."""
+
+        self._token_run_dir = Path(run_dir).resolve()
+        self._default_token_arm = default_arm
+
+    def _token_environment(
+        self,
+        *,
+        domain: str,
+        benchmark: str,
+        arm: str,
+        stage: str,
+    ) -> dict[str, str]:
+        if self._token_run_dir is None:
+            return dict(self.environment)
+        return token_context_environment(
+            self.environment,
+            ledger_dir=self._token_run_dir / "token_usage",
+            run_id=self._token_run_dir.name,
+            domain=domain,
+            benchmark=benchmark,
+            arm=self._default_token_arm or arm,
+            stage=stage,
+        )
 
     def _config(self, benchmark: str) -> Path:
         try:
             relative = _CONFIGS[benchmark]
         except KeyError as exc:
-            raise ValueError(f"SkillOpt does not support benchmark: {benchmark}") from exc
+            raise ValueError(
+                f"SkillOpt does not support benchmark: {benchmark}"
+            ) from exc
         config = self.method_root / relative
         if not config.is_file():
             raise FileNotFoundError(f"SkillOpt config missing: {config}")
@@ -149,7 +182,13 @@ class SkillOptExecutor:
                 redacted = redacted.replace(secret, "[REDACTED]")
         return redacted
 
-    def _run(self, command: list[str], record_dir: Path) -> None:
+    def _run(
+        self,
+        command: list[str],
+        record_dir: Path,
+        *,
+        environment: dict[str, str] | None = None,
+    ) -> None:
         record_dir.mkdir(parents=True, exist_ok=True)
         (record_dir / "command.json").write_text(
             json.dumps(command, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
@@ -157,7 +196,7 @@ class SkillOptExecutor:
         completed = self.command_runner(
             command,
             cwd=self.method_root,
-            env=self.environment,
+            env=dict(self.environment) if environment is None else environment,
             capture_output=True,
             text=True,
         )
@@ -238,14 +277,25 @@ class SkillOptExecutor:
             "--cfg-options",
             *self._common_options(split.benchmark, native_split),
         ]
-        self._run(command, output_dir / "command")
+        self._run(
+            command,
+            output_dir / "command",
+            environment=self._token_environment(
+                domain=arm.domain,
+                benchmark=split.benchmark,
+                arm=arm.arm,
+                stage="evolution",
+            ),
+        )
         artifact = native_output / "best_skill.md"
         if not artifact.is_file():
             raise RuntimeError(f"SkillOpt produced no best skill: {artifact}")
         diagnostics: dict[str, Any] = {}
         summary_path = native_output / "summary.json"
         if summary_path.is_file():
-            diagnostics["summary"] = json.loads(summary_path.read_text(encoding="utf-8"))
+            diagnostics["summary"] = json.loads(
+                summary_path.read_text(encoding="utf-8")
+            )
         return EvolutionArtifact(
             skill_path=str(artifact.resolve()),
             skill_hash=sha256_file(artifact),
@@ -295,7 +345,16 @@ class SkillOptExecutor:
             "--cfg-options",
             *self._common_options(benchmark, native_split),
         ]
-        self._run(command, output_dir / "command")
+        self._run(
+            command,
+            output_dir / "command",
+            environment=self._token_environment(
+                domain=clean_test[0].domain,
+                benchmark=benchmark,
+                arm=stage,
+                stage=stage if self._default_token_arm else "eval",
+            ),
+        )
         results_path = native_output / "results.jsonl"
         if not results_path.is_file():
             raise RuntimeError(f"SkillOpt produced no per-task results: {results_path}")

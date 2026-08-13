@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Any
 
 from pydantic import Field
 
@@ -11,6 +12,7 @@ from rsebench.contracts import StrictModel, TaskManifest
 from rsebench.evolution.metrics import PairedEvolutionMetrics, compute_paired_metrics
 from rsebench.evolution.runner import EvaluationResult, EvolutionExecutor
 from rsebench.hashing import sha256_file
+from rsebench.usage import write_token_usage_artifacts
 
 
 class TransitionCounts(StrictModel):
@@ -38,6 +40,7 @@ class ArtifactComparisonResult(StrictModel):
     seed_evaluation: EvaluationResult
     clean_evaluation: EvaluationResult
     noisy_evaluation: EvaluationResult
+    token_usage: dict[str, Any]
 
     @property
     def seed_score(self) -> float:
@@ -146,6 +149,9 @@ def evaluate_skill_artifacts(
 
     destination = Path(output_dir).resolve()
     destination.mkdir(parents=True, exist_ok=False)
+    configure_token_run = getattr(executor, "configure_token_run", None)
+    if callable(configure_token_run):
+        configure_token_run(destination)
     cache: dict[str, tuple[str, EvaluationResult]] = {}
     evaluations: dict[str, EvaluationResult] = {}
     for stage in ("seed", "clean", "noisy"):
@@ -181,6 +187,7 @@ def evaluate_skill_artifacts(
         bootstrap_samples=bootstrap_samples,
         bootstrap_seed=bootstrap_seed,
     )
+    token_usage = write_token_usage_artifacts(destination / "token_usage")
     result = ArtifactComparisonResult(
         output_dir=str(destination),
         seed_skill_path=str(skills["seed"]),
@@ -197,6 +204,7 @@ def evaluate_skill_artifacts(
         seed_evaluation=evaluations["seed"],
         clean_evaluation=evaluations["clean"],
         noisy_evaluation=evaluations["noisy"],
+        token_usage=token_usage,
     )
     _write_json(destination / "result.json", result)
     return result

@@ -55,9 +55,14 @@ from rsebench.domains.searchqa import (
     inject_semantic_decoy_evidence,
 )
 from rsebench.hashing import sha256_file
-from rsebench.noise.instruction import FailedAttempt, RedundantContext, RelatedDistractor
+from rsebench.noise.instruction import (
+    FailedAttempt,
+    RedundantContext,
+    RelatedDistractor,
+)
 from rsebench.pilot import create_run_directory
 from rsebench.providers.deepseek import CredentialsMissingError, DeepSeekClient
+from rsebench.usage import token_context_scope, write_token_usage_artifacts
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -85,6 +90,7 @@ class GenerationSummary(BaseModel):
     status: str
     counts: dict[str, int] = Field(default_factory=dict)
     records: list[GenerationRecord] = Field(default_factory=list)
+    token_usage: dict[str, Any] = Field(default_factory=dict)
 
 
 class EvolutionGenerationSummary(BaseModel):
@@ -101,6 +107,7 @@ class EvolutionGenerationSummary(BaseModel):
     pair_manifest: EvolutionSplitManifest | None = None
     pair_manifest_path: str | None = None
     selection_audit: "EvolutionSelectionAudit | None" = None
+    token_usage: dict[str, Any] = Field(default_factory=dict)
 
 
 class EvolutionSelectionAudit(BaseModel):
@@ -233,7 +240,11 @@ def _spreadsheet_records(
             artifact_path=str(task.workbook_path),
         )
         for operator in config["operators"]:
-            if operator in {"failed_attempt", "related_distractor", "redundant_context"}:
+            if operator in {
+                "failed_attempt",
+                "related_distractor",
+                "redundant_context",
+            }:
                 result = _instruction_operator(operator)().generate(
                     generic, severity=severity, seed=int(config["seed"])
                 )
@@ -255,9 +266,7 @@ def _spreadsheet_records(
             if function is None:
                 continue
             output = artifacts / f"{task.task_id}-{operator}-{severity}.xlsx"
-            result = function(
-                task, output, severity=severity, seed=int(config["seed"])
-            )
+            result = function(task, output, severity=severity, seed=int(config["seed"]))
             validation = validate_spreadsheet_noise(task, result)
             mechanism = "M4" if operator == "stale_backup_sheet" else "M1"
             manifest = NoiseManifest(
@@ -268,7 +277,9 @@ def _spreadsheet_records(
                 operator=operator,
                 domain="spreadsheet",
                 benchmark="spreadsheetbench_verified",
-                severity=Severity(level=severity, budget={"L1": 1, "L2": 2, "L3": 3}[severity]),
+                severity=Severity(
+                    level=severity, budget={"L1": 1, "L2": 2, "L3": 3}[severity]
+                ),
                 seed=int(config["seed"]),
                 clean_hash=result.clean_hash,
                 noisy_hash=result.noisy_hash,
@@ -313,7 +324,11 @@ def _docvqa_records(
             metadata={"doc_id": str(row.docId)},
         )
         for operator in config["operators"]:
-            if operator in {"failed_attempt", "related_distractor", "redundant_context"}:
+            if operator in {
+                "failed_attempt",
+                "related_distractor",
+                "redundant_context",
+            }:
                 result = _instruction_operator(operator)().generate(
                     task, severity=severity, seed=int(config["seed"])
                 )
@@ -409,7 +424,9 @@ def _math_records(
                         client=client,
                         severity=severity,
                         seed=int(config["seed"]),
-                        max_attempts=int(config.get("generation", {}).get("max_attempts", 3)),
+                        max_attempts=int(
+                            config.get("generation", {}).get("max_attempts", 3)
+                        ),
                     )
                     validation = validate_flawed_solution(candidate, gold)
                     records.append(
@@ -555,9 +572,7 @@ def _officeqa_records(
             source_hash=clean_hash,
             metadata={"gold_document_ids": gold_document_ids},
         )
-        decoys = select_decoy_documents(
-            task, documents, limit=8, index=decoy_index
-        )
+        decoys = select_decoy_documents(task, documents, limit=8, index=decoy_index)
         for operator in config["operators"]:
             if operator == "failed_attempt":
                 result = FailedAttempt().generate(
@@ -660,9 +675,7 @@ def generate_from_profile(
     methods_root = Path(
         os.environ.get("RSEBENCH_METHODS_ROOT", PROJECT_ROOT / "methods/external")
     )
-    output_root = Path(
-        os.environ.get("RSEBENCH_OUTPUT_ROOT", PROJECT_ROOT / "outputs")
-    )
+    output_root = Path(os.environ.get("RSEBENCH_OUTPUT_ROOT", PROJECT_ROOT / "outputs"))
     run_id = _run_id(profile, offline)
     run_dir = create_run_directory(output_root, "generation", run_id)
     (run_dir / "config.yaml").write_text(
@@ -672,49 +685,68 @@ def generate_from_profile(
     severity = str(config.get("smoke_severity", "L2"))
     client = DeepSeekClient.from_yaml(PROJECT_ROOT / config["model_config"])
     benchmark = str(config["benchmark"])
-    if benchmark == "spreadsheetbench_verified":
-        records = _spreadsheet_records(
-            config, data_root, run_dir, selected_limit, severity
-        )
-    elif benchmark == "docvqa_10pct":
-        records = _docvqa_records(config, data_root, selected_limit, severity)
-    elif benchmark == "dapo_fixed_1000":
-        records = _math_records(
-            config, data_root, selected_limit, severity, offline, client
-        )
-    elif benchmark == "officeqa_full":
-        dataset = data_root / config["dataset_path"]
-        corpus = data_root / config["corpus_path"]
-        if not dataset.exists() or not corpus.exists():
-            records = [
-                GenerationRecord(
-                    task_id="*",
-                    operator="*",
-                    severity=severity,
-                    status="blocked_access",
-                    detail="OfficeQA gated dataset/corpus is unavailable",
-                )
-            ]
-        else:
-            records = _officeqa_records(
-                config,
-                dataset,
-                corpus,
-                run_dir,
-                selected_limit,
-                severity,
-                "officeqa_full",
+    domain = str(
+        config.get("domain")
+        or {
+            "spreadsheetbench_verified": "spreadsheet",
+            "docvqa_10pct": "document",
+            "officeqa_full": "document",
+            "officeqa_demo_10": "document",
+            "dapo_fixed_1000": "math",
+        }[benchmark]
+    )
+    with token_context_scope(
+        ledger_dir=run_dir / "token_usage",
+        run_id=run_id,
+        domain=domain,
+        benchmark=benchmark,
+        arm="generation",
+        stage="noise_generator",
+    ):
+        if benchmark == "spreadsheetbench_verified":
+            records = _spreadsheet_records(
+                config, data_root, run_dir, selected_limit, severity
             )
-    elif benchmark == "officeqa_demo_10":
-        records = _officeqa_demo_records(
-            config, methods_root, run_dir, selected_limit, severity
-        )
-    else:
-        raise ValueError(f"unsupported generation benchmark: {benchmark}")
+        elif benchmark == "docvqa_10pct":
+            records = _docvqa_records(config, data_root, selected_limit, severity)
+        elif benchmark == "dapo_fixed_1000":
+            records = _math_records(
+                config, data_root, selected_limit, severity, offline, client
+            )
+        elif benchmark == "officeqa_full":
+            dataset = data_root / config["dataset_path"]
+            corpus = data_root / config["corpus_path"]
+            if not dataset.exists() or not corpus.exists():
+                records = [
+                    GenerationRecord(
+                        task_id="*",
+                        operator="*",
+                        severity=severity,
+                        status="blocked_access",
+                        detail="OfficeQA gated dataset/corpus is unavailable",
+                    )
+                ]
+            else:
+                records = _officeqa_records(
+                    config,
+                    dataset,
+                    corpus,
+                    run_dir,
+                    selected_limit,
+                    severity,
+                    "officeqa_full",
+                )
+        elif benchmark == "officeqa_demo_10":
+            records = _officeqa_demo_records(
+                config, methods_root, run_dir, selected_limit, severity
+            )
+        else:
+            raise ValueError(f"unsupported generation benchmark: {benchmark}")
     counts: dict[str, int] = {}
     for record in records:
         counts[record.status] = counts.get(record.status, 0) + 1
     status = _generation_status(counts)
+    token_usage = write_token_usage_artifacts(run_dir / "token_usage")
     summary = GenerationSummary(
         run_id=run_id,
         run_dir=str(run_dir),
@@ -724,6 +756,7 @@ def generate_from_profile(
         status=status,
         counts=counts,
         records=records,
+        token_usage=token_usage,
     )
     (run_dir / "summary.json").write_text(
         summary.model_dump_json(indent=2) + "\n", encoding="utf-8"
@@ -926,7 +959,11 @@ def _load_evolution_tasks(
                 prompt = str(mcq.get("question") or row.get("question") or "").strip()
                 choices = mcq.get("choices") or row.get("choices") or []
                 correct = mcq.get("correct_choice") or row.get("correct_choice") or {}
-                if not prompt or not isinstance(choices, list) or not isinstance(correct, dict):
+                if (
+                    not prompt
+                    or not isinstance(choices, list)
+                    or not isinstance(correct, dict)
+                ):
                     raise ValueError(f"invalid LiveMathematicianBench item: {task_id}")
                 correct_text = str(correct.get("text") or "").strip()
                 correct_label = str(correct.get("label") or "").strip()
@@ -1044,9 +1081,7 @@ def _spreadsheet_evolution_record(
         operator=operator,
         domain=task.domain,
         benchmark=task.benchmark,
-        severity=Severity(
-            level=severity, budget={"L1": 1, "L2": 2, "L3": 3}[severity]
-        ),
+        severity=Severity(level=severity, budget={"L1": 1, "L2": 2, "L3": 3}[severity]),
         seed=seed,
         clean_hash=task.source_hash,
         noisy_hash=result.noisy_hash,
@@ -1089,11 +1124,11 @@ def _officeqa_evolution_record(
         gold_document_id=str(task.metadata["gold_document_ids"][0]),
         source_document_ids=list(task.metadata["gold_document_ids"][1:]),
     )
-    decoys = select_decoy_documents(
-        native, documents, limit=8, index=decoy_index
-    )
-    gold_rank = 1 if operator == "semantic_decoy_document" else _officeqa_gold_rank(
-        config, severity
+    decoys = select_decoy_documents(native, documents, limit=8, index=decoy_index)
+    gold_rank = (
+        1
+        if operator == "semantic_decoy_document"
+        else _officeqa_gold_rank(config, severity)
     )
     fixture = build_rank_fixture(native, decoys=decoys, gold_rank=gold_rank)
     validation = validate_officeqa_noise(native, fixture)
@@ -1273,13 +1308,19 @@ def _order_task_pool(
         raise PairGenerationError(f"unsupported task selection order: {order}")
     missing = [task_id for task_id in available if task_id not in tasks_by_id]
     if missing:
-        raise PairGenerationError(f"selection tasks missing from dataset: {missing[:3]}")
-    if normalized == "prompt_length_desc":
-        length = lambda task_id: len(tasks_by_id[task_id].prompt)
-    else:
-        length = lambda task_id: len(
-            str(tasks_by_id[task_id].metadata.get("context") or "")
+        raise PairGenerationError(
+            f"selection tasks missing from dataset: {missing[:3]}"
         )
+    if normalized == "prompt_length_desc":
+
+        def length(task_id: str) -> int:
+            return len(tasks_by_id[task_id].prompt)
+
+    else:
+
+        def length(task_id: str) -> int:
+            return len(str(tasks_by_id[task_id].metadata.get("context") or ""))
+
     return sorted(available, key=lambda task_id: (-length(task_id), task_id))
 
 
@@ -1291,9 +1332,7 @@ def generate_evolution_pairs_from_profile(
     profile = Path(profile_path)
     config = yaml.safe_load(profile.read_text(encoding="utf-8"))
     data_root = Path(os.environ.get("RSEBENCH_DATA_ROOT", PROJECT_ROOT / "data"))
-    output_root = Path(
-        os.environ.get("RSEBENCH_OUTPUT_ROOT", PROJECT_ROOT / "outputs")
-    )
+    output_root = Path(os.environ.get("RSEBENCH_OUTPUT_ROOT", PROJECT_ROOT / "outputs"))
     split_path = _resolve_split_path(config["split_manifest"], data_root)
     split_raw = json.loads(split_path.read_text(encoding="utf-8"))
     sizes = dict(config.get("sizes") or {})
@@ -1315,9 +1354,7 @@ def generate_evolution_pairs_from_profile(
     }
     preloaded_tasks: list[TaskManifest] | None = None
     if selection_order.strip().lower() not in {"", "manifest"}:
-        candidate_ids = list(
-            dict.fromkeys(train_pool + validation_pool + test_pool)
-        )
+        candidate_ids = list(dict.fromkeys(train_pool + validation_pool + test_pool))
         preloaded_tasks = _load_evolution_tasks(config, data_root, candidate_ids)
         candidate_by_id = {task.task_id: task for task in preloaded_tasks}
         train_pool = _order_task_pool(
@@ -1363,7 +1400,9 @@ def generate_evolution_pairs_from_profile(
         or len(validation_candidate_ids) < validation_size
         or len(test_ids) != test_size
     ):
-        raise PairGenerationError("configured pilot partition is smaller than requested")
+        raise PairGenerationError(
+            "configured pilot partition is smaller than requested"
+        )
     if set(train_candidate_ids + validation_candidate_ids) & set(test_ids):
         raise PairGenerationError("frozen split leaks evolution IDs into clean_test")
     all_tasks = preloaded_tasks or _load_evolution_tasks(
@@ -1394,9 +1433,7 @@ def generate_evolution_pairs_from_profile(
         "related_distractor",
         "redundant_context",
     }:
-        office_documents = _cached_officeqa_documents(
-            data_root / config["corpus_path"]
-        )
+        office_documents = _cached_officeqa_documents(data_root / config["corpus_path"])
         office_decoy_index = build_decoy_index(
             office_documents,
             vocabulary=build_question_vocabulary(
@@ -1461,18 +1498,26 @@ def generate_evolution_pairs_from_profile(
             )
         raise ValueError(f"unsupported evolution operator: {operator}")
 
-    selected_train, attempted_train, train_rejections = _collect_gate_valid_records(
-        train_candidate_ids,
-        target_size=train_size,
-        generate=generate_record,
-    )
-    selected_validation, attempted_validation, validation_rejections = (
-        _collect_gate_valid_records(
-            validation_candidate_ids,
-            target_size=validation_size,
+    with token_context_scope(
+        ledger_dir=run_dir / "token_usage",
+        run_id=run_id,
+        domain=str(config["domain"]),
+        benchmark=str(config["benchmark"]),
+        arm="generation",
+        stage="noise_generator",
+    ):
+        selected_train, attempted_train, train_rejections = _collect_gate_valid_records(
+            train_candidate_ids,
+            target_size=train_size,
             generate=generate_record,
         )
-    )
+        selected_validation, attempted_validation, validation_rejections = (
+            _collect_gate_valid_records(
+                validation_candidate_ids,
+                target_size=validation_size,
+                generate=generate_record,
+            )
+        )
     records = attempted_train + attempted_validation
     gate_rejections = train_rejections + validation_rejections
     train_ids = [record.task_id for record in selected_train]
@@ -1509,6 +1554,7 @@ def generate_evolution_pairs_from_profile(
             pair_manifest.model_dump_json(indent=2) + "\n", encoding="utf-8"
         )
         pair_manifest_path = str(manifest_file)
+    token_usage = write_token_usage_artifacts(run_dir / "token_usage")
     summary = EvolutionGenerationSummary(
         run_id=run_id,
         run_dir=str(run_dir),
@@ -1544,6 +1590,7 @@ def generate_evolution_pairs_from_profile(
             test_ids=test_ids,
             excluded_ids=sorted(excluded_task_ids),
         ),
+        token_usage=token_usage,
     )
     (run_dir / "summary.json").write_text(
         summary.model_dump_json(indent=2) + "\n", encoding="utf-8"

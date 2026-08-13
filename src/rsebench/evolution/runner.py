@@ -18,6 +18,7 @@ from rsebench.evolution.contracts import (
 from rsebench.evolution.metrics import PairedEvolutionMetrics, compute_paired_metrics
 from rsebench.evolution.pairs import build_arm_manifests
 from rsebench.hashing import sha256_file
+from rsebench.usage import write_token_usage_artifacts
 
 
 class EvolutionArtifact(StrictModel):
@@ -64,6 +65,7 @@ class PairedEvolutionResult(StrictModel):
     noisy_evaluation: EvaluationResult
     clean_artifact: EvolutionArtifact
     noisy_artifact: EvolutionArtifact
+    token_usage: dict[str, Any]
 
 
 class PairedEvolutionRunner:
@@ -101,6 +103,9 @@ class PairedEvolutionRunner:
             raise FileNotFoundError(f"seed skill not found: {source_seed}")
         seed_hash = sha256_file(source_seed)
         run_dir = self._new_run_dir(Path(output_root), method)
+        configure_token_run = getattr(self.executor, "configure_token_run", None)
+        if callable(configure_token_run):
+            configure_token_run(run_dir)
         self._write_json(run_dir / "split_manifest.json", split)
 
         seed_dir = run_dir / "seed"
@@ -184,6 +189,7 @@ class PairedEvolutionRunner:
             noisy_scores=evaluations["noisy"].per_task_scores,
             bootstrap_seed=method_seed,
         )
+        token_usage = write_token_usage_artifacts(run_dir / "token_usage")
         result = PairedEvolutionResult(
             run_dir=str(run_dir),
             method=method,
@@ -196,6 +202,7 @@ class PairedEvolutionRunner:
             noisy_evaluation=evaluations["noisy"],
             clean_artifact=artifacts["clean"],
             noisy_artifact=artifacts["noisy"],
+            token_usage=token_usage,
         )
         self._write_json(run_dir / "result.json", result)
         from rsebench.evolution.report import render_paired_report

@@ -37,9 +37,11 @@ def test_skillopt_executor_runs_native_train_and_parses_eval(tmp_path: Path):
         parents=True
     )
     commands = []
+    command_envs = []
 
     def fake_run(command, **kwargs):
         commands.append(command)
+        command_envs.append(kwargs["env"])
         out_root = Path(command[command.index("--out_root") + 1])
         out_root.mkdir(parents=True, exist_ok=True)
         if command[1].endswith("train.py"):
@@ -86,6 +88,9 @@ def test_skillopt_executor_runs_native_train_and_parses_eval(tmp_path: Path):
         command_runner=fake_run,
         environment={"DEEPSEEK_API_KEY": "must-not-be-written"},
     )
+    run_dir = tmp_path / "paired-run"
+    run_dir.mkdir()
+    executor.configure_token_run(run_dir)
     seed = tmp_path / "seed.md"
     seed.write_text("seed", encoding="utf-8")
     arm = EvolutionArmManifest(
@@ -117,12 +122,12 @@ def test_skillopt_executor_runs_native_train_and_parses_eval(tmp_path: Path):
         arm=arm,
         split=split,
         seed_skill_path=seed,
-        output_dir=tmp_path / "arm",
+        output_dir=run_dir / "clean",
     )
     evaluation = executor.evaluate(
         skill_path=Path(artifact.skill_path),
         clean_test=split.clean_test,
-        output_dir=tmp_path / "eval",
+        output_dir=run_dir / "clean" / "clean_test_evaluation",
         stage="clean",
     )
 
@@ -135,10 +140,20 @@ def test_skillopt_executor_runs_native_train_and_parses_eval(tmp_path: Path):
         "correct": 1,
         "incorrect_answer": 1,
     }
-    assert all(any("openai_compatible" in arg for arg in command) for command in commands)
+    assert all(
+        any("openai_compatible" in arg for arg in command) for command in commands
+    )
+    assert command_envs[0]["RSEBENCH_TOKEN_LEDGER_DIR"] == str(run_dir / "token_usage")
+    assert command_envs[0]["RSEBENCH_TOKEN_RUN_ID"] == "paired-run"
+    assert command_envs[0]["RSEBENCH_TOKEN_DOMAIN"] == "document"
+    assert command_envs[0]["RSEBENCH_TOKEN_BENCHMARK"] == "officeqa_full"
+    assert command_envs[0]["RSEBENCH_TOKEN_ARM"] == "clean"
+    assert command_envs[0]["RSEBENCH_TOKEN_STAGE"] == "evolution"
+    assert command_envs[1]["RSEBENCH_TOKEN_ARM"] == "clean"
+    assert command_envs[1]["RSEBENCH_TOKEN_STAGE"] == "eval"
     persisted = "".join(
         path.read_text(encoding="utf-8")
-        for path in (tmp_path / "arm").rglob("*")
+        for path in (run_dir / "clean").rglob("*")
         if path.is_file()
     )
     assert "must-not-be-written" not in persisted

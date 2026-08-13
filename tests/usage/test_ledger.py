@@ -1,4 +1,5 @@
 import json
+import os
 from pathlib import Path
 
 import pytest
@@ -9,6 +10,7 @@ from rsebench.usage import (
     aggregate_token_usage,
     record_token_event,
     token_context_environment,
+    token_context_scope,
     write_token_usage_artifacts,
 )
 
@@ -71,6 +73,25 @@ def test_context_environment_returns_an_isolated_complete_mapping(tmp_path: Path
         "RSEBENCH_TOKEN_ARM": "noisy",
         "RSEBENCH_TOKEN_STAGE": "eval",
     }
+
+
+def test_context_scope_restores_process_environment(tmp_path: Path, monkeypatch):
+    monkeypatch.setenv("RSEBENCH_TOKEN_ARM", "outer")
+    monkeypatch.delenv("RSEBENCH_TOKEN_STAGE", raising=False)
+
+    with token_context_scope(
+        ledger_dir=tmp_path / "token_usage",
+        run_id="run-2",
+        domain="math",
+        benchmark="dapo_fixed_1000",
+        arm="generation",
+        stage="noise_generator",
+    ):
+        assert os.environ["RSEBENCH_TOKEN_ARM"] == "generation"
+        assert os.environ["RSEBENCH_TOKEN_STAGE"] == "noise_generator"
+
+    assert os.environ["RSEBENCH_TOKEN_ARM"] == "outer"
+    assert "RSEBENCH_TOKEN_STAGE" not in os.environ
 
 
 def test_writer_and_aggregator_separate_billed_and_logical_tokens(tmp_path: Path):
@@ -158,12 +179,8 @@ def test_aggregator_deduplicates_identical_events_and_rejects_conflicts(
 
     assert aggregate_token_usage(ledger)["attempted_calls"] == 1
 
-    conflict = event.model_copy(
-        update={"prompt_tokens": 11, "completion_tokens": 4}
-    )
-    (events / "2.jsonl").write_text(
-        conflict.model_dump_json() + "\n", encoding="utf-8"
-    )
+    conflict = event.model_copy(update={"prompt_tokens": 11, "completion_tokens": 4})
+    (events / "2.jsonl").write_text(conflict.model_dump_json() + "\n", encoding="utf-8")
     with pytest.raises(ValueError, match="conflicting duplicate event_id"):
         aggregate_token_usage(ledger)
 

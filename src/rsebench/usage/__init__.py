@@ -5,6 +5,7 @@ from rsebench.usage.ledger import (
     aggregate_token_usage,
     record_token_event,
     token_context_environment,
+    token_context_scope,
     write_token_usage_artifacts,
 )
 
@@ -13,5 +14,6 @@ __all__ = [
     "aggregate_token_usage",
     "record_token_event",
     "token_context_environment",
+    "token_context_scope",
     "write_token_usage_artifacts",
 ]

@@ -11,6 +11,7 @@ from rsebench.evolution.runner import (
     PairedEvolutionRunner,
 )
 from rsebench.evolution.splits import build_evolution_split
+from rsebench.usage import record_token_event
 
 
 def _hash(value: str) -> str:
@@ -60,6 +61,23 @@ class FixtureExecutor:
 
     def evolve(self, *, arm, split, seed_skill_path, output_dir):
         self.evolve_calls.append((arm, split, seed_skill_path.read_bytes()))
+        record_token_event(
+            ledger_dir=output_dir.parent / "token_usage",
+            context={
+                "run_id": output_dir.parent.name,
+                "domain": split.domain,
+                "benchmark": split.benchmark,
+                "arm": arm.arm,
+                "stage": "evolution",
+            },
+            usage={"prompt_tokens": 2, "completion_tokens": 1, "total_tokens": 3},
+            cache_hit=False,
+            billed=True,
+            status="success",
+            source="fixture",
+            provider="deepseek",
+            model="deepseek-v4-flash",
+        )
         artifact = output_dir / "evolved.md"
         artifact.write_text(f"{arm.arm}-skill", encoding="utf-8")
         return EvolutionArtifact(
@@ -69,6 +87,24 @@ class FixtureExecutor:
 
     def evaluate(self, *, skill_path, clean_test, output_dir, stage):
         self.evaluate_calls.append((stage, [task.task_id for task in clean_test]))
+        run_dir = output_dir.parents[1]
+        record_token_event(
+            ledger_dir=run_dir / "token_usage",
+            context={
+                "run_id": run_dir.name,
+                "domain": clean_test[0].domain,
+                "benchmark": clean_test[0].benchmark,
+                "arm": stage,
+                "stage": "eval",
+            },
+            usage={"prompt_tokens": 2, "completion_tokens": 1, "total_tokens": 3},
+            cache_hit=False,
+            billed=True,
+            status="success",
+            source="fixture",
+            provider="deepseek",
+            model="deepseek-v4-flash",
+        )
         value = {"seed": 0.5, "clean": 1.0, "noisy": 0.0}[stage]
         return EvaluationResult(
             score=value,
@@ -109,6 +145,11 @@ def test_runner_keeps_seed_and_test_identical_between_arms(tmp_path: Path):
     ]
     assert result.metrics.evolution_gap == pytest.approx(1.0)
     assert result.metrics.reverse_evolution is True
+    assert result.token_usage["attempted_calls"] == 5
+    assert result.token_usage["billed_tokens"]["total_tokens"] == 15
+    assert result.token_usage["groups"]["arm"]["clean"]["attempted_calls"] == 2
+    assert Path(result.run_dir, "token_usage", "summary.json").is_file()
+    assert Path(result.run_dir, "token_usage", "report.md").is_file()
     assert Path(result.run_dir, "result.json").is_file()
     report = Path(result.run_dir, "report.md").read_text(encoding="utf-8")
     assert "# Paired Self-Evolution Result" in report
@@ -187,4 +228,7 @@ def test_runner_reuses_clean_test_result_for_identical_skill_hash(tmp_path: Path
     assert result.seed_evaluation == result.clean_evaluation
     assert result.seed_evaluation == result.noisy_evaluation
     assert result.metrics.evolution_gap == 0.0
-    assert Path(result.run_dir, "clean", "clean_test_evaluation", "reused.json").is_file()
+    assert result.token_usage["attempted_calls"] == 1
+    assert Path(
+        result.run_dir, "clean", "clean_test_evaluation", "reused.json"
+    ).is_file()

@@ -7,9 +7,10 @@ import itertools
 import json
 import os
 import threading
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Literal, Mapping
+from typing import Any, Iterator, Literal, Mapping
 
 from pydantic import Field, model_validator
 
@@ -101,6 +102,39 @@ def token_context_environment(
             raise ValueError(f"token context {name} cannot be empty")
         result[_CONTEXT_ENV[name]] = cleaned
     return result
+
+
+@contextmanager
+def token_context_scope(
+    *,
+    ledger_dir: Path | str,
+    run_id: str,
+    domain: str,
+    benchmark: str,
+    arm: str,
+    stage: str,
+) -> Iterator[None]:
+    """Temporarily install token context for in-process provider calls."""
+
+    configured = token_context_environment(
+        None,
+        ledger_dir=ledger_dir,
+        run_id=run_id,
+        domain=domain,
+        benchmark=benchmark,
+        arm=arm,
+        stage=stage,
+    )
+    previous = {key: os.environ.get(key) for key in configured}
+    os.environ.update(configured)
+    try:
+        yield
+    finally:
+        for key, value in previous.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
 
 
 def _context_value(
@@ -282,9 +316,7 @@ def _read_events(ledger_dir: Path) -> list[TokenUsageEvent]:
             if previous is None:
                 by_id[event.event_id] = event
             elif previous.model_dump(mode="json") != event.model_dump(mode="json"):
-                raise ValueError(
-                    f"conflicting duplicate event_id: {event.event_id}"
-                )
+                raise ValueError(f"conflicting duplicate event_id: {event.event_id}")
     return [by_id[event_id] for event_id in sorted(by_id)]
 
 
