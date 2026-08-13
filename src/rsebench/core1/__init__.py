@@ -25,6 +25,16 @@ from rsebench.core1.skilllearn import (
     build_skilllearn_split,
     discover_skilllearn_families,
 )
+from rsebench.core1.webshop import (
+    WebShopGoalConstraints,
+    WebShopN1Context,
+    WebShopNearMatch,
+    WebShopRankingOverlay,
+    build_webshop_n1_context,
+    build_webshop_n2_overlay,
+    parse_goal_constraints,
+    select_near_match,
+)
 
 __all__ = [
     "Core1OperatorProfile",
@@ -34,6 +44,10 @@ __all__ = [
     "SkillLearnFamily",
     "SkillLearnPromptPair",
     "SkillLearnSplit",
+    "WebShopGoalConstraints",
+    "WebShopN1Context",
+    "WebShopNearMatch",
+    "WebShopRankingOverlay",
     "SpreadsheetPromptPair",
     "build_spreadsheet_n1_pair",
     "build_spreadsheet_n2_pair",
@@ -43,5 +57,9 @@ __all__ = [
     "build_skilllearn_n2_pair",
     "build_skilllearn_split",
     "discover_skilllearn_families",
+    "build_webshop_n1_context",
+    "build_webshop_n2_overlay",
+    "parse_goal_constraints",
+    "select_near_match",
     "load_core1_profiles",
 ]
