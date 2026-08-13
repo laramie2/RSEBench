@@ -7,11 +7,14 @@ import subprocess
 from types import SimpleNamespace
 from pathlib import Path
 
+import pytest
+
 from rsebench.evidence import HookContext, RuntimeNoiseSpec
 from rsebench.evolution.skilladaptor_executor import (
     SkillAdaptorBudget,
     SkillAdaptorEvidenceAdapter,
     SkillAdaptorExecutor,
+    _execution_audit_from_report,
     canonicalize_skill_bank_artifact,
     mutate_skilladaptor_fault,
     mutate_skilladaptor_trajectory,
@@ -755,7 +758,28 @@ def test_skilladaptor_executor_runs_native_pair_boundary_and_clean_eval(
                 json.dumps({"skills": {}, "history": []}), encoding="utf-8"
             )
             (output / "SkillAdaptor_report.json").write_text(
-                json.dumps({"iterations": 1, "final_skill_count": 0}),
+                json.dumps(
+                    {
+                        "iterations": 2,
+                        "final_skill_count": 1,
+                        "accepted_update_count": 1,
+                        "newly_adopted_skill_ids": ["verify-options"],
+                        "training_task_ids": [
+                            "goal_1",
+                            "goal_2",
+                            "goal_3",
+                            "goal_4",
+                            "goal_5",
+                        ],
+                        "validation_task_ids": [
+                            "goal_6",
+                            "goal_7",
+                            "goal_8",
+                            "goal_9",
+                            "goal_10",
+                        ],
+                    }
+                ),
                 encoding="utf-8",
             )
         else:
@@ -766,7 +790,12 @@ def test_skilladaptor_executor_runs_native_pair_boundary_and_clean_eval(
                     {
                         "score": 0.5,
                         "per_task_scores": {"goal_3": 1.0, "goal_4": 0.0},
-                        "diagnostics": {"sample_size": 2},
+                        "diagnostics": {
+                            "sample_size": 2,
+                            "execution_failures": {
+                                "goal_4": "RuntimeError: invalid action"
+                            },
+                        },
                     }
                 ),
                 encoding="utf-8",
@@ -778,7 +807,7 @@ def test_skilladaptor_executor_runs_native_pair_boundary_and_clean_eval(
         webshop_root=webshop_root,
         project_root=Path(__file__).resolve().parents[2],
         environment={"DEEPSEEK_API_KEY": "must-not-be-written"},
-        budget=SkillAdaptorBudget(max_iterations=1, max_episode_steps=3),
+        budget=SkillAdaptorBudget(max_iterations=3, max_episode_steps=15),
         command_runner=fake_run,
     )
     monkeypatch.chdir(tmp_path)
@@ -849,8 +878,33 @@ def test_skilladaptor_executor_runs_native_pair_boundary_and_clean_eval(
     assert Path(artifact.skill_path).is_file()
     assert evaluation.score == 0.5
     assert evaluation.per_task_scores == {"goal_3": 1.0, "goal_4": 0.0}
+    assert evaluation.diagnostics["execution_failures"] == {
+        "goal_4": "RuntimeError: invalid action"
+    }
+    assert artifact.execution_audit is not None
+    assert artifact.execution_audit.accepted_update_count == 1
+    assert artifact.execution_audit.train_task_ids == [
+        "goal_1",
+        "goal_2",
+        "goal_3",
+        "goal_4",
+        "goal_5",
+    ]
+    assert artifact.execution_audit.validation_task_ids == [
+        "goal_6",
+        "goal_7",
+        "goal_8",
+        "goal_9",
+        "goal_10",
+    ]
+    assert artifact.execution_audit.metadata == {
+        "iterations": 2,
+        "final_skill_count": 1,
+        "newly_adopted_skill_ids": ["verify-options"],
+    }
     assert "--provider" in commands[0] and "deepseek" in commands[0]
-    assert "--max-episode-steps" in commands[0]
+    assert commands[0][commands[0].index("--max-iterations") + 1] == "3"
+    assert commands[0][commands[0].index("--max-episode-steps") + 1] == "15"
     assert "--skip-held-out-test" in commands[0]
     assert command_envs[0]["RSEBENCH_EVIDENCE_SPEC"].endswith(
         "benchmark/core1/runtime/webshop/N3.json"
@@ -860,6 +914,17 @@ def test_skilladaptor_executor_runs_native_pair_boundary_and_clean_eval(
     assert command_envs[0]["RSEBENCH_TOKEN_STAGE"] == "evolution"
     assert command_envs[1]["RSEBENCH_TOKEN_STAGE"] == "eval"
     assert command_envs[0]["SkillAdaptor_MIN_SAMPLE_SIZE"] == "1"
+    evolution_audit_path = Path(
+        command_envs[0]["RSEBENCH_SKILL_RETRIEVAL_AUDIT"]
+    )
+    evaluation_audit_path = Path(
+        command_envs[1]["RSEBENCH_SKILL_RETRIEVAL_AUDIT"]
+    )
+    assert evolution_audit_path.is_absolute()
+    assert evaluation_audit_path.is_absolute()
+    assert evolution_audit_path.is_relative_to(run_dir.resolve())
+    assert evaluation_audit_path.is_relative_to(run_dir.resolve())
+    assert evolution_audit_path != evaluation_audit_path
     training_manifest = json.loads(
         (run_dir / "noisy" / "webshop_task_manifest.json").read_text(
             encoding="utf-8"
@@ -887,6 +952,14 @@ def test_skilladaptor_executor_runs_native_pair_boundary_and_clean_eval(
         if path.is_file()
     )
     assert "must-not-be-written" not in persisted
+
+
+def test_skilladaptor_execution_audit_requires_native_report_fields() -> None:
+    with pytest.raises(
+        RuntimeError,
+        match="SkillAdaptor report lacks execution-audit fields",
+    ):
+        _execution_audit_from_report({"iterations": 1})
 
 
 def test_skilladaptor_eval_script_imports_from_nonproject_cwd(tmp_path: Path) -> None:

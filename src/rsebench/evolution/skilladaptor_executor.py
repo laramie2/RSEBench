@@ -28,6 +28,7 @@ from rsebench.evidence import (
     TrajectoryRecord,
 )
 from rsebench.contracts import TaskManifest
+from rsebench.evolution.clean_contracts import EvolutionExecutionAudit
 from rsebench.evolution.contracts import EvolutionArmManifest, EvolutionSplitManifest
 from rsebench.evolution.runner import EvaluationResult, EvolutionArtifact
 from rsebench.hashing import sha256_file
@@ -78,6 +79,39 @@ def canonicalize_skill_bank_artifact(path: Path | str) -> str:
 class SkillAdaptorBudget:
     max_iterations: int = 1
     max_episode_steps: int = 8
+
+
+def _execution_audit_from_report(
+    report: dict[str, Any],
+) -> EvolutionExecutionAudit:
+    required = {
+        "iterations",
+        "final_skill_count",
+        "accepted_update_count",
+        "newly_adopted_skill_ids",
+        "training_task_ids",
+        "validation_task_ids",
+    }
+    missing = sorted(required - report.keys())
+    if missing:
+        raise RuntimeError(
+            "SkillAdaptor report lacks execution-audit fields: "
+            + ", ".join(missing)
+        )
+    return EvolutionExecutionAudit(
+        train_task_ids=[str(value) for value in report["training_task_ids"]],
+        validation_task_ids=[
+            str(value) for value in report["validation_task_ids"]
+        ],
+        accepted_update_count=int(report["accepted_update_count"]),
+        metadata={
+            "iterations": int(report["iterations"]),
+            "final_skill_count": int(report["final_skill_count"]),
+            "newly_adopted_skill_ids": [
+                str(value) for value in report["newly_adopted_skill_ids"]
+            ],
+        },
+    )
 
 
 def _goal_index(task_id: str, metadata: dict[str, Any] | None = None) -> int:
@@ -327,6 +361,7 @@ class SkillAdaptorExecutor:
         self.environment["PYTHONPATH"] = os.pathsep.join(pythonpath)
         self.environment["WEBSHOP_PATH"] = str(self.webshop_root)
         self.environment["SkillAdaptor_LEXICAL_MATCHING"] = "1"
+        self.environment["SkillAdaptor_LEXICAL_SKILL_THRESHOLD"] = "0.10"
         webshop_python = self.webshop_root / ".venv/bin/python"
         self.python = str(webshop_python) if webshop_python.is_file() else sys.executable
         self._token_run_dir: Path | None = None
@@ -437,6 +472,9 @@ class SkillAdaptorExecutor:
         )
         native_output = output_dir / "native_train"
         environment = self._token_environment(arm=arm.arm, stage="evolution")
+        environment["RSEBENCH_SKILL_RETRIEVAL_AUDIT"] = str(
+            (output_dir / "retrieval_audit" / f"{arm.arm}_evolution.jsonl").resolve()
+        )
         # SkillAdaptor defaults to five validation samples.  Core-1's bounded
         # pilot uses one (smoke) or three (efficacy), so retaining the default
         # would make skill adoption impossible by construction.
@@ -501,12 +539,15 @@ class SkillAdaptorExecutor:
         artifact_hash = canonicalize_skill_bank_artifact(artifact)
         diagnostics: dict[str, Any] = {}
         report = native_output / "SkillAdaptor_report.json"
-        if report.is_file():
-            diagnostics["report"] = json.loads(report.read_text(encoding="utf-8"))
+        if not report.is_file():
+            raise RuntimeError(f"SkillAdaptor produced no native report: {report}")
+        report_payload = json.loads(report.read_text(encoding="utf-8"))
+        diagnostics["report"] = report_payload
         return EvolutionArtifact(
             skill_path=str(artifact.resolve()),
             skill_hash=artifact_hash,
             diagnostics=diagnostics,
+            execution_audit=_execution_audit_from_report(report_payload),
         )
 
     def evaluate(
@@ -548,6 +589,9 @@ class SkillAdaptorExecutor:
             str(result_path),
         ]
         environment = self._token_environment(arm=stage, stage="eval")
+        environment["RSEBENCH_SKILL_RETRIEVAL_AUDIT"] = str(
+            (output_dir / "retrieval_audit" / f"{stage}_test.jsonl").resolve()
+        )
         for key in (
             "RSEBENCH_EVIDENCE_SPEC",
             "RSEBENCH_EVIDENCE_AUDIT_ROOT",
