@@ -2,9 +2,15 @@ import json
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
+
 from rsebench.contracts import TaskManifest
 from rsebench.evolution.contracts import ArmTaskRef, EvolutionArmManifest
-from rsebench.evolution.skillopt_executor import SkillOptBudget, SkillOptExecutor
+from rsebench.evolution.skillopt_executor import (
+    SkillOptBudget,
+    SkillOptExecutor,
+    _result_task_ids,
+)
 
 
 def _task(task_id: str) -> TaskManifest:
@@ -17,6 +23,201 @@ def _task(task_id: str) -> TaskManifest:
         source_hash=(task_id.encode().hex() + "0" * 64)[:64],
         metadata={"gold_document_ids": ["docs/report.txt"]},
     )
+
+
+def _office_executor_root(tmp_path: Path) -> tuple[Path, Path]:
+    method_root = tmp_path / "skillopt"
+    (method_root / ".venv/bin").mkdir(parents=True)
+    (method_root / ".venv/bin/python").write_text("", encoding="utf-8")
+    (method_root / "scripts").mkdir()
+    (method_root / "scripts/train.py").write_text("", encoding="utf-8")
+    (method_root / "scripts/eval_only.py").write_text("", encoding="utf-8")
+    (method_root / "configs/officeqa").mkdir(parents=True)
+    (method_root / "configs/officeqa/default.yaml").write_text(
+        "env: {name: officeqa}", encoding="utf-8"
+    )
+    data_root = tmp_path / "data"
+    (data_root / "materialized/officeqa_full/corpus").mkdir(parents=True)
+    (data_root / "materialized/officeqa_full/parsed/jsons").mkdir(parents=True)
+    return method_root, data_root
+
+
+def _write_results(path: Path, task_ids: list[str]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        "".join(json.dumps({"id": task_id}) + "\n" for task_id in task_ids),
+        encoding="utf-8",
+    )
+
+
+def test_skillopt_evolution_audits_native_train_and_validation_ids(
+    tmp_path: Path,
+) -> None:
+    method_root, data_root = _office_executor_root(tmp_path)
+    train_ids = [f"t{index:02d}" for index in range(1, 21)]
+    validation_ids = [f"v{index:02d}" for index in range(1, 11)]
+
+    def fake_run(command, **kwargs):
+        out_root = Path(command[command.index("--out_root") + 1])
+        out_root.mkdir(parents=True)
+        (out_root / "best_skill.md").write_text("evolved", encoding="utf-8")
+        (out_root / "summary.json").write_text(
+            json.dumps(
+                {
+                    "total_accepts": 2,
+                    "total_rejects": 1,
+                    "total_steps": 3,
+                    "baseline_selection_hard": 0.4,
+                    "best_selection_hard": 0.6,
+                }
+            ),
+            encoding="utf-8",
+        )
+        for step, ids in enumerate(
+            (train_ids[:7], train_ids[7:14], train_ids[14:]), start=1
+        ):
+            _write_results(
+                out_root / f"steps/step_{step:02d}/rollout/results.jsonl", ids
+            )
+        _write_results(
+            out_root / "selection_eval_baseline/results.jsonl", validation_ids
+        )
+        _write_results(
+            out_root / "steps/step_01/selection_eval/results.jsonl",
+            validation_ids,
+        )
+        return SimpleNamespace(returncode=0, stdout="ok", stderr="")
+
+    executor = SkillOptExecutor(
+        method_root=method_root,
+        data_root=data_root,
+        budget=SkillOptBudget(max_steps=3, batch_size=7, workers=2),
+        command_runner=fake_run,
+        environment={"DEEPSEEK_API_KEY": "secret"},
+    )
+    seed = tmp_path / "seed.md"
+    seed.write_text("seed", encoding="utf-8")
+    arm = EvolutionArmManifest(
+        arm="clean",
+        benchmark="officeqa_full",
+        domain="document",
+        method="skillopt",
+        method_seed=20260813,
+        split_seed=7,
+        split_source_hash="2" * 64,
+        seed_skill_hash="1" * 64,
+        train=[
+            ArmTaskRef(
+                pair_id=f"{task_id}-pair",
+                task_id=task_id,
+                payload_hash="3" * 64,
+            )
+            for task_id in train_ids
+        ],
+        validation=[
+            ArmTaskRef(
+                pair_id=f"{task_id}-pair",
+                task_id=task_id,
+                payload_hash="4" * 64,
+            )
+            for task_id in validation_ids
+        ],
+        clean_test=[],
+    )
+    split = SimpleNamespace(
+        benchmark="officeqa_full",
+        train=[
+            SimpleNamespace(clean=_task(task_id), noisy=_task(task_id))
+            for task_id in train_ids
+        ],
+        validation=[
+            SimpleNamespace(clean=_task(task_id), noisy=_task(task_id))
+            for task_id in validation_ids
+        ],
+        clean_test=[],
+        source_hash="4" * 64,
+    )
+
+    artifact = executor.evolve(
+        arm=arm,
+        split=split,
+        seed_skill_path=seed,
+        output_dir=tmp_path / "run/clean",
+    )
+
+    assert artifact.execution_audit is not None
+    assert set(artifact.execution_audit.train_task_ids) == set(train_ids)
+    assert set(artifact.execution_audit.validation_task_ids) == set(validation_ids)
+    assert artifact.execution_audit.accepted_update_count == 2
+    assert artifact.execution_audit.metadata["total_steps"] == 3
+    assert artifact.execution_audit.metadata["total_rejects"] == 1
+
+
+def test_skillopt_execution_result_requires_a_task_id(tmp_path: Path) -> None:
+    results = tmp_path / "results.jsonl"
+    results.write_text("{}\n", encoding="utf-8")
+
+    with pytest.raises(RuntimeError, match="SkillOpt execution result lacks task ID"):
+        _result_task_ids([results])
+
+
+def test_officeqa_evaluation_types_only_native_execution_failures(
+    tmp_path: Path,
+) -> None:
+    method_root, data_root = _office_executor_root(tmp_path)
+
+    def fake_run(command, **kwargs):
+        out_root = Path(command[command.index("--out_root") + 1])
+        out_root.mkdir(parents=True)
+        rows = [
+            {
+                "id": "provider",
+                "hard": 0,
+                "agent_ok": False,
+                "failure_category": "provider_failure",
+                "fail_reason": "request timed out",
+            },
+            {
+                "id": "tool",
+                "hard": 0,
+                "agent_ok": False,
+                "failure_category": "tool_budget_exhausted",
+                "fail_reason": "turn limit",
+            },
+            {
+                "id": "incorrect",
+                "hard": 0,
+                "agent_ok": True,
+                "failure_category": "incorrect_answer",
+                "predicted_answer": "wrong",
+            },
+        ]
+        (out_root / "results.jsonl").write_text(
+            "".join(json.dumps(row) + "\n" for row in rows), encoding="utf-8"
+        )
+        return SimpleNamespace(returncode=0, stdout="ok", stderr="")
+
+    executor = SkillOptExecutor(
+        method_root=method_root,
+        data_root=data_root,
+        command_runner=fake_run,
+        environment={"DEEPSEEK_API_KEY": "secret"},
+    )
+    skill = tmp_path / "skill.md"
+    skill.write_text("skill", encoding="utf-8")
+    evaluation = executor.evaluate(
+        skill_path=skill,
+        clean_test=[_task("provider"), _task("tool"), _task("incorrect")],
+        output_dir=tmp_path / "evaluation",
+        stage="clean",
+    )
+
+    assert set(evaluation.per_task_scores) == {"provider", "tool", "incorrect"}
+    assert set(evaluation.diagnostics["execution_failures"]) == {"provider", "tool"}
+    assert evaluation.diagnostics["execution_failures"]["provider"] == (
+        "provider_failure: request timed out"
+    )
+    assert evaluation.diagnostics["systemic_failure_rate"] == pytest.approx(2 / 3)
 
 
 def test_skillopt_executor_runs_native_train_and_parses_eval(
@@ -195,6 +396,10 @@ def test_skillopt_noisy_runtime_arm_exposes_only_requested_evidence_spec(
         out_root = Path(command[command.index("--out_root") + 1])
         out_root.mkdir(parents=True)
         (out_root / "best_skill.md").write_text("evolved", encoding="utf-8")
+        (out_root / "summary.json").write_text(
+            json.dumps({"total_steps": 1, "total_accepts": 0}),
+            encoding="utf-8",
+        )
         return SimpleNamespace(returncode=0, stdout="ok", stderr="")
 
     executor = SkillOptExecutor(

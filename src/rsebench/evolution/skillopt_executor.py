@@ -12,6 +12,7 @@ from statistics import mean
 from typing import Any, Callable
 
 from rsebench.contracts import TaskManifest
+from rsebench.evolution.clean_contracts import EvolutionExecutionAudit
 from rsebench.evolution.contracts import EvolutionArmManifest, EvolutionSplitManifest
 from rsebench.evolution.runner import EvaluationResult, EvolutionArtifact
 from rsebench.evolution.skillopt_bridge import (
@@ -44,6 +45,44 @@ _CONFIGS = {
     "docvqa_10pct": "configs/docvqa/default.yaml",
     "searchqa_skillopt": "configs/searchqa/default.yaml",
 }
+
+
+def _result_task_ids(paths: list[Path]) -> list[str]:
+    task_ids: set[str] = set()
+    for path in paths:
+        if not path.is_file():
+            continue
+        for line in path.read_text(encoding="utf-8").splitlines():
+            if not line.strip():
+                continue
+            row = json.loads(line)
+            task_id = str(row.get("id") or row.get("task_id") or "").strip()
+            if not task_id:
+                raise RuntimeError("SkillOpt execution result lacks task ID")
+            task_ids.add(task_id)
+    return sorted(task_ids)
+
+
+def _execution_audit(
+    native_output: Path, summary: dict[str, Any]
+) -> EvolutionExecutionAudit:
+    train_paths = sorted((native_output / "steps").glob("step_*/rollout/results.jsonl"))
+    validation_paths = [native_output / "selection_eval_baseline/results.jsonl"]
+    validation_paths.extend(
+        sorted((native_output / "steps").glob("step_*/selection_eval/results.jsonl"))
+    )
+    return EvolutionExecutionAudit(
+        train_task_ids=_result_task_ids(train_paths),
+        validation_task_ids=_result_task_ids(validation_paths),
+        accepted_update_count=int(summary.get("total_accepts", 0)),
+        metadata={
+            "total_steps": int(summary.get("total_steps", 0)),
+            "total_rejects": int(summary.get("total_rejects", 0)),
+            "total_skips": int(summary.get("total_skips", 0)),
+            "baseline_selection_hard": summary.get("baseline_selection_hard"),
+            "best_selection_hard": summary.get("best_selection_hard"),
+        },
+    )
 
 
 class SkillOptExecutor:
@@ -322,14 +361,15 @@ class SkillOptExecutor:
             raise RuntimeError(f"SkillOpt produced no best skill: {artifact}")
         diagnostics: dict[str, Any] = {}
         summary_path = native_output / "summary.json"
-        if summary_path.is_file():
-            diagnostics["summary"] = json.loads(
-                summary_path.read_text(encoding="utf-8")
-            )
+        if not summary_path.is_file():
+            raise RuntimeError(f"SkillOpt produced no training summary: {summary_path}")
+        summary = json.loads(summary_path.read_text(encoding="utf-8"))
+        diagnostics["summary"] = summary
         return EvolutionArtifact(
             skill_path=str(artifact.resolve()),
             skill_hash=sha256_file(artifact),
             diagnostics=diagnostics,
+            execution_audit=_execution_audit(native_output, summary),
         )
 
     def evaluate(
@@ -411,7 +451,23 @@ class SkillOptExecutor:
             for row in result_rows.values()
             if str(row.get("failure_category") or "").strip()
         )
-        systemic = {"provider_failure", "missing_oracle_page"}
+        systemic = {
+            "provider_failure",
+            "missing_oracle_page",
+            "tool_budget_exhausted",
+        }
+        execution_failures = (
+            {
+                task_id: (
+                    f"{row.get('failure_category')}: "
+                    f"{row.get('fail_reason') or 'native OfficeQA execution failed'}"
+                )
+                for task_id, row in result_rows.items()
+                if row.get("agent_ok") is False
+            }
+            if benchmark == "officeqa_full"
+            else {}
+        )
         return EvaluationResult(
             score=score,
             per_task_scores=per_task,
@@ -435,6 +491,7 @@ class SkillOptExecutor:
                     for row in result_rows.values()
                 ),
                 "failure_category_counts": dict(sorted(category_counts.items())),
+                "execution_failures": execution_failures,
                 "per_task_diagnostics": {
                     task_id: {
                         key: row.get(key)
