@@ -15,6 +15,7 @@ from rsebench.evolution.contracts import (
     EvolutionArmManifest,
     EvolutionSplitManifest,
 )
+from rsebench.evolution.clean_contracts import EvolutionExecutionAudit
 from rsebench.evolution.metrics import PairedEvolutionMetrics, compute_paired_metrics
 from rsebench.evolution.pairs import build_arm_manifests
 from rsebench.hashing import sha256_file
@@ -25,6 +26,7 @@ class EvolutionArtifact(StrictModel):
     skill_path: str = Field(min_length=1)
     skill_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
     diagnostics: dict[str, Any] = Field(default_factory=dict)
+    execution_audit: EvolutionExecutionAudit | None = None
 
 
 class EvaluationResult(StrictModel):
