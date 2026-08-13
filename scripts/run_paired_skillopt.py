@@ -46,12 +46,21 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--max-completion-tokens", type=int, default=2048)
     parser.add_argument("--stage", choices=["N1", "N2", "N3", "N4"])
     parser.add_argument("--seed", type=int, default=20260812)
+    parser.add_argument("--seed-score-min", type=float)
+    parser.add_argument("--seed-score-max", type=float)
+    parser.add_argument("--require-clean-update", action="store_true")
+    parser.add_argument("--clean-score-min-delta", type=float)
     return parser.parse_args()
 
 
 def run_manifest(args: argparse.Namespace) -> Path:
     """Execute one paired SkillOpt manifest and return its run directory."""
 
+    seed_score_interval = None
+    if args.seed_score_min is not None or args.seed_score_max is not None:
+        if args.seed_score_min is None or args.seed_score_max is None:
+            raise ValueError("seed score minimum and maximum must be used together")
+        seed_score_interval = (args.seed_score_min, args.seed_score_max)
     split = EvolutionSplitManifest.model_validate_json(
         args.manifest.read_text(encoding="utf-8")
     )
@@ -109,6 +118,9 @@ def run_manifest(args: argparse.Namespace) -> Path:
         method_seed=args.seed,
         parameters=parameters,
         output_root=output_root,
+        seed_score_interval=seed_score_interval,
+        require_clean_artifact_update=args.require_clean_update,
+        clean_score_min_delta=args.clean_score_min_delta,
     )
     return Path(result.run_dir)
 

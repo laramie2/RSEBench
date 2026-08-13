@@ -8,6 +8,7 @@ from pydantic import ValidationError
 from rsebench.usage import (
     TokenUsageEvent,
     aggregate_token_usage,
+    aggregate_token_usage_tree,
     record_token_event,
     token_context_environment,
     token_context_scope,
@@ -183,6 +184,30 @@ def test_aggregator_deduplicates_identical_events_and_rejects_conflicts(
     (events / "2.jsonl").write_text(conflict.model_dump_json() + "\n", encoding="utf-8")
     with pytest.raises(ValueError, match="conflicting duplicate event_id"):
         aggregate_token_usage(ledger)
+
+
+def test_tree_aggregator_discovers_nested_ledgers_and_deduplicates_events(
+    tmp_path: Path,
+):
+    event_a = _event(event_id="a" * 64, run_id="run-a")
+    event_b = _event(event_id="b" * 64, run_id="run-b")
+    for relative, events in (
+        ("run-a/token_usage/events/1.jsonl", [event_a]),
+        ("run-b/token_usage/events/2.jsonl", [event_a, event_b]),
+    ):
+        path = tmp_path / relative
+        path.parent.mkdir(parents=True)
+        path.write_text(
+            "\n".join(event.model_dump_json() for event in events) + "\n",
+            encoding="utf-8",
+        )
+
+    summary = aggregate_token_usage_tree(tmp_path)
+
+    assert summary["event_count"] == 2
+    assert summary["attempted_calls"] == 2
+    assert summary["groups"]["run_id"]["run-a"]["attempted_calls"] == 1
+    assert summary["groups"]["run_id"]["run-b"]["attempted_calls"] == 1
 
 
 def test_aggregator_rejects_malformed_jsonl(tmp_path: Path):

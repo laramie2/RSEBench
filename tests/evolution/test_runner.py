@@ -6,6 +6,7 @@ import pytest
 from rsebench.contracts import NoiseManifest, Severity, TaskManifest
 from rsebench.evolution.contracts import EvolutionTaskPair
 from rsebench.evolution.runner import (
+    CleanEvolutionGateError,
     EvaluationResult,
     EvolutionArtifact,
     PairedEvolutionRunner,
@@ -267,3 +268,111 @@ def test_runner_reuses_clean_test_result_for_identical_skill_hash(tmp_path: Path
     assert Path(
         result.run_dir, "clean", "clean_test_evaluation", "reused.json"
     ).is_file()
+
+
+def test_clean_update_gate_stops_before_noisy_arm_for_unchanged_artifact(
+    tmp_path: Path,
+):
+    class UnchangedCleanExecutor(FixtureExecutor):
+        def evolve(self, *, arm, split, seed_skill_path, output_dir):
+            self.evolve_calls.append((arm, split, seed_skill_path.read_bytes()))
+            if arm.arm == "noisy":
+                raise AssertionError("noisy arm must not run after failed clean gate")
+            artifact = output_dir / "evolved.md"
+            artifact.write_bytes(seed_skill_path.read_bytes())
+            return EvolutionArtifact(
+                skill_path=str(artifact),
+                skill_hash=_hash("seed skill"),
+            )
+
+    split = build_evolution_split(
+        benchmark="fixture",
+        domain="document",
+        seed=3,
+        source_hash=_hash("source"),
+        train=[_pair("train")],
+        validation=[],
+        clean_test=[_task("test", "clean test")],
+    )
+    seed = tmp_path / "seed.md"
+    seed.write_text("seed skill", encoding="utf-8")
+    executor = UnchangedCleanExecutor()
+
+    with pytest.raises(CleanEvolutionGateError, match="artifact did not update") as exc:
+        PairedEvolutionRunner(executor).run(
+            method="fixture",
+            split=split,
+            seed_skill_path=seed,
+            method_seed=1,
+            parameters={},
+            output_root=tmp_path / "runs",
+            require_clean_artifact_update=True,
+        )
+
+    assert [call[0].arm for call in executor.evolve_calls] == ["clean"]
+    preflight = Path(exc.value.run_dir, "clean", "preflight.json")
+    assert '"passed": false' in preflight.read_text(encoding="utf-8")
+    assert Path(exc.value.run_dir, "token_usage", "summary.json").is_file()
+
+
+def test_clean_score_gate_stops_before_noisy_arm_for_reverse_evolution(
+    tmp_path: Path,
+):
+    class ReverseCleanExecutor(FixtureExecutor):
+        def evolve(self, *, arm, split, seed_skill_path, output_dir):
+            if arm.arm == "noisy":
+                raise AssertionError("noisy arm must not run after failed clean gate")
+            return super().evolve(
+                arm=arm,
+                split=split,
+                seed_skill_path=seed_skill_path,
+                output_dir=output_dir,
+            )
+
+        def evaluate(self, *, skill_path, clean_test, output_dir, stage):
+            result = super().evaluate(
+                skill_path=skill_path,
+                clean_test=clean_test,
+                output_dir=output_dir,
+                stage=stage,
+            )
+            if stage == "clean":
+                return result.model_copy(
+                    update={
+                        "score": 0.25,
+                        "per_task_scores": {
+                            task.task_id: 0.25 for task in clean_test
+                        },
+                    }
+                )
+            return result
+
+    split = build_evolution_split(
+        benchmark="fixture",
+        domain="document",
+        seed=3,
+        source_hash=_hash("source"),
+        train=[_pair("train")],
+        validation=[],
+        clean_test=[_task("test", "clean test")],
+    )
+    seed = tmp_path / "seed.md"
+    seed.write_text("seed skill", encoding="utf-8")
+    executor = ReverseCleanExecutor()
+
+    with pytest.raises(CleanEvolutionGateError, match="below required delta") as exc:
+        PairedEvolutionRunner(executor).run(
+            method="fixture",
+            split=split,
+            seed_skill_path=seed,
+            method_seed=1,
+            parameters={},
+            output_root=tmp_path / "runs",
+            clean_score_min_delta=0.0,
+        )
+
+    assert [call[0].arm for call in executor.evolve_calls] == ["clean"]
+    payload = Path(exc.value.run_dir, "clean", "preflight.json").read_text(
+        encoding="utf-8"
+    )
+    assert '"score_delta": -0.25' in payload

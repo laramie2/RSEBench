@@ -38,6 +38,7 @@ def main() -> None:
     parser.add_argument("--output-root", type=Path, default=Path("outputs/runs/core1-screen"))
     parser.add_argument("--method-seed", type=int, default=20260813)
     parser.add_argument("--train-limit", type=int, default=1)
+    parser.add_argument("--validation-limit", type=int, default=0)
     parser.add_argument("--test-limit", type=int, default=4)
     parser.add_argument(
         "--seed-score-min",
@@ -49,6 +50,8 @@ def main() -> None:
         type=float,
         help="exclusive upper seed-score gate for validation runs",
     )
+    parser.add_argument("--require-clean-update", action="store_true")
+    parser.add_argument("--clean-score-min-delta", type=float)
     args = parser.parse_args()
     seed_score_interval = None
     if args.seed_score_min is not None or args.seed_score_max is not None:
@@ -73,6 +76,7 @@ def main() -> None:
     split = split.model_copy(
         update={
             "train": split.train[: args.train_limit],
+            "validation": split.validation[: args.validation_limit],
             "clean_test": split.clean_test[: args.test_limit],
         }
     )
@@ -111,6 +115,8 @@ def main() -> None:
         },
         output_root=args.output_root,
         seed_score_interval=seed_score_interval,
+        require_clean_artifact_update=args.require_clean_update,
+        clean_score_min_delta=args.clean_score_min_delta,
     )
     print(result.run_dir)
 

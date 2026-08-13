@@ -86,6 +86,7 @@ def select_applicable(
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--validation-candidate-count", type=int, default=3)
     args = parser.parse_args()
     server = SimServer(
         "http://127.0.0.1:3000",
@@ -98,9 +99,13 @@ def main() -> None:
     train = select_applicable(
         server, range(1500, len(server.goals)), 5, min_options=1
     )
-    validation = select_applicable(
-        server, range(500, 1500), 3, min_options=0
+    validation_candidates = select_applicable(
+        server,
+        range(500, 1500),
+        args.validation_candidate_count,
+        min_options=0,
     )
+    validation = validation_candidates[:3]
     test_goals = {goal_idx: server.goals[goal_idx] for goal_idx in range(500)}
     test_rankings = {
         goal_idx: ranked_ids(server, str(goal["query"]))
@@ -109,7 +114,7 @@ def main() -> None:
     test = select_structurally_calibrated_goals(
         test_goals, test_rankings, count=10, min_options=0
     )
-    selected = train + validation + test
+    selected = train + validation_candidates + test
     goals: dict[str, dict] = {}
     n1: dict[str, dict] = {}
     n2: dict[str, dict] = {}
@@ -139,6 +144,7 @@ def main() -> None:
         "source_product_count": len(server.all_products),
         "train": train,
         "validation": validation,
+        "validation_candidates": validation_candidates,
         "test": test,
         "goals": goals,
         "N1": {"stage": "N1", "goals": n1},

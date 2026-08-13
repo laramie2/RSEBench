@@ -41,6 +41,14 @@ class SeedCalibrationError(RuntimeError):
         self.run_dir = run_dir
 
 
+class CleanEvolutionGateError(RuntimeError):
+    """Raised after clean evolution when a noisy comparison is not informative."""
+
+    def __init__(self, message: str, *, run_dir: Path):
+        super().__init__(message)
+        self.run_dir = run_dir
+
+
 class EvolutionExecutor(Protocol):
     def evolve(
         self,
@@ -106,6 +114,8 @@ class PairedEvolutionRunner:
         parameters: dict[str, Any],
         output_root: Path | str,
         seed_score_interval: tuple[float, float] | None = None,
+        require_clean_artifact_update: bool = False,
+        clean_score_min_delta: float | None = None,
     ) -> PairedEvolutionResult:
         source_seed = Path(seed_skill_path).resolve()
         if not source_seed.is_file():
@@ -208,6 +218,44 @@ class PairedEvolutionRunner:
                 evaluation_cache[artifact.skill_hash] = (arm.arm, evaluation)
             artifacts[arm.arm] = artifact
             evaluations[arm.arm] = evaluation
+            if arm.arm == "clean" and (
+                require_clean_artifact_update or clean_score_min_delta is not None
+            ):
+                artifact_updated = artifact.skill_hash != seed_hash
+                score_delta = evaluation.score - seed_evaluation.score
+                update_passed = (
+                    artifact_updated if require_clean_artifact_update else True
+                )
+                score_passed = (
+                    score_delta >= clean_score_min_delta
+                    if clean_score_min_delta is not None
+                    else True
+                )
+                preflight = {
+                    "seed_score": seed_evaluation.score,
+                    "clean_score": evaluation.score,
+                    "score_delta": score_delta,
+                    "artifact_updated": artifact_updated,
+                    "requirements": {
+                        "artifact_update": require_clean_artifact_update,
+                        "minimum_score_delta": clean_score_min_delta,
+                    },
+                    "passed": update_passed and score_passed,
+                }
+                self._write_json(arm_dir / "preflight.json", preflight)
+                if not update_passed:
+                    write_token_usage_artifacts(run_dir / "token_usage")
+                    raise CleanEvolutionGateError(
+                        "clean artifact did not update; noisy arm was not started",
+                        run_dir=run_dir,
+                    )
+                if not score_passed:
+                    write_token_usage_artifacts(run_dir / "token_usage")
+                    raise CleanEvolutionGateError(
+                        f"clean score delta {score_delta} is below required delta "
+                        f"{clean_score_min_delta}; noisy arm was not started",
+                        run_dir=run_dir,
+                    )
 
         metrics = compute_paired_metrics(
             seed_scores=seed_evaluation.per_task_scores,

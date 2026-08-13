@@ -34,15 +34,18 @@ from core.llm_factory import _RetryingChatCompletions  # noqa: E402
 from core.skill_matcher import SemanticSkillMatcher  # noqa: E402
 from core.types import Skill, ValidationResult  # noqa: E402
 from core.task_context import load_task_context_for_inference  # noqa: E402
-from rsebench.usage import aggregate_token_usage, token_context_scope
+from rsebench.usage import aggregate_token_usage, token_context_scope  # noqa: E402
 from adapters.webshop_adapter.env_wrapper import (  # noqa: E402
     WebShopEnvWrapper,
     apply_goal_context,
     apply_product_overlay,
 )
 from adapters.webshop_adapter.llm_policy import SkillAugmentedLLMPolicy  # noqa: E402
-from rsebench.contracts import TaskManifest
-from rsebench.evolution.contracts import ArmTaskRef, EvolutionArmManifest
+from rsebench.contracts import TaskManifest  # noqa: E402
+from rsebench.evolution.contracts import (  # noqa: E402
+    ArmTaskRef,
+    EvolutionArmManifest,
+)
 
 
 def _trajectory() -> Trajectory:
@@ -260,6 +263,35 @@ def test_lexical_matching_fallback_needs_no_embedding_endpoint(monkeypatch) -> N
     assert matches
     assert matches[0][0].id == "variant"
     assert all(match.id != "unrelated" for match, _ in matches)
+
+
+def test_fault_deduplication_honors_lexical_matching_without_embedding_api(
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv("SkillAdaptor_LEXICAL_MATCHING", "1")
+    orchestrator = SkillAdaptorOrchestrator.__new__(SkillAdaptorOrchestrator)
+    orchestrator._fault_matcher = SemanticSkillMatcher(api_key="", base_url="")
+    shared = {
+        "task_id": "goal_1",
+        "step_index": 1,
+        "fault_type": FaultType.REASONING_WRONG,
+        "skills_at_fault": [],
+        "improvement_principle": "verify constraints",
+    }
+    left = LocalizedFault(
+        **shared,
+        observation="red large shirt product page",
+        wrong_action="click[buy now]",
+    )
+    right = LocalizedFault(
+        **shared,
+        observation="red large shirt detail page",
+        wrong_action="click[buy now]",
+    )
+
+    score = orchestrator._compute_fault_similarity(left, right)
+
+    assert 0.0 < score <= 1.0
 
 
 def test_skilladaptor_orchestrator_chat_records_observed_usage(tmp_path: Path) -> None:

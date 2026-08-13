@@ -692,6 +692,7 @@ class SkillLearnExecutor:
         skill: str,
         output_dir: str | Path,
         arm: str,
+        usage_stage: str = "skilllearn_clean_test_execution",
     ) -> float:
         destination = Path(output_dir)
         destination.mkdir(parents=True, exist_ok=True)
@@ -701,9 +702,29 @@ class SkillLearnExecutor:
             domain=task.domain,
             benchmark=task.benchmark,
             arm=arm,
-            stage="skilllearn_clean_test_execution",
+            stage=usage_stage,
         ):
             return float(self.backend.evaluate(task, skill, destination))
+
+    def _validation_score(
+        self,
+        *,
+        tasks: list[TaskManifest],
+        skill: str,
+        output_dir: Path,
+        arm: str,
+    ) -> float:
+        scores = [
+            self.evaluate_task(
+                task=task,
+                skill=skill,
+                output_dir=output_dir / task.task_id,
+                arm=arm,
+                usage_stage="skilllearn_validation_execution",
+            )
+            for task in tasks
+        ]
+        return sum(scores) / len(scores) if scores else 0.0
 
     def evolve(
         self,
@@ -715,24 +736,72 @@ class SkillLearnExecutor:
     ) -> EvolutionArtifact:
         skill = seed_skill_path.read_text(encoding="utf-8")
         by_id = {pair.task_id: pair for pair in split.train}
+        validation_by_id = {pair.task_id: pair for pair in split.validation}
+        validation_tasks = [
+            getattr(validation_by_id[task_ref.task_id], arm.arm)
+            for task_ref in arm.validation
+        ]
         rounds: list[str] = []
+        validation_records: list[dict[str, Any]] = []
+        validation_score = (
+            self._validation_score(
+                tasks=validation_tasks,
+                skill=skill,
+                output_dir=output_dir / "validation" / "seed",
+                arm=arm.arm,
+            )
+            if validation_tasks
+            else None
+        )
+        validation_seed_score = validation_score
         for index, task_ref in enumerate(arm.train, start=1):
             pair = by_id[task_ref.task_id]
             task = getattr(pair, arm.arm)
             round_dir = output_dir / "evolution" / f"round-{index}-{task.task_id}"
-            skill = self.run_evolution_round(
+            candidate = self.run_evolution_round(
                 task=task,
                 skill=skill,
                 arm=arm.arm,
                 output_dir=round_dir,
             )
+            if validation_tasks:
+                candidate_score = self._validation_score(
+                    tasks=validation_tasks,
+                    skill=candidate,
+                    output_dir=output_dir / "validation" / f"round-{index}",
+                    arm=arm.arm,
+                )
+                accepted = bool(candidate_score >= float(validation_score))
+                record = {
+                    "round": index,
+                    "task_id": task.task_id,
+                    "incumbent_score": validation_score,
+                    "candidate_score": candidate_score,
+                    "accepted": accepted,
+                }
+                (round_dir / "acceptance.json").write_text(
+                    json.dumps(record, indent=2, sort_keys=True) + "\n",
+                    encoding="utf-8",
+                )
+                validation_records.append(record)
+                if accepted:
+                    skill = candidate
+                    validation_score = candidate_score
+            else:
+                skill = candidate
             rounds.append(str(round_dir))
         skill_path = output_dir / "evolved_skill.md"
         skill_path.write_text(skill.rstrip() + "\n", encoding="utf-8")
         return EvolutionArtifact(
             skill_path=str(skill_path),
             skill_hash=sha256_file(skill_path),
-            diagnostics={"rounds": rounds, "feedback_mode": self.feedback_mode},
+            diagnostics={
+                "rounds": rounds,
+                "feedback_mode": self.feedback_mode,
+                "validation_seed_score": validation_seed_score,
+                "validation_final_score": validation_score,
+                "validation": validation_records,
+            },
         )
 
     def evaluate(

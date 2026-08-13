@@ -4,7 +4,10 @@ import os
 from pathlib import Path
 
 from rsebench.contracts import TaskManifest
+from rsebench.contracts import NoiseManifest, Severity
 from rsebench.evidence import RuntimeNoiseSpec, TraceEvent
+from rsebench.evolution.contracts import EvolutionSplitManifest, EvolutionTaskPair
+from rsebench.evolution.pairs import build_arm_manifests
 from rsebench.evolution.skilllearn_executor import (
     _command_tags,
     _docker_volume_spec,
@@ -13,6 +16,7 @@ from rsebench.evolution.skilllearn_executor import (
     SkillLearnExecutor,
 )
 from rsebench.providers.deepseek import ModelResponse
+from rsebench.hashing import sha256_file
 
 
 class ScriptedClient:
@@ -241,3 +245,80 @@ def test_clean_arm_uses_identity_evidence_and_clean_sibling_evaluation(tmp_path:
 
     assert score == 1.0
     assert not (tmp_path / "round/mutation_audit").exists()
+
+
+def test_evolve_uses_family_validation_to_accept_revised_skills(tmp_path: Path) -> None:
+    client = ScriptedClient(
+        ["diagnosis one", "revised skill one", "diagnosis two", "revised skill two"]
+    )
+    backend = FakeBackend()
+    executor = SkillLearnExecutor(
+        client=client,
+        backend=backend,
+        evidence_spec=None,
+        feedback_mode="self",
+        ledger_dir=tmp_path / "tokens",
+        run_id="run-validation",
+    )
+    base_task = task(tmp_path)
+    train_tasks = [
+        base_task.model_copy(update={"task_id": f"family-{index}"})
+        for index in (1, 2)
+    ]
+    validation_task = base_task.model_copy(update={"task_id": "family-3"})
+
+    def pair(item: TaskManifest) -> EvolutionTaskPair:
+        noisy = item.model_copy(update={"source_hash": "b" * 64})
+        return EvolutionTaskPair(
+            pair_id=f"pair-{item.task_id}",
+            task_id=item.task_id,
+            clean=item,
+            noisy=noisy,
+            noise=NoiseManifest(
+                noise_id=f"noise-{item.task_id}",
+                task_id=item.task_id,
+                channel="C1",
+                mechanism="M1",
+                operator="fixture",
+                domain="skill_learning",
+                benchmark="skilllearnbench",
+                severity=Severity(level="L1", budget=1),
+                seed=1,
+                clean_hash=item.source_hash,
+                noisy_hash=noisy.source_hash,
+                timing="evolution",
+            ),
+        )
+
+    split = EvolutionSplitManifest(
+        benchmark="skilllearnbench",
+        domain="skill_learning",
+        seed=1,
+        source_hash="c" * 64,
+        train=[pair(item) for item in train_tasks],
+        validation=[pair(validation_task)],
+        clean_test=[],
+    )
+    seed = tmp_path / "seed.md"
+    seed.write_text("seed skill", encoding="utf-8")
+    clean_arm, _ = build_arm_manifests(
+        split,
+        method="skilllearn_self_feedback",
+        method_seed=1,
+        seed_skill_hash=sha256_file(seed),
+    )
+
+    artifact = executor.evolve(
+        arm=clean_arm,
+        split=split,
+        seed_skill_path=seed,
+        output_dir=tmp_path / "evolve",
+    )
+
+    assert Path(artifact.skill_path).read_text(encoding="utf-8") == "revised skill two\n"
+    assert [row["accepted"] for row in artifact.diagnostics["validation"]] == [
+        True,
+        True,
+    ]
+    assert artifact.diagnostics["validation_seed_score"] == 0.0
+    assert (tmp_path / "evolve/evolution/round-1-family-1/acceptance.json").is_file()

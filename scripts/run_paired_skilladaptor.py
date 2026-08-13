@@ -35,11 +35,20 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--max-iterations", type=int, default=1)
     parser.add_argument("--max-episode-steps", type=int, default=8)
     parser.add_argument("--seed", type=int, default=20260813)
+    parser.add_argument("--seed-score-min", type=float)
+    parser.add_argument("--seed-score-max", type=float)
+    parser.add_argument("--require-clean-update", action="store_true")
+    parser.add_argument("--clean-score-min-delta", type=float)
     return parser.parse_args()
 
 
 def main() -> None:
     args = parse_args()
+    seed_score_interval = None
+    if args.seed_score_min is not None or args.seed_score_max is not None:
+        if args.seed_score_min is None or args.seed_score_max is None:
+            raise ValueError("seed score minimum and maximum must be used together")
+        seed_score_interval = (args.seed_score_min, args.seed_score_max)
     split = EvolutionSplitManifest.model_validate_json(
         args.manifest.read_text(encoding="utf-8")
     )
@@ -94,6 +103,9 @@ def main() -> None:
             ),
         },
         output_root=output_root,
+        seed_score_interval=seed_score_interval,
+        require_clean_artifact_update=args.require_clean_update,
+        clean_score_min_delta=args.clean_score_min_delta,
     )
     print(result.run_dir)
     print(json.dumps(result.metrics.model_dump(mode="json"), sort_keys=True))

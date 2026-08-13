@@ -298,9 +298,9 @@ def _finalize_rollup(rollup: dict[str, Any]) -> None:
     )
 
 
-def _read_events(ledger_dir: Path) -> list[TokenUsageEvent]:
+def _read_event_paths(paths: Iterator[Path]) -> list[TokenUsageEvent]:
     by_id: dict[str, TokenUsageEvent] = {}
-    for path in sorted((ledger_dir / "events").glob("*.jsonl")):
+    for path in sorted(paths):
         for line_number, line in enumerate(
             path.read_text(encoding="utf-8").splitlines(), start=1
         ):
@@ -320,27 +320,29 @@ def _read_events(ledger_dir: Path) -> list[TokenUsageEvent]:
     return [by_id[event_id] for event_id in sorted(by_id)]
 
 
-def aggregate_token_usage(ledger_dir: Path | str) -> dict[str, Any]:
-    """Validate, deduplicate, and aggregate every event in a ledger directory."""
+def _read_events(ledger_dir: Path) -> list[TokenUsageEvent]:
+    return _read_event_paths(iter((ledger_dir / "events").glob("*.jsonl")))
 
-    root = Path(ledger_dir)
-    events = _read_events(root)
+
+def _aggregate_events(
+    events: list[TokenUsageEvent], *, include_run_id: bool = False
+) -> dict[str, Any]:
+    dimensions = [
+        "domain",
+        "benchmark",
+        "arm",
+        "stage",
+        "model",
+        "status",
+        "source",
+    ]
+    if include_run_id:
+        dimensions.insert(0, "run_id")
     summary: dict[str, Any] = {
         "schema_version": SUMMARY_SCHEMA_VERSION,
         "event_count": len(events),
         **_empty_rollup(),
-        "groups": {
-            dimension: {}
-            for dimension in (
-                "domain",
-                "benchmark",
-                "arm",
-                "stage",
-                "model",
-                "status",
-                "source",
-            )
-        },
+        "groups": {dimension: {} for dimension in dimensions},
     }
     for event in events:
         _add_event(summary, event)
@@ -353,6 +355,29 @@ def aggregate_token_usage(ledger_dir: Path | str) -> dict[str, Any]:
         for leaf in values.values():
             _finalize_rollup(leaf)
     return summary
+
+
+def aggregate_token_usage(ledger_dir: Path | str) -> dict[str, Any]:
+    """Validate, deduplicate, and aggregate every event in a ledger directory."""
+
+    root = Path(ledger_dir)
+    return _aggregate_events(_read_events(root))
+
+
+def aggregate_token_usage_tree(root_dir: Path | str) -> dict[str, Any]:
+    """Aggregate every nested token ledger below a run-tree root.
+
+    Event identifiers are deduplicated globally, so copied ledgers and resumed
+    runs cannot silently inflate the reported total.
+    """
+
+    root = Path(root_dir)
+    paths = (
+        path
+        for path in root.rglob("*.jsonl")
+        if path.parent.name == "events" and path.parent.parent.name == "token_usage"
+    )
+    return _aggregate_events(_read_event_paths(paths), include_run_id=True)
 
 
 def _render_report(summary: Mapping[str, Any]) -> str:
