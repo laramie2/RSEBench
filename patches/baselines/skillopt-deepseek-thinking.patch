@@ -1,33 +1,17 @@
-diff --git a/configs/dapo/default.yaml b/configs/dapo/default.yaml
-new file mode 100644
-index 0000000..1ad937a
---- /dev/null
-+++ b/configs/dapo/default.yaml
-@@ -0,0 +1,19 @@
-+_base_: ../_base_/default.yaml
-+
-+train:
-+  train_size: 0
-+  batch_size: 8
-+  accumulation: 1
-+
-+env:
-+  name: dapo
-+  skill_init: skillopt/envs/dapo/skills/initial.md
-+  split_mode: split_dir
-+  split_dir: data/dapo_split
-+  data_path: ""
-+  split_output_dir: ""
-+  max_turns: 1
-+  max_completion_tokens: 4096
-+  exec_timeout: 180
-+  workers: 32
-+  limit: 0
 diff --git a/scripts/eval_only.py b/scripts/eval_only.py
-index b5f40ce..7df42ce 100644
+index b5f40ce..a86e939 100644
 --- a/scripts/eval_only.py
 +++ b/scripts/eval_only.py
-@@ -85,6 +85,11 @@ def _register_builtins() -> None:
+@@ -39,6 +39,8 @@ from skillopt.model import (
+     configure_cursor_exec,
+     configure_minimax_chat,
+     configure_qwen_chat,
++    get_token_summary,
++    reset_token_tracker,
+     set_optimizer_backend,
+     set_optimizer_deployment,
+     set_reasoning_effort,
+@@ -85,6 +87,11 @@ def _register_builtins() -> None:
          _ENV_REGISTRY["livemathematicianbench"] = LiveMathematicianBenchAdapter
      except ImportError:
          pass
@@ -39,6 +23,60 @@ index b5f40ce..7df42ce 100644
      try:
          from skillopt.envs.babyvision.adapter import BabyVisionAdapter
          _ENV_REGISTRY["babyvision"] = BabyVisionAdapter
+@@ -144,6 +151,24 @@ def get_adapter(cfg: dict):
+     return adapter_cls(**adapter_kwargs)
+ 
+ 
++def _build_eval_summary(
++    *,
++    skill_path: str,
++    split: str,
++    n_items: int,
++    hard: float,
++    soft: float,
++) -> dict:
++    return {
++        "skill": skill_path,
++        "split": split,
++        "n_items": n_items,
++        "hard": hard,
++        "soft": soft,
++        "token_summary": get_token_summary(),
++    }
++
++
+ # ── CLI ────────────────────────────────────────────────────────────────────
+ 
+ _BOOL = lambda x: str(x).lower() in ("true", "1", "yes")  # noqa: E731
+@@ -567,6 +592,7 @@ def main() -> None:
+     print(f"{'='*60}")
+ 
+     # Run rollout
++    reset_token_tracker()
+     results = adapter.rollout(items, skill_content, out_root)
+ 
+     # Score
+@@ -576,13 +602,13 @@ def main() -> None:
+     print(f"{'='*60}")
+ 
+     # Save summary
+-    summary = {
+-        "skill": skill_path,
+-        "split": split,
+-        "n_items": len(results),
+-        "hard": hard,
+-        "soft": soft,
+-    }
++    summary = _build_eval_summary(
++        skill_path=skill_path,
++        split=split,
++        n_items=len(results),
++        hard=hard,
++        soft=soft,
++    )
+     with open(os.path.join(out_root, "eval_summary.json"), "w") as f:
+         json.dump(summary, f, indent=2, ensure_ascii=False)
+ 
 diff --git a/scripts/train.py b/scripts/train.py
 index 2b410c5..8ce9509 100644
 --- a/scripts/train.py
@@ -55,413 +93,6 @@ index 2b410c5..8ce9509 100644
      try:
          from skillopt.envs.babyvision.adapter import BabyVisionAdapter
          _ENV_REGISTRY["babyvision"] = BabyVisionAdapter
-diff --git a/skillopt/envs/dapo/__init__.py b/skillopt/envs/dapo/__init__.py
-new file mode 100644
-index 0000000..22ec6f4
---- /dev/null
-+++ b/skillopt/envs/dapo/__init__.py
-@@ -0,0 +1 @@
-+"""DAPO exact-answer mathematics environment."""
-diff --git a/skillopt/envs/dapo/adapter.py b/skillopt/envs/dapo/adapter.py
-new file mode 100644
-index 0000000..892ecc2
---- /dev/null
-+++ b/skillopt/envs/dapo/adapter.py
-@@ -0,0 +1,84 @@
-+"""DAPO environment adapter for ReflACT."""
-+from __future__ import annotations
-+
-+from skillopt.datasets.base import BatchSpec
-+from skillopt.envs.base import EnvAdapter
-+from skillopt.envs.dapo.dataloader import DAPODataLoader
-+from skillopt.envs.dapo.rollout import run_batch
-+
-+
-+class DAPOAdapter(EnvAdapter):
-+    def __init__(
-+        self,
-+        split_dir: str = "",
-+        data_path: str = "",
-+        split_mode: str = "split_dir",
-+        split_ratio: str = "2:1:7",
-+        split_seed: int = 42,
-+        split_output_dir: str = "",
-+        max_turns: int = 1,
-+        exec_timeout: int = 180,
-+        workers: int = 32,
-+        analyst_workers: int = 8,
-+        failure_only: bool = False,
-+        minibatch_size: int = 4,
-+        edit_budget: int = 2,
-+        seed: int = 42,
-+        limit: int = 0,
-+        max_completion_tokens: int = 4096,
-+    ) -> None:
-+        self.max_turns = max_turns
-+        self.exec_timeout = exec_timeout
-+        self.workers = workers
-+        self.max_completion_tokens = int(max_completion_tokens)
-+        self.analyst_workers = analyst_workers
-+        self.failure_only = failure_only
-+        self.minibatch_size = minibatch_size
-+        self.edit_budget = edit_budget
-+        self.dataloader = DAPODataLoader(
-+            split_dir=split_dir,
-+            data_path=data_path,
-+            split_mode=split_mode,
-+            split_ratio=split_ratio,
-+            split_seed=split_seed,
-+            split_output_dir=split_output_dir,
-+            seed=seed,
-+            limit=limit,
-+        )
-+
-+    def setup(self, cfg: dict) -> None:
-+        super().setup(cfg)
-+        self.dataloader.setup(cfg)
-+
-+    def get_dataloader(self):
-+        return self.dataloader
-+
-+    def build_env_from_batch(self, batch: BatchSpec, **kwargs):
-+        return list(batch.payload or [])
-+
-+    def build_train_env(self, batch_size: int, seed: int, **kwargs):
-+        return self.build_env_from_batch(
-+            self.dataloader.build_train_batch(batch_size=batch_size, seed=seed, **kwargs)
-+        )
-+
-+    def build_eval_env(self, env_num: int, split: str, seed: int, **kwargs):
-+        return self.build_env_from_batch(
-+            self.dataloader.build_eval_batch(env_num=env_num, split=split, seed=seed, **kwargs)
-+        )
-+
-+    def rollout(self, env_manager, skill_content: str, out_dir: str, **kwargs) -> list[dict]:
-+        return run_batch(
-+            items=list(env_manager),
-+            out_root=out_dir,
-+            skill_content=skill_content,
-+            max_turns=self.max_turns,
-+            exec_timeout=self.exec_timeout,
-+            workers=self.workers,
-+            max_completion_tokens=self.max_completion_tokens,
-+            diagnostic_mode=kwargs.get("diagnostic_mode", False),
-+            diagnostic_instruction=kwargs.get("diagnostic_instruction", ""),
-+            diagnostic_trace_context_by_id=kwargs.get("diagnostic_trace_context_by_id"),
-+        )
-+
-+    def get_task_types(self) -> list[str]:
-+        return self.dataloader.get_task_types()
-diff --git a/skillopt/envs/dapo/dataloader.py b/skillopt/envs/dapo/dataloader.py
-new file mode 100644
-index 0000000..ec8317d
---- /dev/null
-+++ b/skillopt/envs/dapo/dataloader.py
-@@ -0,0 +1,32 @@
-+"""DAPO split-directory dataloader."""
-+from __future__ import annotations
-+
-+import json
-+
-+from skillopt.datasets.base import SplitDataLoader
-+
-+
-+class DAPODataLoader(SplitDataLoader):
-+    """Load normalized DAPO items from JSON/JSONL split files."""
-+
-+    def load_raw_items(self, data_path: str) -> list[dict]:
-+        with open(data_path, encoding="utf-8") as handle:
-+            content = handle.read().strip()
-+        if not content:
-+            return []
-+        try:
-+            parsed = json.loads(content)
-+        except json.JSONDecodeError:
-+            parsed = None
-+        if isinstance(parsed, list):
-+            return parsed
-+        if isinstance(parsed, dict):
-+            return list(parsed.get("data") or parsed.values())
-+        return [json.loads(line) for line in content.splitlines() if line.strip()]
-+
-+    def get_task_types(self) -> list[str]:
-+        values = {
-+            str(item.get("task_type") or "MATH")
-+            for item in self.train_items + self.val_items + self.test_items
-+        }
-+        return sorted(values)
-diff --git a/skillopt/envs/dapo/evaluator.py b/skillopt/envs/dapo/evaluator.py
-new file mode 100644
-index 0000000..1716cde
---- /dev/null
-+++ b/skillopt/envs/dapo/evaluator.py
-@@ -0,0 +1,58 @@
-+"""Deterministic exact-answer evaluator for the numeric DAPO pilot subset."""
-+from __future__ import annotations
-+
-+import re
-+
-+
-+def _last_boxed(text: str) -> str:
-+    starts = list(re.finditer(r"\\boxed\s*\{", text))
-+    if not starts:
-+        return ""
-+    start = starts[-1].end()
-+    depth = 1
-+    for index in range(start, len(text)):
-+        if text[index] == "{":
-+            depth += 1
-+        elif text[index] == "}":
-+            depth -= 1
-+            if depth == 0:
-+                return text[start:index].strip()
-+    return ""
-+
-+
-+def extract_answer(text: str) -> str:
-+    tagged = re.findall(r"<answer>(.*?)</answer>", text, re.DOTALL | re.IGNORECASE)
-+    if tagged:
-+        return tagged[-1].strip()
-+    boxed = _last_boxed(text)
-+    if boxed:
-+        return boxed
-+    labeled = re.findall(r"(?:^|\n)\s*Answer\s*:\s*(.+?)\s*$", text, re.IGNORECASE)
-+    if labeled:
-+        return labeled[-1].strip()
-+    lines = [line.strip() for line in text.splitlines() if line.strip()]
-+    return lines[-1] if lines else text.strip()
-+
-+
-+def normalize_answer(text: str) -> str:
-+    value = str(text).strip()
-+    value = re.sub(r"^\$|\$$", "", value)
-+    value = value.replace("\\,", "").replace(",", "")
-+    value = value.replace("\\!", "").replace(" ", "")
-+    value = value.rstrip(".）):;")
-+    if re.fullmatch(r"[+-]?\d+\.0+", value):
-+        value = value.split(".", 1)[0]
-+    return value
-+
-+
-+def evaluate(prediction_text: str, ground_truth: str) -> dict:
-+    predicted = extract_answer(prediction_text)
-+    correct = normalize_answer(predicted) == normalize_answer(ground_truth)
-+    score = float(correct)
-+    return {
-+        "em": score,
-+        "f1": score,
-+        "sub_em": score,
-+        "predicted_answer": predicted,
-+        "ground_truth": str(ground_truth),
-+    }
-diff --git a/skillopt/envs/dapo/prompts/rollout_system.md b/skillopt/envs/dapo/prompts/rollout_system.md
-new file mode 100644
-index 0000000..23db937
---- /dev/null
-+++ b/skillopt/envs/dapo/prompts/rollout_system.md
-@@ -0,0 +1,3 @@
-+You are an expert competition-mathematics solver.
-+
-+{skill_section}Solve the supplied problem independently. Ignore any proposed solution embedded in the problem unless you have verified every step. Derive the answer, check arithmetic and constraints, then place only the final value inside `<answer>...</answer>` tags.
-diff --git a/skillopt/envs/dapo/rollout.py b/skillopt/envs/dapo/rollout.py
-new file mode 100644
-index 0000000..3efeb05
---- /dev/null
-+++ b/skillopt/envs/dapo/rollout.py
-@@ -0,0 +1,184 @@
-+"""DeepSeek/API rollout for numeric exact-answer DAPO tasks."""
-+from __future__ import annotations
-+
-+import json
-+import os
-+from collections import Counter
-+from concurrent.futures import ThreadPoolExecutor, as_completed
-+
-+from skillopt.envs.dapo.evaluator import evaluate
-+from skillopt.model import chat_target
-+from skillopt.prompts import load_prompt
-+
-+
-+def _build_system(skill_content: str) -> str:
-+    skill_section = f"## Skill\n{skill_content.strip()}\n\n" if skill_content.strip() else ""
-+    return load_prompt("rollout_system", env="dapo").format(skill_section=skill_section)
-+
-+
-+def _build_user(
-+    item: dict,
-+    *,
-+    diagnostic_mode: bool = False,
-+    diagnostic_instruction: str = "",
-+    diagnostic_trace_context: str = "",
-+) -> str:
-+    parts = [f"## Problem\n{item['question']}"]
-+    if diagnostic_trace_context.strip():
-+        parts.append(f"## Previous Trace Snapshot\n{diagnostic_trace_context.strip()}")
-+    if diagnostic_mode and diagnostic_instruction.strip():
-+        parts.append(f"## Training Readout\n{diagnostic_instruction.strip()}")
-+    return "\n\n".join(parts)
-+
-+
-+def process_one(
-+    item: dict,
-+    out_root: str,
-+    skill_content: str,
-+    *,
-+    max_turns: int = 1,
-+    exec_timeout: int = 180,
-+    max_completion_tokens: int = 4096,
-+    diagnostic_mode: bool = False,
-+    diagnostic_instruction: str = "",
-+    diagnostic_trace_context: str = "",
-+) -> dict:
-+    item_id = str(item["id"])
-+    ground_truth = str(item.get("ground_truth", ""))
-+    result = {
-+        "id": item_id,
-+        "question": item["question"],
-+        "task_type": str(item.get("task_type") or "MATH"),
-+        "hard": 0,
-+        "soft": 0.0,
-+        "predicted_answer": "",
-+        "ground_truth": ground_truth,
-+        "response": "",
-+        "fail_reason": "",
-+        "agent_ok": False,
-+        "n_turns": 0,
-+    }
-+    try:
-+        pred_dir = os.path.join(out_root, "predictions", item_id)
-+        os.makedirs(pred_dir, exist_ok=True)
-+        system = _build_system(skill_content)
-+        user = _build_user(
-+            item,
-+            diagnostic_mode=diagnostic_mode,
-+            diagnostic_instruction=diagnostic_instruction,
-+            diagnostic_trace_context=diagnostic_trace_context,
-+        )
-+        conversation: list[dict] = []
-+        response = ""
-+        for turn in range(max_turns):
-+            turn_user = user if turn == 0 else (
-+                f"{user}\n\n## Previous Attempt\n{response}\n\n"
-+                "Check the derivation and arithmetic, then return one corrected final answer."
-+            )
-+            response, _ = chat_target(
-+                system=system,
-+                user=turn_user,
-+                max_completion_tokens=max_completion_tokens,
-+                retries=5,
-+                stage="rollout",
-+                timeout=exec_timeout,
-+            )
-+            conversation.append({"type": "message", "turn": turn + 1, "content": response})
-+            if "<answer>" in response.lower():
-+                break
-+        scored = evaluate(response, ground_truth)
-+        result.update(
-+            response=response,
-+            agent_ok=True,
-+            n_turns=len(conversation),
-+            hard=int(scored["em"]),
-+            soft=float(scored["em"]),
-+            predicted_answer=scored["predicted_answer"],
-+        )
-+        if not result["hard"]:
-+            result["fail_reason"] = (
-+                f"exact=0: predicted {scored['predicted_answer']!r} "
-+                f"but expected {ground_truth!r}"
-+            )
-+        conversation.append(
-+            {
-+                "role": "system",
-+                "content": (
-+                    "[EVALUATION RESULT]\n"
-+                    f"Question: {item['question']}\n"
-+                    f"Predicted answer: {scored['predicted_answer']!r}\n"
-+                    f"Ground truth: {ground_truth!r}\n"
-+                    f"Exact Match: {scored['em']}"
-+                ),
-+            }
-+        )
-+        with open(os.path.join(pred_dir, "target_system_prompt.txt"), "w", encoding="utf-8") as handle:
-+            handle.write(system)
-+        with open(os.path.join(pred_dir, "target_user_prompt.txt"), "w", encoding="utf-8") as handle:
-+            handle.write(user)
-+        with open(os.path.join(pred_dir, "conversation.json"), "w", encoding="utf-8") as handle:
-+            json.dump(conversation, handle, ensure_ascii=False, indent=2)
-+    except Exception as exc:  # noqa: BLE001
-+        result["fail_reason"] = f"error: {type(exc).__name__}: {exc}"
-+    return result
-+
-+
-+def _raise_on_systemic_failure(results: list[dict]) -> None:
-+    if not results or not all(row.get("agent_ok") is False for row in results):
-+        return
-+    reason, count = Counter(str(row.get("fail_reason")) for row in results).most_common(1)[0]
-+    raise RuntimeError(f"DAPO rollout failed for all {len(results)} items ({count}x): {reason}")
-+
-+
-+def run_batch(
-+    items: list[dict],
-+    out_root: str,
-+    skill_content: str,
-+    *,
-+    max_turns: int = 1,
-+    exec_timeout: int = 180,
-+    workers: int = 32,
-+    max_completion_tokens: int = 4096,
-+    diagnostic_mode: bool = False,
-+    diagnostic_instruction: str = "",
-+    diagnostic_trace_context_by_id: dict[str, str] | None = None,
-+) -> list[dict]:
-+    os.makedirs(out_root, exist_ok=True)
-+    results_path = os.path.join(out_root, "results.jsonl")
-+    existing: list[dict] = []
-+    if os.path.isfile(results_path):
-+        with open(results_path, encoding="utf-8") as handle:
-+            existing = [json.loads(line) for line in handle if line.strip()]
-+    done = {str(row["id"]) for row in existing}
-+    pending = [item for item in items if str(item["id"]) not in done]
-+    results = list(existing)
-+
-+    def _call(item: dict) -> dict:
-+        return process_one(
-+            item,
-+            out_root,
-+            skill_content,
-+            max_turns=max_turns,
-+            exec_timeout=exec_timeout,
-+            max_completion_tokens=max_completion_tokens,
-+            diagnostic_mode=diagnostic_mode,
-+            diagnostic_instruction=diagnostic_instruction,
-+            diagnostic_trace_context=(diagnostic_trace_context_by_id or {}).get(str(item["id"]), ""),
-+        )
-+
-+    with open(results_path, "a", encoding="utf-8") as handle:
-+        with ThreadPoolExecutor(max_workers=workers) as executor:
-+            futures = {executor.submit(_call, item): item for item in pending}
-+            for completed, future in enumerate(as_completed(futures), start=len(existing) + 1):
-+                row = future.result()
-+                results.append(row)
-+                handle.write(json.dumps(row, ensure_ascii=False) + "\n")
-+                handle.flush()
-+                correct = sum(int(result.get("hard", 0)) for result in results)
-+                print(
-+                    f"    [rollout] {completed}/{len(items)} "
-+                    f"(acc={correct / completed:.3f}) id={row['id']} hard={row['hard']}",
-+                    flush=True,
-+                )
-+    _raise_on_systemic_failure(results)
-+    return results
-diff --git a/skillopt/envs/dapo/skills/initial.md b/skillopt/envs/dapo/skills/initial.md
-new file mode 100644
-index 0000000..cf87a0a
---- /dev/null
-+++ b/skillopt/envs/dapo/skills/initial.md
-@@ -0,0 +1,3 @@
-+# Exact-Answer Mathematics
-+
-+Solve the problem step by step. Before finalizing, check the requested quantity and the arithmetic. Return only the final value inside `<answer>...</answer>`.
 diff --git a/skillopt/envs/docvqa/dataloader.py b/skillopt/envs/docvqa/dataloader.py
 index 212f0ef..63fd550 100644
 --- a/skillopt/envs/docvqa/dataloader.py
@@ -886,7 +517,7 @@ index d90719c..5b905a7 100644
          max_tokens=max_tokens,
          optimizer_base_url=optimizer_base_url,
 diff --git a/skillopt/model/openai_compatible_backend.py b/skillopt/model/openai_compatible_backend.py
-index 7462be4..0020270 100644
+index 7462be4..948995b 100644
 --- a/skillopt/model/openai_compatible_backend.py
 +++ b/skillopt/model/openai_compatible_backend.py
 @@ -54,6 +54,7 @@ class OpenAICompatibleConfig:
@@ -915,7 +546,23 @@ index 7462be4..0020270 100644
  def _parse_int(value: Any, default: int) -> int:
      if value is None:
          return default
-@@ -92,6 +104,7 @@ def _initial_config(role: str) -> OpenAICompatibleConfig:
+@@ -70,6 +82,15 @@ def _parse_int(value: Any, default: int) -> int:
+     return int(raw) if raw else default
+ 
+ 
++def _record_rsebench_usage(**kwargs: Any) -> None:
++    """Write the shared ledger only when launched by the RSEBench harness."""
++    if not os.environ.get("RSEBENCH_TOKEN_LEDGER_DIR", "").strip():
++        return
++    from rsebench.usage import record_token_event
++
++    record_token_event(source="skillopt.openai_compatible", **kwargs)
++
++
+ def _role_env(role: str, key: str, default: str) -> str:
+     """Resolve a config value, preferring role-specific over shared env vars."""
+     role_key = f"{role.upper()}_OPENAI_COMPATIBLE_{key}"
+@@ -92,6 +113,7 @@ def _initial_config(role: str) -> OpenAICompatibleConfig:
          timeout_seconds=float(_role_env(role, "TIMEOUT_SECONDS", "300") or 300),
          max_tokens=_parse_int(_role_env(role, "MAX_TOKENS", "8000"), 8000),
          temperature=_parse_optional_float(_role_env(role, "TEMPERATURE", "")),
@@ -923,7 +570,7 @@ index 7462be4..0020270 100644
      )
  
  
-@@ -187,6 +200,8 @@ def _chat_messages_impl(
+@@ -187,6 +209,8 @@ def _chat_messages_impl(
      }
      if config.temperature is not None:
          kwargs["temperature"] = config.temperature
@@ -932,7 +579,45 @@ index 7462be4..0020270 100644
      if tools:
          kwargs["tools"] = tools
          if tool_choice is not None:
-@@ -336,6 +351,7 @@ def _update_config(
+@@ -211,12 +235,37 @@ def _chat_messages_impl(
+                 usage_info["prompt_tokens"],
+                 usage_info["completion_tokens"],
+             )
++            _record_rsebench_usage(
++                usage=usage_info,
++                cache_hit=False,
++                billed=True,
++                status="success",
++                provider=(
++                    "deepseek"
++                    if "deepseek" in config.base_url.lower()
++                    else "openai_compatible"
++                ),
++                model=str(kwargs["model"]),
++                stage=stage,
++            )
+             if return_message:
+                 return compat_message_from_chat_message(message), usage_info
+             return text, usage_info
+         except Exception as e:  # noqa: BLE001
+             last_err = e
+             time.sleep(min(2 ** attempt, 30))
++    _record_rsebench_usage(
++        usage=None,
++        cache_hit=False,
++        billed=True,
++        status="error",
++        provider=(
++            "deepseek" if "deepseek" in config.base_url.lower() else "openai_compatible"
++        ),
++        model=str(kwargs["model"]),
++        stage=stage,
++        error_type=type(last_err).__name__ if last_err is not None else "RuntimeError",
++    )
+     raise RuntimeError(
+         f"OpenAI-compatible chat call failed after {retries} retries: {last_err}"
+     )
+@@ -336,6 +385,7 @@ def _update_config(
      api_key: str | None = None,
      deployment: str | None = None,
      temperature: float | str | None = None,
@@ -940,7 +625,7 @@ index 7462be4..0020270 100644
      timeout_seconds: float | str | None = None,
      max_tokens: int | str | None = None,
  ) -> None:
-@@ -353,6 +369,9 @@ def _update_config(
+@@ -353,6 +403,9 @@ def _update_config(
          raw = str(temperature).strip()
          config.temperature = float(raw) if raw else None
          os.environ[f"{env_prefix}_OPENAI_COMPATIBLE_TEMPERATURE"] = raw
@@ -950,7 +635,7 @@ index 7462be4..0020270 100644
      if timeout_seconds is not None:
          config.timeout_seconds = float(timeout_seconds)
          os.environ[f"{env_prefix}_OPENAI_COMPATIBLE_TIMEOUT_SECONDS"] = str(timeout_seconds)
-@@ -367,6 +386,7 @@ def configure_openai_compatible(
+@@ -367,6 +420,7 @@ def configure_openai_compatible(
      api_key: str | None = None,
      model: str | None = None,
      temperature: float | str | None = None,
@@ -958,7 +643,7 @@ index 7462be4..0020270 100644
      timeout_seconds: float | str | None = None,
      max_tokens: int | str | None = None,
      optimizer_base_url: str | None = None,
-@@ -390,6 +410,8 @@ def configure_openai_compatible(
+@@ -390,6 +444,8 @@ def configure_openai_compatible(
              os.environ["OPENAI_COMPATIBLE_MODEL"] = str(model).strip()
          if temperature is not None:
              os.environ["OPENAI_COMPATIBLE_TEMPERATURE"] = str(temperature).strip()
@@ -967,7 +652,7 @@ index 7462be4..0020270 100644
          if timeout_seconds is not None:
              os.environ["OPENAI_COMPATIBLE_TIMEOUT_SECONDS"] = str(timeout_seconds)
          if max_tokens is not None:
-@@ -401,6 +423,7 @@ def configure_openai_compatible(
+@@ -401,6 +457,7 @@ def configure_openai_compatible(
              api_key=optimizer_api_key if optimizer_api_key is not None else api_key,
              deployment=optimizer_model if optimizer_model is not None else model,
              temperature=temperature,
@@ -975,7 +660,7 @@ index 7462be4..0020270 100644
              timeout_seconds=timeout_seconds,
              max_tokens=max_tokens,
          )
-@@ -411,6 +434,7 @@ def configure_openai_compatible(
+@@ -411,6 +468,7 @@ def configure_openai_compatible(
              api_key=target_api_key if target_api_key is not None else api_key,
              deployment=target_model if target_model is not None else model,
              temperature=temperature,
@@ -983,6 +668,566 @@ index 7462be4..0020270 100644
              timeout_seconds=timeout_seconds,
              max_tokens=max_tokens,
          )
+diff --git a/tests/test_openai_compatible_backend.py b/tests/test_openai_compatible_backend.py
+index 4482e20..7c33b74 100644
+--- a/tests/test_openai_compatible_backend.py
++++ b/tests/test_openai_compatible_backend.py
+@@ -4,12 +4,14 @@ from __future__ import annotations
+ 
+ from types import SimpleNamespace
+ from typing import Any
++from pathlib import Path
+ 
+ import pytest
+ 
+ import skillopt.model as model
+ from skillopt.model import backend_config
+ from skillopt.model import openai_compatible_backend as backend
++from rsebench.usage import aggregate_token_usage
+ 
+ 
+ class _CompletionRecorder:
+@@ -85,6 +87,35 @@ def test_optimizer_and_target_route_to_their_own_clients(monkeypatch: pytest.Mon
+     assert target_calls.calls[0]["model"] == "target-model"
+ 
+ 
++def test_configure_disables_provider_thinking_for_tool_calls(
++    monkeypatch: pytest.MonkeyPatch,
++) -> None:
++    target_calls = _CompletionRecorder()
++    monkeypatch.setattr(backend, "_get_client", lambda role: _Client(target_calls))
++    model.set_target_backend("openai_compatible")
++
++    model.configure_openai_compatible(thinking="disabled")
++    model.chat_target_messages(
++        [{"role": "user", "content": "Call the tool."}],
++        tools=[
++            {
++                "type": "function",
++                "function": {
++                    "name": "echo",
++                    "description": "Echo text.",
++                    "parameters": {"type": "object", "properties": {}},
++                },
++            }
++        ],
++        tool_choice="required",
++        retries=1,
++    )
++
++    assert target_calls.calls[0]["extra_body"] == {
++        "thinking": {"type": "disabled"}
++    }
++
++
+ def test_client_creation_is_lazy(monkeypatch: pytest.MonkeyPatch) -> None:
+     builds: list[str] = []
+ 
+@@ -144,3 +175,72 @@ def test_combined_token_summary_counts_each_backend_once(
+         "completion_tokens": 15,
+         "total_tokens": 25,
+     }
++
++
++def _set_ledger_context(
++    monkeypatch: pytest.MonkeyPatch, ledger: Path
++) -> None:
++    values = {
++        "RSEBENCH_TOKEN_LEDGER_DIR": str(ledger),
++        "RSEBENCH_TOKEN_RUN_ID": "run-1",
++        "RSEBENCH_TOKEN_DOMAIN": "document",
++        "RSEBENCH_TOKEN_BENCHMARK": "officeqa_full",
++        "RSEBENCH_TOKEN_ARM": "clean",
++        "RSEBENCH_TOKEN_STAGE": "evolution",
++    }
++    for name, value in values.items():
++        monkeypatch.setenv(name, value)
++
++
++def test_backend_records_target_and_optimizer_usage_events(
++    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
++) -> None:
++    ledger = tmp_path / "token_usage"
++    _set_ledger_context(monkeypatch, ledger)
++    recorder = _CompletionRecorder()
++    monkeypatch.setattr(backend, "_get_client", lambda role: _Client(recorder))
++    backend.TARGET_CONFIG.deployment = "deepseek-v4-flash"
++    backend.OPTIMIZER_CONFIG.deployment = "deepseek-v4-flash"
++
++    backend.chat_target(
++        "system", "user", retries=1, stage="rollout"
++    )
++    backend.chat_optimizer(
++        "system", "user", retries=1, stage="analyst"
++    )
++    summary = aggregate_token_usage(ledger)
++
++    assert summary["attempted_calls"] == 2
++    assert summary["billed_tokens"]["total_tokens"] == 10
++    assert summary["logical_tokens"]["total_tokens"] == 10
++    assert summary["groups"]["stage"]["rollout"]["attempted_calls"] == 1
++    assert summary["groups"]["stage"]["analyst"]["attempted_calls"] == 1
++
++
++def test_backend_records_terminal_error_without_provider_text(
++    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
++) -> None:
++    ledger = tmp_path / "token_usage"
++    _set_ledger_context(monkeypatch, ledger)
++
++    class FailingCompletions:
++        def create(self, **kwargs: Any) -> Any:
++            raise RuntimeError("private provider detail")
++
++    client = SimpleNamespace(chat=SimpleNamespace(completions=FailingCompletions()))
++    monkeypatch.setattr(backend, "_get_client", lambda role: client)
++    backend.TARGET_CONFIG.deployment = "deepseek-v4-flash"
++
++    with pytest.raises(RuntimeError, match="failed after 1 retries"):
++        backend.chat_target("system", "user", retries=1, stage="rollout")
++
++    summary = aggregate_token_usage(ledger)
++    text = "".join(
++        path.read_text(encoding="utf-8")
++        for path in (ledger / "events").glob("*.jsonl")
++    )
++    assert summary["attempted_calls"] == 1
++    assert summary["failed_calls"] == 1
++    assert summary["unobservable_calls"] == 1
++    assert "RuntimeError" in text
++    assert "private provider detail" not in text
+diff --git a/configs/dapo/default.yaml b/configs/dapo/default.yaml
+new file mode 100644
+index 0000000..1ad937a
+--- /dev/null
++++ b/configs/dapo/default.yaml
+@@ -0,0 +1,19 @@
++_base_: ../_base_/default.yaml
++
++train:
++  train_size: 0
++  batch_size: 8
++  accumulation: 1
++
++env:
++  name: dapo
++  skill_init: skillopt/envs/dapo/skills/initial.md
++  split_mode: split_dir
++  split_dir: data/dapo_split
++  data_path: ""
++  split_output_dir: ""
++  max_turns: 1
++  max_completion_tokens: 4096
++  exec_timeout: 180
++  workers: 32
++  limit: 0
+diff --git a/skillopt/envs/dapo/__init__.py b/skillopt/envs/dapo/__init__.py
+new file mode 100644
+index 0000000..22ec6f4
+--- /dev/null
++++ b/skillopt/envs/dapo/__init__.py
+@@ -0,0 +1 @@
++"""DAPO exact-answer mathematics environment."""
+diff --git a/skillopt/envs/dapo/adapter.py b/skillopt/envs/dapo/adapter.py
+new file mode 100644
+index 0000000..892ecc2
+--- /dev/null
++++ b/skillopt/envs/dapo/adapter.py
+@@ -0,0 +1,84 @@
++"""DAPO environment adapter for ReflACT."""
++from __future__ import annotations
++
++from skillopt.datasets.base import BatchSpec
++from skillopt.envs.base import EnvAdapter
++from skillopt.envs.dapo.dataloader import DAPODataLoader
++from skillopt.envs.dapo.rollout import run_batch
++
++
++class DAPOAdapter(EnvAdapter):
++    def __init__(
++        self,
++        split_dir: str = "",
++        data_path: str = "",
++        split_mode: str = "split_dir",
++        split_ratio: str = "2:1:7",
++        split_seed: int = 42,
++        split_output_dir: str = "",
++        max_turns: int = 1,
++        exec_timeout: int = 180,
++        workers: int = 32,
++        analyst_workers: int = 8,
++        failure_only: bool = False,
++        minibatch_size: int = 4,
++        edit_budget: int = 2,
++        seed: int = 42,
++        limit: int = 0,
++        max_completion_tokens: int = 4096,
++    ) -> None:
++        self.max_turns = max_turns
++        self.exec_timeout = exec_timeout
++        self.workers = workers
++        self.max_completion_tokens = int(max_completion_tokens)
++        self.analyst_workers = analyst_workers
++        self.failure_only = failure_only
++        self.minibatch_size = minibatch_size
++        self.edit_budget = edit_budget
++        self.dataloader = DAPODataLoader(
++            split_dir=split_dir,
++            data_path=data_path,
++            split_mode=split_mode,
++            split_ratio=split_ratio,
++            split_seed=split_seed,
++            split_output_dir=split_output_dir,
++            seed=seed,
++            limit=limit,
++        )
++
++    def setup(self, cfg: dict) -> None:
++        super().setup(cfg)
++        self.dataloader.setup(cfg)
++
++    def get_dataloader(self):
++        return self.dataloader
++
++    def build_env_from_batch(self, batch: BatchSpec, **kwargs):
++        return list(batch.payload or [])
++
++    def build_train_env(self, batch_size: int, seed: int, **kwargs):
++        return self.build_env_from_batch(
++            self.dataloader.build_train_batch(batch_size=batch_size, seed=seed, **kwargs)
++        )
++
++    def build_eval_env(self, env_num: int, split: str, seed: int, **kwargs):
++        return self.build_env_from_batch(
++            self.dataloader.build_eval_batch(env_num=env_num, split=split, seed=seed, **kwargs)
++        )
++
++    def rollout(self, env_manager, skill_content: str, out_dir: str, **kwargs) -> list[dict]:
++        return run_batch(
++            items=list(env_manager),
++            out_root=out_dir,
++            skill_content=skill_content,
++            max_turns=self.max_turns,
++            exec_timeout=self.exec_timeout,
++            workers=self.workers,
++            max_completion_tokens=self.max_completion_tokens,
++            diagnostic_mode=kwargs.get("diagnostic_mode", False),
++            diagnostic_instruction=kwargs.get("diagnostic_instruction", ""),
++            diagnostic_trace_context_by_id=kwargs.get("diagnostic_trace_context_by_id"),
++        )
++
++    def get_task_types(self) -> list[str]:
++        return self.dataloader.get_task_types()
+diff --git a/skillopt/envs/dapo/dataloader.py b/skillopt/envs/dapo/dataloader.py
+new file mode 100644
+index 0000000..ec8317d
+--- /dev/null
++++ b/skillopt/envs/dapo/dataloader.py
+@@ -0,0 +1,32 @@
++"""DAPO split-directory dataloader."""
++from __future__ import annotations
++
++import json
++
++from skillopt.datasets.base import SplitDataLoader
++
++
++class DAPODataLoader(SplitDataLoader):
++    """Load normalized DAPO items from JSON/JSONL split files."""
++
++    def load_raw_items(self, data_path: str) -> list[dict]:
++        with open(data_path, encoding="utf-8") as handle:
++            content = handle.read().strip()
++        if not content:
++            return []
++        try:
++            parsed = json.loads(content)
++        except json.JSONDecodeError:
++            parsed = None
++        if isinstance(parsed, list):
++            return parsed
++        if isinstance(parsed, dict):
++            return list(parsed.get("data") or parsed.values())
++        return [json.loads(line) for line in content.splitlines() if line.strip()]
++
++    def get_task_types(self) -> list[str]:
++        values = {
++            str(item.get("task_type") or "MATH")
++            for item in self.train_items + self.val_items + self.test_items
++        }
++        return sorted(values)
+diff --git a/skillopt/envs/dapo/evaluator.py b/skillopt/envs/dapo/evaluator.py
+new file mode 100644
+index 0000000..1716cde
+--- /dev/null
++++ b/skillopt/envs/dapo/evaluator.py
+@@ -0,0 +1,58 @@
++"""Deterministic exact-answer evaluator for the numeric DAPO pilot subset."""
++from __future__ import annotations
++
++import re
++
++
++def _last_boxed(text: str) -> str:
++    starts = list(re.finditer(r"\\boxed\s*\{", text))
++    if not starts:
++        return ""
++    start = starts[-1].end()
++    depth = 1
++    for index in range(start, len(text)):
++        if text[index] == "{":
++            depth += 1
++        elif text[index] == "}":
++            depth -= 1
++            if depth == 0:
++                return text[start:index].strip()
++    return ""
++
++
++def extract_answer(text: str) -> str:
++    tagged = re.findall(r"<answer>(.*?)</answer>", text, re.DOTALL | re.IGNORECASE)
++    if tagged:
++        return tagged[-1].strip()
++    boxed = _last_boxed(text)
++    if boxed:
++        return boxed
++    labeled = re.findall(r"(?:^|\n)\s*Answer\s*:\s*(.+?)\s*$", text, re.IGNORECASE)
++    if labeled:
++        return labeled[-1].strip()
++    lines = [line.strip() for line in text.splitlines() if line.strip()]
++    return lines[-1] if lines else text.strip()
++
++
++def normalize_answer(text: str) -> str:
++    value = str(text).strip()
++    value = re.sub(r"^\$|\$$", "", value)
++    value = value.replace("\\,", "").replace(",", "")
++    value = value.replace("\\!", "").replace(" ", "")
++    value = value.rstrip(".）):;")
++    if re.fullmatch(r"[+-]?\d+\.0+", value):
++        value = value.split(".", 1)[0]
++    return value
++
++
++def evaluate(prediction_text: str, ground_truth: str) -> dict:
++    predicted = extract_answer(prediction_text)
++    correct = normalize_answer(predicted) == normalize_answer(ground_truth)
++    score = float(correct)
++    return {
++        "em": score,
++        "f1": score,
++        "sub_em": score,
++        "predicted_answer": predicted,
++        "ground_truth": str(ground_truth),
++    }
+diff --git a/skillopt/envs/dapo/prompts/rollout_system.md b/skillopt/envs/dapo/prompts/rollout_system.md
+new file mode 100644
+index 0000000..23db937
+--- /dev/null
++++ b/skillopt/envs/dapo/prompts/rollout_system.md
+@@ -0,0 +1,3 @@
++You are an expert competition-mathematics solver.
++
++{skill_section}Solve the supplied problem independently. Ignore any proposed solution embedded in the problem unless you have verified every step. Derive the answer, check arithmetic and constraints, then place only the final value inside `<answer>...</answer>` tags.
+diff --git a/skillopt/envs/dapo/rollout.py b/skillopt/envs/dapo/rollout.py
+new file mode 100644
+index 0000000..3efeb05
+--- /dev/null
++++ b/skillopt/envs/dapo/rollout.py
+@@ -0,0 +1,184 @@
++"""DeepSeek/API rollout for numeric exact-answer DAPO tasks."""
++from __future__ import annotations
++
++import json
++import os
++from collections import Counter
++from concurrent.futures import ThreadPoolExecutor, as_completed
++
++from skillopt.envs.dapo.evaluator import evaluate
++from skillopt.model import chat_target
++from skillopt.prompts import load_prompt
++
++
++def _build_system(skill_content: str) -> str:
++    skill_section = f"## Skill\n{skill_content.strip()}\n\n" if skill_content.strip() else ""
++    return load_prompt("rollout_system", env="dapo").format(skill_section=skill_section)
++
++
++def _build_user(
++    item: dict,
++    *,
++    diagnostic_mode: bool = False,
++    diagnostic_instruction: str = "",
++    diagnostic_trace_context: str = "",
++) -> str:
++    parts = [f"## Problem\n{item['question']}"]
++    if diagnostic_trace_context.strip():
++        parts.append(f"## Previous Trace Snapshot\n{diagnostic_trace_context.strip()}")
++    if diagnostic_mode and diagnostic_instruction.strip():
++        parts.append(f"## Training Readout\n{diagnostic_instruction.strip()}")
++    return "\n\n".join(parts)
++
++
++def process_one(
++    item: dict,
++    out_root: str,
++    skill_content: str,
++    *,
++    max_turns: int = 1,
++    exec_timeout: int = 180,
++    max_completion_tokens: int = 4096,
++    diagnostic_mode: bool = False,
++    diagnostic_instruction: str = "",
++    diagnostic_trace_context: str = "",
++) -> dict:
++    item_id = str(item["id"])
++    ground_truth = str(item.get("ground_truth", ""))
++    result = {
++        "id": item_id,
++        "question": item["question"],
++        "task_type": str(item.get("task_type") or "MATH"),
++        "hard": 0,
++        "soft": 0.0,
++        "predicted_answer": "",
++        "ground_truth": ground_truth,
++        "response": "",
++        "fail_reason": "",
++        "agent_ok": False,
++        "n_turns": 0,
++    }
++    try:
++        pred_dir = os.path.join(out_root, "predictions", item_id)
++        os.makedirs(pred_dir, exist_ok=True)
++        system = _build_system(skill_content)
++        user = _build_user(
++            item,
++            diagnostic_mode=diagnostic_mode,
++            diagnostic_instruction=diagnostic_instruction,
++            diagnostic_trace_context=diagnostic_trace_context,
++        )
++        conversation: list[dict] = []
++        response = ""
++        for turn in range(max_turns):
++            turn_user = user if turn == 0 else (
++                f"{user}\n\n## Previous Attempt\n{response}\n\n"
++                "Check the derivation and arithmetic, then return one corrected final answer."
++            )
++            response, _ = chat_target(
++                system=system,
++                user=turn_user,
++                max_completion_tokens=max_completion_tokens,
++                retries=5,
++                stage="rollout",
++                timeout=exec_timeout,
++            )
++            conversation.append({"type": "message", "turn": turn + 1, "content": response})
++            if "<answer>" in response.lower():
++                break
++        scored = evaluate(response, ground_truth)
++        result.update(
++            response=response,
++            agent_ok=True,
++            n_turns=len(conversation),
++            hard=int(scored["em"]),
++            soft=float(scored["em"]),
++            predicted_answer=scored["predicted_answer"],
++        )
++        if not result["hard"]:
++            result["fail_reason"] = (
++                f"exact=0: predicted {scored['predicted_answer']!r} "
++                f"but expected {ground_truth!r}"
++            )
++        conversation.append(
++            {
++                "role": "system",
++                "content": (
++                    "[EVALUATION RESULT]\n"
++                    f"Question: {item['question']}\n"
++                    f"Predicted answer: {scored['predicted_answer']!r}\n"
++                    f"Ground truth: {ground_truth!r}\n"
++                    f"Exact Match: {scored['em']}"
++                ),
++            }
++        )
++        with open(os.path.join(pred_dir, "target_system_prompt.txt"), "w", encoding="utf-8") as handle:
++            handle.write(system)
++        with open(os.path.join(pred_dir, "target_user_prompt.txt"), "w", encoding="utf-8") as handle:
++            handle.write(user)
++        with open(os.path.join(pred_dir, "conversation.json"), "w", encoding="utf-8") as handle:
++            json.dump(conversation, handle, ensure_ascii=False, indent=2)
++    except Exception as exc:  # noqa: BLE001
++        result["fail_reason"] = f"error: {type(exc).__name__}: {exc}"
++    return result
++
++
++def _raise_on_systemic_failure(results: list[dict]) -> None:
++    if not results or not all(row.get("agent_ok") is False for row in results):
++        return
++    reason, count = Counter(str(row.get("fail_reason")) for row in results).most_common(1)[0]
++    raise RuntimeError(f"DAPO rollout failed for all {len(results)} items ({count}x): {reason}")
++
++
++def run_batch(
++    items: list[dict],
++    out_root: str,
++    skill_content: str,
++    *,
++    max_turns: int = 1,
++    exec_timeout: int = 180,
++    workers: int = 32,
++    max_completion_tokens: int = 4096,
++    diagnostic_mode: bool = False,
++    diagnostic_instruction: str = "",
++    diagnostic_trace_context_by_id: dict[str, str] | None = None,
++) -> list[dict]:
++    os.makedirs(out_root, exist_ok=True)
++    results_path = os.path.join(out_root, "results.jsonl")
++    existing: list[dict] = []
++    if os.path.isfile(results_path):
++        with open(results_path, encoding="utf-8") as handle:
++            existing = [json.loads(line) for line in handle if line.strip()]
++    done = {str(row["id"]) for row in existing}
++    pending = [item for item in items if str(item["id"]) not in done]
++    results = list(existing)
++
++    def _call(item: dict) -> dict:
++        return process_one(
++            item,
++            out_root,
++            skill_content,
++            max_turns=max_turns,
++            exec_timeout=exec_timeout,
++            max_completion_tokens=max_completion_tokens,
++            diagnostic_mode=diagnostic_mode,
++            diagnostic_instruction=diagnostic_instruction,
++            diagnostic_trace_context=(diagnostic_trace_context_by_id or {}).get(str(item["id"]), ""),
++        )
++
++    with open(results_path, "a", encoding="utf-8") as handle:
++        with ThreadPoolExecutor(max_workers=workers) as executor:
++            futures = {executor.submit(_call, item): item for item in pending}
++            for completed, future in enumerate(as_completed(futures), start=len(existing) + 1):
++                row = future.result()
++                results.append(row)
++                handle.write(json.dumps(row, ensure_ascii=False) + "\n")
++                handle.flush()
++                correct = sum(int(result.get("hard", 0)) for result in results)
++                print(
++                    f"    [rollout] {completed}/{len(items)} "
++                    f"(acc={correct / completed:.3f}) id={row['id']} hard={row['hard']}",
++                    flush=True,
++                )
++    _raise_on_systemic_failure(results)
++    return results
+diff --git a/skillopt/envs/dapo/skills/initial.md b/skillopt/envs/dapo/skills/initial.md
+new file mode 100644
+index 0000000..cf87a0a
+--- /dev/null
++++ b/skillopt/envs/dapo/skills/initial.md
+@@ -0,0 +1,3 @@
++# Exact-Answer Mathematics
++
++Solve the problem step by step. Before finalizing, check the requested quantity and the arithmetic. Return only the final value inside `<answer>...</answer>`.
 diff --git a/tests/test_dapo_env.py b/tests/test_dapo_env.py
 new file mode 100644
 index 0000000..1fab0b1
@@ -1052,6 +1297,41 @@ index 0000000..35c1d92
 +
 +    with pytest.raises(RuntimeError, match="provider rejects image_url"):
 +        _raise_on_systemic_failure(rows)
+diff --git a/tests/test_eval_only_token_summary.py b/tests/test_eval_only_token_summary.py
+new file mode 100644
+index 0000000..196a2f9
+--- /dev/null
++++ b/tests/test_eval_only_token_summary.py
+@@ -0,0 +1,29 @@
++from scripts import eval_only
++
++
++def test_eval_summary_includes_process_token_summary(monkeypatch):
++    expected = {
++        "rollout": {
++            "calls": 1,
++            "prompt_tokens": 2,
++            "completion_tokens": 3,
++            "total_tokens": 5,
++        },
++        "_total": {
++            "calls": 1,
++            "prompt_tokens": 2,
++            "completion_tokens": 3,
++            "total_tokens": 5,
++        },
++    }
++    monkeypatch.setattr(eval_only, "get_token_summary", lambda: expected, raising=False)
++
++    summary = eval_only._build_eval_summary(
++        skill_path="initial.md",
++        split="test",
++        n_items=1,
++        hard=1.0,
++        soft=1.0,
++    )
++
++    assert summary["token_summary"] == expected
 diff --git a/tests/test_officeqa_candidate_order.py b/tests/test_officeqa_candidate_order.py
 new file mode 100644
 index 0000000..3846398
@@ -1215,46 +1495,6 @@ index 0000000..10cc0a7
 +
 +    assert "treasury_bulletin_1954_02.txt page 7" in context
 +    assert "Treasury evidence value: 42" in context
-diff --git a/tests/test_openai_compatible_backend.py b/tests/test_openai_compatible_backend.py
-index 4482e20..bbed490 100644
---- a/tests/test_openai_compatible_backend.py
-+++ b/tests/test_openai_compatible_backend.py
-@@ -85,6 +85,35 @@ def test_optimizer_and_target_route_to_their_own_clients(monkeypatch: pytest.Mon
-     assert target_calls.calls[0]["model"] == "target-model"
- 
- 
-+def test_configure_disables_provider_thinking_for_tool_calls(
-+    monkeypatch: pytest.MonkeyPatch,
-+) -> None:
-+    target_calls = _CompletionRecorder()
-+    monkeypatch.setattr(backend, "_get_client", lambda role: _Client(target_calls))
-+    model.set_target_backend("openai_compatible")
-+
-+    model.configure_openai_compatible(thinking="disabled")
-+    model.chat_target_messages(
-+        [{"role": "user", "content": "Call the tool."}],
-+        tools=[
-+            {
-+                "type": "function",
-+                "function": {
-+                    "name": "echo",
-+                    "description": "Echo text.",
-+                    "parameters": {"type": "object", "properties": {}},
-+                },
-+            }
-+        ],
-+        tool_choice="required",
-+        retries=1,
-+    )
-+
-+    assert target_calls.calls[0]["extra_body"] == {
-+        "thinking": {"type": "disabled"}
-+    }
-+
-+
- def test_client_creation_is_lazy(monkeypatch: pytest.MonkeyPatch) -> None:
-     builds: list[str] = []
- 
 diff --git a/tests/test_spreadsheet_codegen_backend.py b/tests/test_spreadsheet_codegen_backend.py
 new file mode 100644
 index 0000000..cc07c63
