@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+from types import SimpleNamespace
+
+import pytest
 
 from rsebench.contracts import TaskManifest
 from rsebench.contracts import NoiseManifest, Severity
@@ -12,9 +15,11 @@ from rsebench.evolution.skilllearn_executor import (
     _command_tags,
     _docker_volume_spec,
     _tool_argument_recovery_prompt,
+    DockerSkillLearnBackend,
     SkillLearnExecution,
     SkillLearnExecutor,
 )
+import rsebench.evolution.skilllearn_executor as skilllearn_module
 from rsebench.providers.deepseek import ModelResponse
 from rsebench.hashing import sha256_file
 
@@ -97,6 +102,93 @@ def task(tmp_path: Path) -> TaskManifest:
         verifier="official:/tests/test.sh",
         metadata={"task_family": "family"},
     )
+
+
+def _docker_task(tmp_path: Path) -> tuple[TaskManifest, Path]:
+    instance = tmp_path / "docker-family-1"
+    environment = instance / "environment"
+    environment.mkdir(parents=True)
+    (environment / "Dockerfile").write_text(
+        "FROM python:3.11-slim\nWORKDIR /workspace\n",
+        encoding="utf-8",
+    )
+    dependency = environment / "requirements.txt"
+    dependency.write_text("pandas==2.2.0\n", encoding="utf-8")
+    return (
+        TaskManifest(
+            task_id="docker-family-1",
+            benchmark="skilllearnbench",
+            domain="skill_learning",
+            prompt="Create the requested artifact.",
+            source_hash="d" * 64,
+            artifact_path=str(instance),
+            verifier="official:/tests/test.sh",
+            metadata={"task_family": "docker-family"},
+        ),
+        dependency,
+    )
+
+
+def test_skilllearn_image_identity_is_content_addressed(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    docker_task, dependency = _docker_task(tmp_path)
+    images: dict[str, str] = {}
+    build_commands: list[list[str]] = []
+
+    def fake_run(command, **kwargs):
+        if command[1:3] == ["image", "inspect"]:
+            tag = command[-1]
+            if tag in images:
+                return SimpleNamespace(returncode=0, stdout=images[tag] + "\n", stderr="")
+            return SimpleNamespace(returncode=1, stdout="", stderr="missing")
+        if command[1] == "build":
+            build_commands.append(command)
+            tag = command[command.index("-t") + 1]
+            images[tag] = f"sha256:{len(images) + 1:064x}"
+            return SimpleNamespace(returncode=0, stdout="built", stderr="")
+        raise AssertionError(command)
+
+    monkeypatch.setattr(skilllearn_module.subprocess, "run", fake_run)
+    backend = DockerSkillLearnBackend(client=object())
+
+    first = backend.prepare(docker_task, tmp_path / "first")
+    second = backend.prepare(docker_task, tmp_path / "second")
+
+    assert first.context_hash == second.context_hash
+    assert first.image_tag == second.image_tag
+    assert first.image_id == second.image_id
+    assert len(build_commands) == 1
+
+    original_mtime = dependency.stat().st_mtime_ns
+    dependency.write_text("pandas==2.2.1\n", encoding="utf-8")
+    os.utime(dependency, ns=(original_mtime, original_mtime))
+    changed = backend.prepare(docker_task, tmp_path / "changed")
+
+    assert changed.context_hash != first.context_hash
+    assert changed.image_tag != first.image_tag
+    assert len(build_commands) == 2
+
+
+def test_skilllearn_required_prebuilt_image_never_builds(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    docker_task, _ = _docker_task(tmp_path)
+    commands: list[list[str]] = []
+
+    def fake_run(command, **kwargs):
+        commands.append(command)
+        return SimpleNamespace(returncode=1, stdout="", stderr="missing")
+
+    monkeypatch.setattr(skilllearn_module.subprocess, "run", fake_run)
+    backend = DockerSkillLearnBackend(client=object(), require_prebuilt=True)
+
+    with pytest.raises(RuntimeError, match="prebuilt SkillLearn image is missing"):
+        backend.prepare(docker_task, tmp_path / "formal")
+
+    assert all(command[1] != "build" for command in commands)
 
 
 def test_docker_volume_spec_resolves_relative_host_path(

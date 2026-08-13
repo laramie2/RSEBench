@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import hashlib
-import os
 import re
 import shutil
 import subprocess
@@ -26,7 +25,7 @@ from rsebench.evidence import (
 )
 from rsebench.evolution.contracts import EvolutionArmManifest, EvolutionSplitManifest
 from rsebench.evolution.runner import EvaluationResult, EvolutionArtifact
-from rsebench.hashing import sha256_file
+from rsebench.hashing import sha256_file, sha256_tree
 from rsebench.usage import token_context_scope
 
 
@@ -125,6 +124,14 @@ class SkillLearnExecution(StrictModel):
     diagnostics: dict[str, Any] = Field(default_factory=dict)
 
 
+class SkillLearnImageRecord(StrictModel):
+    task_id: str = Field(min_length=1)
+    context_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
+    image_tag: str = Field(min_length=1)
+    image_id: str = Field(min_length=1)
+    workdir: str = Field(min_length=1)
+
+
 class SkillLearnBackend(Protocol):
     def execute(
         self,
@@ -156,11 +163,13 @@ class DockerSkillLearnBackend:
         docker: str = "docker",
         max_turns: int = 16,
         command_timeout: int = 300,
+        require_prebuilt: bool = False,
     ) -> None:
         self.client = client
         self.docker = docker
         self.max_turns = max_turns
         self.command_timeout = command_timeout
+        self.require_prebuilt = require_prebuilt
 
     @staticmethod
     def _workdir(dockerfile: Path) -> str:
@@ -177,28 +186,38 @@ class DockerSkillLearnBackend:
     def _tag(command: str) -> list[str]:
         return _command_tags(command)
 
-    def _build_image(self, environment: Path, output_dir: Path) -> tuple[str, str]:
+    def prepare(
+        self,
+        task: TaskManifest,
+        output_dir: Path,
+    ) -> SkillLearnImageRecord:
+        output_dir = Path(output_dir).resolve()
+        output_dir.mkdir(parents=True, exist_ok=True)
+        instance = Path(task.artifact_path or "").resolve()
+        environment = instance / "environment"
         dockerfile = environment / "Dockerfile"
         if not dockerfile.is_file():
             raise FileNotFoundError(f"SkillLearn Dockerfile missing: {dockerfile}")
-        identity = hashlib.sha256(
-            (str(environment.resolve()) + str(dockerfile.stat().st_mtime_ns)).encode()
-        ).hexdigest()[:16]
-        image = f"rsebench-skilllearn:{identity}"
-        inspect = subprocess.run(
-            [self.docker, "image", "inspect", image],
-            capture_output=True,
-            text=True,
-        )
-        if inspect.returncode != 0:
-            with tempfile.TemporaryDirectory(prefix="rsebench-skilllearn-build-") as temp:
-                context = Path(temp) / "environment"
-                shutil.copytree(
-                    environment,
-                    context,
-                    ignore=shutil.ignore_patterns("skills"),
-                )
-                (context / "skills").mkdir(exist_ok=True)
+        with tempfile.TemporaryDirectory(prefix="rsebench-skilllearn-build-") as temp:
+            context = Path(temp) / "environment"
+            shutil.copytree(
+                environment,
+                context,
+                ignore=shutil.ignore_patterns("skills"),
+            )
+            (context / "skills").mkdir(exist_ok=True)
+            context_hash = sha256_tree(context)
+            image = f"rsebench-skilllearn:{context_hash[:16]}"
+            inspect = subprocess.run(
+                [self.docker, "image", "inspect", "--format={{.Id}}", image],
+                capture_output=True,
+                text=True,
+            )
+            if inspect.returncode != 0:
+                if self.require_prebuilt:
+                    raise RuntimeError(
+                        f"prebuilt SkillLearn image is missing: {image}"
+                    )
                 built = subprocess.run(
                     [self.docker, "build", "-t", image, str(context)],
                     capture_output=True,
@@ -212,7 +231,25 @@ class DockerSkillLearnBackend:
                     raise RuntimeError(
                         f"SkillLearn image build failed: {(built.stderr or built.stdout)[-2000:]}"
                     )
-        return image, self._workdir(dockerfile)
+                inspect = subprocess.run(
+                    [self.docker, "image", "inspect", "--format={{.Id}}", image],
+                    capture_output=True,
+                    text=True,
+                )
+            if inspect.returncode != 0 or not str(inspect.stdout or "").strip():
+                raise RuntimeError(f"SkillLearn image inspect failed after build: {image}")
+            record = SkillLearnImageRecord(
+                task_id=task.task_id,
+                context_hash=context_hash,
+                image_tag=image,
+                image_id=str(inspect.stdout).strip(),
+                workdir=self._workdir(context / "Dockerfile"),
+            )
+        (output_dir / "image_record.json").write_text(
+            record.model_dump_json(indent=2) + "\n",
+            encoding="utf-8",
+        )
+        return record
 
     def execute(
         self,
@@ -224,11 +261,12 @@ class DockerSkillLearnBackend:
         output_dir.mkdir(parents=True, exist_ok=True)
         instance = Path(task.artifact_path or "").resolve()
         official = Path(task.metadata.get("official_instance_path") or instance).resolve()
-        environment = instance / "environment"
         tests = official / "tests"
         if not tests.is_dir():
             raise FileNotFoundError(f"SkillLearn official tests missing: {tests}")
-        image, workdir = self._build_image(environment, output_dir)
+        image_record = self.prepare(task, output_dir / "image")
+        image = image_record.image_tag
+        workdir = image_record.workdir
         container_hash = hashlib.sha256(
             f"{task.task_id}:{output_dir.resolve()}".encode()
         ).hexdigest()[:16]
@@ -438,6 +476,8 @@ class DockerSkillLearnBackend:
                 diagnostics={
                     "container": container,
                     "image": image,
+                    "image_id": image_record.image_id,
+                    "context_hash": image_record.context_hash,
                     "verifier_returncode": verifier.returncode,
                 },
             )
