@@ -114,6 +114,7 @@ def deepseek_role_env(
             "SkillAdaptor_BASE_URL": BASE_URL,
             "SkillAdaptor_MODEL": MODEL,
             "SkillAdaptor_LEXICAL_MATCHING": "1",
+            "SkillAdaptor_LEXICAL_SKILL_THRESHOLD": "0.10",
         }
     return {
         **common,

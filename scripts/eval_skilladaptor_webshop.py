@@ -17,6 +17,40 @@ if str(PROJECT_ROOT / "src") not in sys.path:
 from scripts.baselines.common_env import MODEL, combined_method_env  # noqa: E402
 
 
+def build_evaluation_result(episodes: list[dict[str, object]]) -> dict[str, object]:
+    scores: dict[str, float] = {}
+    episode_diagnostics: dict[str, dict[str, object]] = {}
+    execution_failures: dict[str, str] = {}
+    for episode in episodes:
+        goal_idx = int(episode["goal_idx"])
+        task_id = f"goal_{goal_idx}"
+        scores[task_id] = float(episode.get("total_reward", 0.0))
+        error_type = str(episode.get("error_type") or "").strip()
+        error_message = str(episode.get("error_message") or "").strip()
+        error_stage = str(episode.get("error_stage") or "").strip()
+        episode_diagnostics[task_id] = {
+            "success": bool(episode.get("success", False)),
+            "num_steps": int(episode.get("num_steps", 0)),
+            "valid": not bool(error_type),
+            "error_type": error_type or None,
+            "error_message": error_message or None,
+            "error_stage": error_stage or None,
+        }
+        if error_type:
+            execution_failures[task_id] = (
+                f"{error_type}: {error_message or 'native WebShop execution failed'}"
+            )
+    return {
+        "score": sum(scores.values()) / len(scores),
+        "per_task_scores": scores,
+        "diagnostics": {
+            "sample_size": len(scores),
+            "episodes": episode_diagnostics,
+            "execution_failures": execution_failures,
+        },
+    }
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--method-root", type=Path, required=True)
@@ -55,8 +89,7 @@ def main() -> None:
     if not goal_indices:
         raise ValueError("WebShop evaluation manifest has no test_tasks")
     env = WebShopEnvWrapper(num_products=1000, webshop_path=webshop_root)
-    scores: dict[str, float] = {}
-    episode_diagnostics: dict[str, dict[str, object]] = {}
+    episodes: list[dict[str, object]] = []
     try:
         for goal_idx in goal_indices:
             policy = SkillAugmentedLLMPolicy(
@@ -72,23 +105,10 @@ def main() -> None:
                 max_steps=args.max_episode_steps,
                 verbose=False,
             )
-            task_id = f"goal_{goal_idx}"
-            score = float(episode.get("total_reward", 0.0))
-            scores[task_id] = score
-            episode_diagnostics[task_id] = {
-                "success": bool(episode.get("success", False)),
-                "num_steps": int(episode.get("num_steps", 0)),
-            }
+            episodes.append(episode)
     finally:
         env.close()
-    result = {
-        "score": sum(scores.values()) / len(scores),
-        "per_task_scores": scores,
-        "diagnostics": {
-            "sample_size": len(scores),
-            "episodes": episode_diagnostics,
-        },
-    }
+    result = build_evaluation_result(episodes)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(
         json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True) + "\n",

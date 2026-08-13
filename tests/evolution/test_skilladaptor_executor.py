@@ -32,6 +32,7 @@ from core.orchestrator import (  # noqa: E402
 )
 from core.llm_factory import _RetryingChatCompletions  # noqa: E402
 from core.skill_matcher import SemanticSkillMatcher  # noqa: E402
+from core.skill_bank import SkillBankManager  # noqa: E402
 from core.types import Skill, ValidationResult  # noqa: E402
 from core.task_context import load_task_context_for_inference  # noqa: E402
 from rsebench.usage import aggregate_token_usage, token_context_scope  # noqa: E402
@@ -41,6 +42,7 @@ from adapters.webshop_adapter.env_wrapper import (  # noqa: E402
     apply_product_overlay,
 )
 from adapters.webshop_adapter.llm_policy import SkillAugmentedLLMPolicy  # noqa: E402
+from adapters.webshop_adapter.evaluator import WebShopEvaluator  # noqa: E402
 from rsebench.contracts import TaskManifest  # noqa: E402
 from rsebench.evolution.contracts import (  # noqa: E402
     ArmTaskRef,
@@ -265,6 +267,186 @@ def test_lexical_matching_fallback_needs_no_embedding_endpoint(monkeypatch) -> N
     assert all(match.id != "unrelated" for match, _ in matches)
 
 
+def test_webshop_lexical_policy_retrieves_and_audits_seed_skill(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv("SkillAdaptor_LEXICAL_MATCHING", "1")
+    monkeypatch.setenv("SkillAdaptor_LEXICAL_SKILL_THRESHOLD", "0.10")
+    audit_path = tmp_path / "retrieval.jsonl"
+    monkeypatch.setenv("RSEBENCH_SKILL_RETRIEVAL_AUDIT", str(audit_path))
+    monkeypatch.setattr(SkillAugmentedLLMPolicy, "_setup_client", lambda self: None)
+    seed_payload = json.loads(
+        (Path(__file__).parents[2] / "benchmark/core1/seeds/skilladaptor_webshop.json")
+        .read_text(encoding="utf-8")
+    )
+    skill_bank = {
+        skill_id: Skill.from_dict(payload)
+        for skill_id, payload in seed_payload["skills"].items()
+    }
+    policy = SkillAugmentedLLMPolicy(
+        {"api_key": "unused", "model": "deepseek-v4-flash"},
+        skill_bank=skill_bank,
+        embedding_api_key="",
+        embedding_base_url="",
+    )
+    prompts = {
+        1195: (
+            "Find me screen protectors with tempered glass, glass screen, "
+            "and price lower than 50.00 dollars"
+        ),
+        735: (
+            "Find me women's slippers with faux fur, rubber sole, and price "
+            "lower than 60.00 dollars"
+        ),
+        994: (
+            "Find me usda organic, gluten free cream cheeses, and price lower "
+            "than 140.00 dollars"
+        ),
+    }
+
+    for goal_idx, prompt in prompts.items():
+        policy.begin_episode(prompt, episode_id=f"goal_{goal_idx}")
+        assert [skill.id for skill in policy.skills_for_episode()] == [
+            "webshop_constraint_check"
+        ]
+        rendered = policy._build_prompt(  # noqa: SLF001
+            prompt,
+            {"has_search_bar": True, "clickables": []},
+            policy.skills_for_episode(),
+            None,
+        )
+        assert "Constraint-checked product selection" in rendered
+
+    events = [
+        json.loads(line)
+        for line in audit_path.read_text(encoding="utf-8").splitlines()
+    ]
+    for goal_idx in prompts:
+        episode_events = [
+            event for event in events if event["episode_id"] == f"goal_{goal_idx}"
+        ]
+        assert [event["event"] for event in episode_events] == [
+            "retrieval",
+            "prompt_injection",
+        ]
+        retrieval = episode_events[0]
+        assert all(
+            isinstance(candidate["score"], float)
+            for candidate in retrieval["ranked_candidates"]
+        )
+        assert retrieval["retrieved_skill_ids"] == ["webshop_constraint_check"]
+        assert episode_events[1]["injected_skill_ids"] == [
+            "webshop_constraint_check"
+        ]
+
+
+def test_webshop_semantic_policy_keeps_default_threshold(monkeypatch) -> None:
+    monkeypatch.delenv("SkillAdaptor_LEXICAL_MATCHING", raising=False)
+    monkeypatch.setattr(SkillAugmentedLLMPolicy, "_setup_client", lambda self: None)
+
+    policy = SkillAugmentedLLMPolicy({"api_key": "unused"})
+
+    assert policy._skill_matcher.similarity_threshold == 0.35  # noqa: SLF001
+
+
+def test_goal_994_regression_repairs_one_non_executable_action(monkeypatch) -> None:
+    class FakeCompletions:
+        def __init__(self) -> None:
+            self.calls: list[dict[str, object]] = []
+            self.responses = iter(
+                [
+                    "Thought: I should search specifically for cream cheese.\n"
+                    "Action: search[cream cheese]",
+                    "Action: click[Back to Search]",
+                ]
+            )
+
+        def create(self, **kwargs):
+            self.calls.append(kwargs)
+            return SimpleNamespace(
+                choices=[
+                    SimpleNamespace(
+                        message=SimpleNamespace(content=next(self.responses))
+                    )
+                ],
+                usage=None,
+            )
+
+    completions = FakeCompletions()
+    monkeypatch.setattr(SkillAugmentedLLMPolicy, "_setup_client", lambda self: None)
+    policy = SkillAugmentedLLMPolicy(
+        {"api_key": "unused", "model": "deepseek-v4-flash", "max_retries": 1}
+    )
+    policy.client = SimpleNamespace(
+        chat=SimpleNamespace(completions=completions)
+    )
+    page_prompt = policy._build_prompt(  # noqa: SLF001
+        "goal 994 result page",
+        {"has_search_bar": False, "clickables": ["back to search", "next >"]},
+        [],
+        None,
+    )
+    assert "You MUST choose from the following executable actions:" in page_prompt
+    assert "- click[back to search]" in page_prompt
+
+    action = policy._call_llm(  # noqa: SLF001
+        page_prompt,
+        {"has_search_bar": False, "clickables": ["Back to Search"]},
+        valid_actions=["click[Back to Search]"],
+    )
+
+    assert action == "click[Back to Search]"
+    assert len(completions.calls) == 2
+    repair_suffix = (
+        "Your previous response did not contain one executable WebShop action. "
+        "Return only one line in the form Action: search[...] or Action: click[...]."
+    )
+    repair_messages = completions.calls[1]["messages"]
+    assert len(repair_messages) == 1
+    assert repair_messages[0]["content"] == f"{page_prompt}\n\n{repair_suffix}"
+
+
+def test_skilladaptor_report_audits_accepted_updates_and_task_ids(
+    tmp_path: Path,
+) -> None:
+    orchestrator = SkillAdaptorOrchestrator.__new__(SkillAdaptorOrchestrator)
+    orchestrator.config = SimpleNamespace(
+        output_dir=tmp_path,
+        max_iterations=1,
+        k_reject_threshold=3,
+    )
+    orchestrator.skill_bank = SkillBankManager()
+    orchestrator.iteration = 0
+    orchestrator.consecutive_rejections = 0
+    orchestrator.iteration_history = []
+    orchestrator.low_score_success_threshold = 0.6
+    orchestrator._iteration_principles = []
+    orchestrator._establish_validation_baseline = lambda *args: {}
+    orchestrator._execute_tasks = lambda task_ids: [_trajectory()]
+    accepted = [
+        Skill(id=f"skill-{index}", title="t", description="d", body="b")
+        for index in (1, 2)
+    ]
+
+    def process(*args):
+        orchestrator._iteration_principles = ["verify constraints"]
+        return accepted, [], []
+
+    orchestrator._process_failures_with_chain_validation = process
+    orchestrator._try_adopt_global_prior = lambda *args: True
+
+    report = orchestrator.run(
+        ["goal_1", "goal_2"],
+        ["goal_3", "goal_4"],
+        lambda bank: {},
+    )
+
+    assert report["training_task_ids"] == ["goal_1", "goal_2"]
+    assert report["validation_task_ids"] == ["goal_3", "goal_4"]
+    assert report["accepted_update_count"] == 3
+
+
 def test_fault_deduplication_honors_lexical_matching_without_embedding_api(
     monkeypatch,
 ) -> None:
@@ -441,7 +623,7 @@ def test_webshop_episode_records_policy_format_failure_as_zero_reward() -> None:
 
     class BrokenPolicy:
         def forward(self, *args, **kwargs):
-            raise RuntimeError("no Action field")
+            raise RuntimeError("no Action field for goal 7")
 
     episode = wrapper.run_episode(7, BrokenPolicy(), max_steps=2)
 
@@ -449,6 +631,69 @@ def test_webshop_episode_records_policy_format_failure_as_zero_reward() -> None:
     assert episode["success"] is False
     assert episode["num_steps"] == 0
     assert episode["error_type"] == "RuntimeError"
+    assert episode["error_message"] == "no Action field for goal 7"
+    assert episode["error_stage"] == "policy_or_environment_step"
+
+
+def test_webshop_evaluator_marks_episode_failures_invalid() -> None:
+    evaluator = WebShopEvaluator.__new__(WebShopEvaluator)
+    metrics = evaluator._compute_metrics(  # noqa: SLF001
+        [
+            {
+                "goal_idx": 6,
+                "total_reward": 1.0,
+                "success": True,
+                "num_steps": 4,
+            },
+            {
+                "goal_idx": 7,
+                "total_reward": 0.0,
+                "success": False,
+                "num_steps": 0,
+                "error_type": "RuntimeError",
+                "error_message": "no Action field for goal 7",
+                "error_stage": "policy_or_environment_step",
+            },
+        ]
+    )
+
+    assert metrics["execution_failures"] == {
+        "goal_7": "RuntimeError: no Action field for goal 7"
+    }
+    assert metrics["task_results"]["goal_7"]["valid"] is False
+    assert metrics["sample_size"] == 2
+
+
+def test_skilladaptor_eval_script_preserves_execution_failures() -> None:
+    from scripts.eval_skilladaptor_webshop import build_evaluation_result
+
+    result = build_evaluation_result(
+        [
+            {
+                "goal_idx": 6,
+                "total_reward": 1.0,
+                "success": True,
+                "num_steps": 4,
+            },
+            {
+                "goal_idx": 7,
+                "total_reward": 0.0,
+                "success": False,
+                "num_steps": 0,
+                "error_type": "RuntimeError",
+                "error_message": "no Action field for goal 7",
+                "error_stage": "policy_or_environment_step",
+            },
+        ]
+    )
+
+    assert result["per_task_scores"] == {"goal_6": 1.0, "goal_7": 0.0}
+    assert result["diagnostics"]["execution_failures"] == {
+        "goal_7": "RuntimeError: no Action field for goal 7"
+    }
+    assert result["diagnostics"]["episodes"]["goal_7"]["error_stage"] == (
+        "policy_or_environment_step"
+    )
 
 
 def test_interactive_task_context_can_fall_back_to_trajectory_text(monkeypatch) -> None:
