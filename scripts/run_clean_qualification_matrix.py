@@ -190,9 +190,12 @@ def run_matrix(
     execute: bool = False,
     output_root: Path | None = None,
     stop_on_failure: bool = False,
+    max_new_units: int | None = None,
 ) -> list[MatrixUnit]:
     """Dry-expand by default, or execute formal units sequentially with resume state."""
 
+    if max_new_units is not None and max_new_units < 1:
+        raise ValueError("max_new_units must be positive")
     config_path = config_path.resolve()
     config = load_config(config_path)
     root = (
@@ -227,9 +230,12 @@ def run_matrix(
             "units": [],
         }
     terminal_keys = {row["key"] for row in status["units"]}
+    new_terminal_units = 0
     for unit in units:
         if unit.key in terminal_keys:
             continue
+        if max_new_units is not None and new_terminal_units >= max_new_units:
+            break
         completed = subprocess.run(
             list(unit.command),
             cwd=PROJECT_ROOT,
@@ -260,6 +266,7 @@ def run_matrix(
             row.update(status="failed", error="launcher returned non-zero status")
         status["units"].append(row)
         terminal_keys.add(unit.key)
+        new_terminal_units += 1
         _summarize(status)
         _write_status(status_path, status)
         if row["status"] == "failed" and stop_on_failure:
@@ -273,12 +280,14 @@ def main() -> None:
     parser.add_argument("--output-root", type=Path)
     parser.add_argument("--execute", action="store_true")
     parser.add_argument("--stop-on-failure", action="store_true")
+    parser.add_argument("--max-new-units", type=int)
     args = parser.parse_args()
     units = run_matrix(
         args.config,
         execute=args.execute,
         output_root=args.output_root,
         stop_on_failure=args.stop_on_failure,
+        max_new_units=args.max_new_units,
     )
     if not args.execute:
         for unit in units:

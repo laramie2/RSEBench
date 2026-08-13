@@ -99,3 +99,31 @@ def test_matrix_refuses_resume_under_changed_config_hash(
 
     with pytest.raises(RuntimeError, match="config hash differs"):
         matrix.run_matrix(CONFIG, execute=True, output_root=tmp_path)
+
+
+def test_matrix_can_stage_a_bounded_number_of_new_units(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setattr(matrix, "_ensure_clean_worktree", lambda: "commit")
+    calls = []
+
+    def fake_run(command, **kwargs):
+        calls.append(command)
+        run_dir = tmp_path / f"bounded-{len(calls)}"
+        run_dir.mkdir()
+        return SimpleNamespace(returncode=0, stdout=f"{run_dir}\n", stderr="")
+
+    monkeypatch.setattr(matrix.subprocess, "run", fake_run)
+
+    matrix.run_matrix(
+        CONFIG,
+        execute=True,
+        output_root=tmp_path,
+        max_new_units=2,
+    )
+
+    status = json.loads((tmp_path / "matrix_status.json").read_text())
+    assert len(calls) == 2
+    assert status["terminal_units"] == 2
+    assert status["expected_units"] == 33
