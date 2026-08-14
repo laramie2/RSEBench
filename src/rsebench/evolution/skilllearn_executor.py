@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import hashlib
+import os
 import re
 import shutil
 import subprocess
@@ -114,6 +115,27 @@ def _docker_volume_spec(host: Path | str, container: str) -> str:
     """Render an absolute host bind mount for the Docker CLI."""
 
     return f"{Path(host).resolve()}:{container}"
+
+
+def _container_runtime_identity(
+    task_id: str,
+    output_dir: Path | str,
+) -> tuple[str, list[str]]:
+    """Name and label a container so the scheduler can clean one attempt."""
+
+    container_hash = hashlib.sha256(
+        f"{task_id}:{Path(output_dir).resolve()}".encode()
+    ).hexdigest()[:16]
+    configured_prefix = os.environ.get(
+        "RSEBENCH_CONTAINER_PREFIX", "rsebench-skilllearn"
+    )
+    prefix = re.sub(r"[^A-Za-z0-9_.-]+", "-", configured_prefix).strip("-.")
+    prefix = prefix or "rsebench-skilllearn"
+    name = f"{prefix}-{container_hash}"
+    attempt_id = os.environ.get("RSEBENCH_ATTEMPT_ID", "").strip()
+    if not re.fullmatch(r"[A-Za-z0-9_.-]{1,128}", attempt_id):
+        return name, []
+    return name, ["--label", f"rsebench.attempt_id={attempt_id}"]
 
 
 class SkillLearnExecution(StrictModel):
@@ -270,10 +292,10 @@ class DockerSkillLearnBackend:
         image_record = self.prepare(task, output_dir / "image")
         image = image_record.image_tag
         workdir = image_record.workdir
-        container_hash = hashlib.sha256(
-            f"{task.task_id}:{output_dir.resolve()}".encode()
-        ).hexdigest()[:16]
-        container = f"rsebench-skilllearn-{container_hash}"
+        container, registration = _container_runtime_identity(
+            task.task_id,
+            output_dir,
+        )
         subprocess.run(
             [self.docker, "rm", "-f", container], capture_output=True, text=True
         )
@@ -285,6 +307,7 @@ class DockerSkillLearnBackend:
                 "-d",
                 "--name",
                 container,
+                *registration,
                 "-v",
                 _docker_volume_spec(tests, "/tests:ro"),
                 "-v",

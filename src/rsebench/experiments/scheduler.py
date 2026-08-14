@@ -65,6 +65,7 @@ class ScheduledUnit(StrictModel):
 
 
 CommandRunner = Callable[..., Any]
+ContainerCleaner = Callable[[str], None]
 
 
 def _utc_now() -> str:
@@ -79,6 +80,7 @@ class ExperimentScheduler:
         project_root: Path | str,
         max_parallel: int,
         command_runner: CommandRunner | None = None,
+        container_cleaner: ContainerCleaner | None = None,
         status_metadata: dict[str, Any] | None = None,
     ) -> None:
         if max_parallel < 1:
@@ -91,11 +93,13 @@ class ExperimentScheduler:
         self.status_path = self.run_root / "matrix_status.json"
         self.events_path = self.run_root / "events.jsonl"
         self._command_runner = command_runner
+        self._container_cleaner = container_cleaner or self._default_container_cleaner
         self._state_lock = threading.RLock()
         self._resource_locks: dict[str, threading.Lock] = {}
         self._adapter_semaphores: dict[str, threading.Semaphore] = {}
         self._active_processes: dict[str, subprocess.Popen[str]] = {}
         self._active_lock = threading.Lock()
+        self._interrupt_event = threading.Event()
         status_exists = self.status_path.is_file()
         self._status = self._load_status()
         if not status_exists:
@@ -360,6 +364,16 @@ class ExperimentScheduler:
             stack.enter_context(semaphore)
             for lock in resource_locks:
                 stack.enter_context(lock)
+            if self._interrupt_event.is_set():
+                self._transition(
+                    unit,
+                    attempt_id,
+                    UnitState.interrupted,
+                    ended_at=_utc_now(),
+                    error_type="SchedulerInterrupt",
+                    error="scheduler interrupted before launcher start",
+                )
+                return
             started_monotonic = time.monotonic()
             self._transition(
                 unit,
@@ -402,6 +416,16 @@ class ExperimentScheduler:
                     "run_duration_seconds": duration,
                     "returncode": int(completed.returncode),
                 }
+                if self._interrupt_event.is_set():
+                    self._transition(
+                        unit,
+                        attempt_id,
+                        UnitState.interrupted,
+                        **common,
+                        error_type="SchedulerInterrupt",
+                        error="scheduler interrupted during launcher execution",
+                    )
+                    return
                 if completed.returncode != 0:
                     self._transition(
                         unit,
@@ -442,7 +466,8 @@ class ExperimentScheduler:
             except BaseException as exc:
                 state = (
                     UnitState.interrupted
-                    if isinstance(exc, (KeyboardInterrupt, SystemExit))
+                    if self._interrupt_event.is_set()
+                    or isinstance(exc, (KeyboardInterrupt, SystemExit))
                     else UnitState.failed
                 )
                 self._transition(
@@ -462,7 +487,108 @@ class ExperimentScheduler:
             processes = list(self._active_processes.values())
         for process in processes:
             if process.poll() is None:
-                process.terminate()
+                try:
+                    os.killpg(process.pid, signal.SIGTERM)
+                except ProcessLookupError:
+                    continue
+        deadline = time.monotonic() + 5.0
+        while any(process.poll() is None for process in processes):
+            if time.monotonic() >= deadline:
+                break
+            time.sleep(0.05)
+        for process in processes:
+            if process.poll() is None:
+                try:
+                    os.killpg(process.pid, signal.SIGKILL)
+                except ProcessLookupError:
+                    continue
+
+    @staticmethod
+    def _default_container_cleaner(attempt_id: str) -> None:
+        """Remove only containers registered to one scheduler attempt."""
+
+        try:
+            listed = subprocess.run(
+                [
+                    "docker",
+                    "ps",
+                    "-aq",
+                    "--filter",
+                    f"label=rsebench.attempt_id={attempt_id}",
+                ],
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+        except (OSError, subprocess.TimeoutExpired):
+            return
+        container_ids = [line.strip() for line in listed.stdout.splitlines() if line.strip()]
+        if listed.returncode != 0 or not container_ids:
+            return
+        try:
+            subprocess.run(
+                ["docker", "rm", "-f", *container_ids],
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+        except (OSError, subprocess.TimeoutExpired):
+            return
+
+    def _mark_interrupted(
+        self,
+        attempts: Sequence[tuple[ScheduledUnit, dict[str, Any]]],
+    ) -> None:
+        for unit, attempt in attempts:
+            attempt_id = str(attempt["attempt_id"])
+            with self._state_lock:
+                row = self._status["units"].get(unit.key, {})
+                current = next(
+                    (
+                        item
+                        for item in row.get("attempts", [])
+                        if item.get("attempt_id") == attempt_id
+                    ),
+                    None,
+                )
+                if not isinstance(current, dict) or current.get("state") not in {
+                    UnitState.queued.value,
+                    UnitState.running.value,
+                }:
+                    continue
+                self._transition(
+                    unit,
+                    attempt_id,
+                    UnitState.interrupted,
+                    ended_at=_utc_now(),
+                    error_type="SchedulerInterrupt",
+                    error="scheduler interrupted",
+                )
+
+    def _cleanup_skilllearn_containers(
+        self,
+        attempts: Sequence[tuple[ScheduledUnit, dict[str, Any]]],
+    ) -> None:
+        for unit, attempt in attempts:
+            is_skilllearn = unit.adapter_key.startswith("skilllearn") or any(
+                key.startswith("docker:skilllearn")
+                for key in unit.mutable_resource_keys
+            )
+            if not is_skilllearn:
+                continue
+            attempt_id = str(attempt["attempt_id"])
+            try:
+                self._container_cleaner(attempt_id)
+            except Exception as exc:
+                self._append_event(
+                    {
+                        "key": unit.key,
+                        "attempt_id": attempt_id,
+                        "state": UnitState.interrupted.value,
+                        "cleanup_error_type": type(exc).__name__,
+                        "cleanup_error": str(exc),
+                    }
+                )
 
     def _rows(self, units: Sequence[ScheduledUnit]) -> list[dict[str, Any]]:
         return [
@@ -490,6 +616,7 @@ class ExperimentScheduler:
             raise ValueError("max_new_units must be positive")
         if len({unit.key for unit in units}) != len(units):
             raise ValueError("scheduled unit keys must be unique")
+        self._interrupt_event.clear()
         adapter_limits: dict[str, int] = {}
         for unit in units:
             previous = adapter_limits.setdefault(
@@ -529,10 +656,13 @@ class ExperimentScheduler:
             for future in as_completed(futures):
                 future.result()
         except KeyboardInterrupt:
+            self._interrupt_event.set()
             self._terminate_active()
             for future in futures:
                 future.cancel()
-            executor.shutdown(wait=False, cancel_futures=True)
+            self._mark_interrupted(attempts)
+            self._cleanup_skilllearn_containers(attempts)
+            executor.shutdown(wait=True, cancel_futures=True)
             raise
         finally:
             if can_set_signal and previous_sigterm is not None:

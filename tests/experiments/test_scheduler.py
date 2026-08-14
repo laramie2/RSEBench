@@ -6,6 +6,8 @@ import time
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
+
 from rsebench.experiments.scheduler import (
     ExperimentScheduler,
     ScheduledUnit,
@@ -266,3 +268,47 @@ def test_scheduler_materializes_formal_identity_and_attempt_for_launcher(
     scheduler.run([unit])
 
     assert seen["attempt"]["attempt_number"] == 1
+
+
+def test_scheduler_interrupt_marks_running_and_queued_attempts_and_cleans_containers(
+    tmp_path: Path,
+) -> None:
+    cleaned_attempt_ids: list[str] = []
+
+    def interrupting_runner(command, *, cwd, env, unit):
+        del command, cwd, env, unit
+        raise KeyboardInterrupt
+
+    units = [
+        _unit("spreadsheet", adapter="skillopt"),
+        _unit(
+            "skilllearn",
+            adapter="skilllearn",
+            mutable=["docker:skilllearn:fixture"],
+        ),
+    ]
+    scheduler = ExperimentScheduler(
+        run_root=tmp_path,
+        project_root=tmp_path,
+        max_parallel=1,
+        command_runner=interrupting_runner,
+        container_cleaner=cleaned_attempt_ids.append,
+    )
+
+    with pytest.raises(KeyboardInterrupt):
+        scheduler.run(units)
+
+    status = json.loads((tmp_path / "matrix_status.json").read_text())
+    assert {
+        key: row["state"] for key, row in status["units"].items()
+    } == {
+        "spreadsheet": UnitState.interrupted.value,
+        "skilllearn": UnitState.interrupted.value,
+    }
+    assert all(
+        row["attempts"][-1]["state"] == UnitState.interrupted.value
+        for row in status["units"].values()
+    )
+    assert cleaned_attempt_ids == [
+        status["units"]["skilllearn"]["attempts"][-1]["attempt_id"]
+    ]

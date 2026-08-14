@@ -13,6 +13,7 @@ from rsebench.evolution.contracts import EvolutionSplitManifest, EvolutionTaskPa
 from rsebench.evolution.pairs import build_arm_manifests
 from rsebench.evolution.skilllearn_executor import (
     _command_tags,
+    _container_runtime_identity,
     _docker_volume_spec,
     _tool_argument_recovery_prompt,
     DockerSkillLearnBackend,
@@ -240,6 +241,25 @@ def test_docker_volume_spec_resolves_relative_host_path(
     spec = _docker_volume_spec(Path("relative/run"), "/logs")
 
     assert spec == f"{(tmp_path / 'relative/run').resolve()}:/logs"
+
+
+def test_skilllearn_container_is_registered_to_scheduler_attempt(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv("RSEBENCH_ATTEMPT_ID", "attempt-123")
+    monkeypatch.setenv("RSEBENCH_CONTAINER_PREFIX", "rsebench-attempt-123")
+
+    name, registration = _container_runtime_identity(
+        "offer-letter-generator-1",
+        tmp_path / "execution",
+    )
+
+    assert name.startswith("rsebench-attempt-123-")
+    assert registration == [
+        "--label",
+        "rsebench.attempt_id=attempt-123",
+    ]
 
 
 def test_container_tool_output_uses_replacement_decoding() -> None:
