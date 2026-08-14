@@ -19,6 +19,7 @@ from rsebench.evolution.clean_contracts import EvolutionExecutionAudit
 from rsebench.evolution.metrics import PairedEvolutionMetrics, compute_paired_metrics
 from rsebench.evolution.pairs import build_arm_manifests
 from rsebench.hashing import sha256_file
+from rsebench.experiments.timing import TimingRecorder
 from rsebench.usage import write_token_usage_artifacts
 
 
@@ -52,6 +53,8 @@ class CleanEvolutionGateError(RuntimeError):
 
 
 class EvolutionExecutor(Protocol):
+    def configure_timing(self, recorder: TimingRecorder) -> None: ...
+
     def evolve(
         self,
         *,

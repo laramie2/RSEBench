@@ -8,6 +8,7 @@ import re
 import shutil
 import subprocess
 import tempfile
+from contextlib import nullcontext
 from pathlib import Path
 from typing import Any, Literal, Protocol
 
@@ -26,6 +27,7 @@ from rsebench.evidence import (
 from rsebench.evolution.contracts import EvolutionArmManifest, EvolutionSplitManifest
 from rsebench.evolution.clean_contracts import EvolutionExecutionAudit
 from rsebench.evolution.runner import EvaluationResult, EvolutionArtifact
+from rsebench.experiments.timing import TimingRecorder
 from rsebench.hashing import sha256_file, sha256_tree
 from rsebench.usage import token_context_scope
 
@@ -543,6 +545,7 @@ class SkillLearnExecutor:
         self.feedback_mode = feedback_mode
         self.ledger_dir = Path(ledger_dir)
         self.run_id = run_id
+        self._timing_recorder: TimingRecorder | None = None
 
     def configure_token_run(
         self, run_dir: str | Path, *, default_arm: str | None = None
@@ -550,6 +553,16 @@ class SkillLearnExecutor:
         root = Path(run_dir).resolve()
         self.ledger_dir = root / "token_usage"
         self.run_id = root.name
+
+    def configure_timing(self, recorder: TimingRecorder) -> None:
+        self._timing_recorder = recorder
+
+    def _task_span(self, *, name: str, task_id: str):
+        if self._timing_recorder is None:
+            return nullcontext()
+        return self._timing_recorder.span(
+            level="task", name=name, task_id=task_id
+        )
 
     def _context(self, task: TaskManifest, arm: str, output_dir: Path) -> HookContext:
         return HookContext(
@@ -604,6 +617,22 @@ class SkillLearnExecutor:
         )
 
     def run_evolution_round(
+        self,
+        *,
+        task: TaskManifest,
+        skill: str,
+        arm: Literal["clean", "noisy"],
+        output_dir: str | Path,
+    ) -> str:
+        with self._task_span(name="evolution", task_id=task.task_id):
+            return self._run_evolution_round_impl(
+                task=task,
+                skill=skill,
+                arm=arm,
+                output_dir=output_dir,
+            )
+
+    def _run_evolution_round_impl(
         self,
         *,
         task: TaskManifest,
@@ -737,15 +766,16 @@ class SkillLearnExecutor:
     ) -> float:
         destination = Path(output_dir)
         destination.mkdir(parents=True, exist_ok=True)
-        with token_context_scope(
-            ledger_dir=self.ledger_dir,
-            run_id=self.run_id,
-            domain=task.domain,
-            benchmark=task.benchmark,
-            arm=arm,
-            stage=usage_stage,
-        ):
-            return float(self.backend.evaluate(task, skill, destination))
+        with self._task_span(name=usage_stage, task_id=task.task_id):
+            with token_context_scope(
+                ledger_dir=self.ledger_dir,
+                run_id=self.run_id,
+                domain=task.domain,
+                benchmark=task.benchmark,
+                arm=arm,
+                stage=usage_stage,
+            ):
+                return float(self.backend.evaluate(task, skill, destination))
 
     def _validation_score(
         self,

@@ -14,6 +14,7 @@ import os
 import re
 import subprocess
 import sys
+from contextlib import ExitStack, contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
@@ -31,6 +32,7 @@ from rsebench.contracts import TaskManifest
 from rsebench.evolution.clean_contracts import EvolutionExecutionAudit
 from rsebench.evolution.contracts import EvolutionArmManifest, EvolutionSplitManifest
 from rsebench.evolution.runner import EvaluationResult, EvolutionArtifact
+from rsebench.experiments.timing import TimingRecorder
 from rsebench.hashing import sha256_file
 from rsebench.usage import token_context_environment
 
@@ -372,12 +374,33 @@ class SkillAdaptorExecutor:
         webshop_python = self.webshop_root / ".venv/bin/python"
         self.python = str(webshop_python) if webshop_python.is_file() else sys.executable
         self._token_run_dir: Path | None = None
+        self._timing_recorder: TimingRecorder | None = None
 
     def configure_token_run(
         self, run_dir: Path | str, *, default_arm: str | None = None
     ) -> None:
         del default_arm
         self._token_run_dir = Path(run_dir).resolve()
+
+    def configure_timing(self, recorder: TimingRecorder) -> None:
+        self._timing_recorder = recorder
+
+    @contextmanager
+    def _native_task_batch(self, task_ids: list[str], *, name: str):
+        if self._timing_recorder is None:
+            yield
+            return
+        with ExitStack() as stack:
+            for task_id in dict.fromkeys(task_ids):
+                stack.enter_context(
+                    self._timing_recorder.span(
+                        level="task",
+                        name=name,
+                        task_id=task_id,
+                        metadata={"measurement_scope": "shared_native_batch"},
+                    )
+                )
+            yield
 
     def _token_environment(self, *, arm: str, stage: str) -> dict[str, str]:
         if self._token_run_dir is None:
@@ -539,7 +562,10 @@ class SkillAdaptorExecutor:
             "--output",
             str(native_output),
         ]
-        self._run(command, output_dir / "command", environment=environment)
+        with self._native_task_batch(
+            [task.task_id for task in train + validation], name="evolution"
+        ):
+            self._run(command, output_dir / "command", environment=environment)
         artifact = native_output / "skill_bank_final.json"
         if not artifact.is_file():
             raise RuntimeError(f"SkillAdaptor produced no skill bank: {artifact}")
@@ -606,7 +632,10 @@ class SkillAdaptorExecutor:
             "RSEBENCH_WEBSHOP_STATIC_NOISE",
         ):
             environment.pop(key, None)
-        self._run(command, output_dir / "command", environment=environment)
+        with self._native_task_batch(
+            [task.task_id for task in clean_test], name=stage
+        ):
+            self._run(command, output_dir / "command", environment=environment)
         if not result_path.is_file():
             raise RuntimeError(f"SkillAdaptor evaluation produced no result: {result_path}")
         payload = json.loads(result_path.read_text(encoding="utf-8"))

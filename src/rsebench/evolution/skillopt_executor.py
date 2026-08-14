@@ -6,6 +6,7 @@ import json
 import os
 import subprocess
 from collections import Counter
+from contextlib import ExitStack, contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from statistics import mean
@@ -19,6 +20,7 @@ from rsebench.evolution.skillopt_bridge import (
     materialize_skillopt_clean_test,
     materialize_skillopt_split,
 )
+from rsebench.experiments.timing import TimingRecorder
 from rsebench.hashing import sha256_file
 from rsebench.usage import token_context_environment
 
@@ -130,6 +132,7 @@ class SkillOptExecutor:
             raise FileNotFoundError(f"SkillOpt Python missing: {self.python}")
         self._token_run_dir: Path | None = None
         self._default_token_arm: str | None = None
+        self._timing_recorder: TimingRecorder | None = None
 
     def configure_token_run(
         self, run_dir: Path | str, *, default_arm: str | None = None
@@ -138,6 +141,26 @@ class SkillOptExecutor:
 
         self._token_run_dir = Path(run_dir).resolve()
         self._default_token_arm = default_arm
+
+    def configure_timing(self, recorder: TimingRecorder) -> None:
+        self._timing_recorder = recorder
+
+    @contextmanager
+    def _native_task_batch(self, task_ids: list[str], *, name: str):
+        if self._timing_recorder is None:
+            yield
+            return
+        with ExitStack() as stack:
+            for task_id in dict.fromkeys(task_ids):
+                stack.enter_context(
+                    self._timing_recorder.span(
+                        level="task",
+                        name=name,
+                        task_id=task_id,
+                        metadata={"measurement_scope": "shared_native_batch"},
+                    )
+                )
+            yield
 
     def _token_environment(
         self,
@@ -385,11 +408,13 @@ class SkillOptExecutor:
             seed_skill_path=seed_skill_path,
             output_dir=output_dir,
         )
-        self._run(
-            prepared.command,
-            prepared.output_dir / "command",
-            environment=prepared.environment,
-        )
+        task_ids = [task.task_id for task in arm.train + arm.validation]
+        with self._native_task_batch(task_ids, name="evolution"):
+            self._run(
+                prepared.command,
+                prepared.output_dir / "command",
+                environment=prepared.environment,
+            )
         artifact = prepared.native_output / "best_skill.md"
         if not artifact.is_file():
             raise RuntimeError(f"SkillOpt produced no best skill: {artifact}")
@@ -450,16 +475,19 @@ class SkillOptExecutor:
             "--cfg-options",
             *self._common_options(benchmark, native_split),
         ]
-        self._run(
-            command,
-            output_dir / "command",
-            environment=self._token_environment(
-                domain=clean_test[0].domain,
-                benchmark=benchmark,
-                arm=stage,
-                stage=stage if self._default_token_arm else "eval",
-            ),
-        )
+        with self._native_task_batch(
+            [task.task_id for task in clean_test], name=stage
+        ):
+            self._run(
+                command,
+                output_dir / "command",
+                environment=self._token_environment(
+                    domain=clean_test[0].domain,
+                    benchmark=benchmark,
+                    arm=stage,
+                    stage=stage if self._default_token_arm else "eval",
+                ),
+            )
         results_path = native_output / "results.jsonl"
         if not results_path.is_file():
             raise RuntimeError(f"SkillOpt produced no per-task results: {results_path}")

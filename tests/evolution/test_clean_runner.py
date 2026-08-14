@@ -15,6 +15,12 @@ from rsebench.evolution.clean_runner import (
     CleanQualificationRunError,
 )
 from rsebench.evolution.runner import EvaluationResult, EvolutionArtifact
+from rsebench.experiments.bootstrap import BaselineFingerprint
+from rsebench.experiments.contracts import (
+    ExperimentIdentityInput,
+    build_attempt_identity,
+    build_experiment_identity,
+)
 from rsebench.usage import record_token_event
 
 
@@ -69,9 +75,13 @@ class FixtureExecutor:
         self.evolve_error = evolve_error
         self.evaluate_calls: list[str] = []
         self.evolve_calls = []
+        self.timing = None
 
     def configure_token_run(self, run_dir: Path) -> None:
         self.run_dir = run_dir
+
+    def configure_timing(self, recorder) -> None:
+        self.timing = recorder
 
     def evolve(self, *, arm, split, seed_skill_path, output_dir):
         self.evolve_calls.append(arm)
@@ -90,29 +100,67 @@ class FixtureExecutor:
 
     def evaluate(self, *, skill_path, clean_test, output_dir, stage):
         self.evaluate_calls.append(stage)
-        record_token_event(
-            ledger_dir=self.run_dir / "token_usage",
-            context={
-                "run_id": self.run_dir.name,
-                "domain": "document",
-                "benchmark": "fixture",
-                "arm": stage,
-                "stage": "eval",
-            },
-            usage={"prompt_tokens": 2, "completion_tokens": 1, "total_tokens": 3},
-            cache_hit=False,
-            billed=True,
-            status="success",
-            source="fixture",
-            provider="deepseek",
-            model="deepseek-v4-flash",
-        )
         score = self.seed_score if stage == "seed" else self.clean_score
+        scores = {}
+        for task in clean_test:
+            with self.timing.span(level="task", name=stage, task_id=task.task_id):
+                record_token_event(
+                    ledger_dir=self.run_dir / "token_usage",
+                    context={
+                        "run_id": self.run_dir.name,
+                        "domain": "document",
+                        "benchmark": "fixture",
+                        "arm": stage,
+                        "stage": "eval",
+                    },
+                    usage={
+                        "prompt_tokens": 2,
+                        "completion_tokens": 1,
+                        "total_tokens": 3,
+                    },
+                    cache_hit=False,
+                    billed=True,
+                    status="success",
+                    source="fixture",
+                    provider="deepseek",
+                    model="deepseek-v4-flash",
+                )
+                scores[task.task_id] = score
         return EvaluationResult(
             score=score,
-            per_task_scores={task.task_id: score for task in clean_test},
+            per_task_scores=scores,
             diagnostics=self.evaluation_diagnostics.get(stage, {}),
         )
+
+
+def _identity(method_seed: int = 20260813):
+    baseline = BaselineFingerprint(
+        baseline="fixture",
+        repository="https://example.com/fixture.git",
+        upstream_revision="1" * 40,
+        patch_paths=[],
+        patch_hashes=[],
+        patchset_hash="2" * 64,
+        python_version="3.13.5",
+        fingerprint="3" * 64,
+    )
+    identity = build_experiment_identity(
+        ExperimentIdentityInput(
+            repository_commit="4" * 40,
+            baseline=baseline,
+            environment_hash="5" * 64,
+            manifest_hash="6" * 64,
+            dataset_hashes={"fixture": "7" * 64},
+            seed_skill_hash=_hash("seed skill"),
+            model="deepseek-v4-flash",
+            provider="deepseek",
+            runtime={"workers": 1},
+            benchmark="fixture",
+            stage="clean",
+            method_seed=method_seed,
+        )
+    )
+    return identity, build_attempt_identity(identity, attempt_number=1)
 
 
 def _run(
@@ -123,6 +171,7 @@ def _run(
 ):
     seed = tmp_path / "seed.md"
     seed.write_text("seed skill", encoding="utf-8")
+    identity, attempt = _identity()
     return CleanEvolutionRunner(executor).run(
         method="fixture",
         split=_split(),
@@ -131,6 +180,8 @@ def _run(
         parameters={"model": "deepseek-v4-flash", "thinking": "disabled"},
         output_root=tmp_path / "runs",
         policy=policy or CleanQualificationPolicy(),
+        identity=identity,
+        attempt=attempt,
     )
 
 
@@ -145,6 +196,15 @@ def test_clean_runner_executes_one_arm_and_persists_qualification(tmp_path: Path
     assert result.qualification.passed is True
     assert result.qualification.clean_gain == 0.5
     assert result.method_seed == 20260813
+    assert result.identity.experiment_id == _identity()[0].experiment_id
+    assert result.attempt.experiment_id == result.identity.experiment_id
+    assert result.timing.run.level == "run"
+    assert {span.name for span in result.timing.stages} == {
+        "seed_evaluation",
+        "evolution",
+        "clean_test_evaluation",
+    }
+    assert {span.task_id for span in result.timing.tasks} == {"test"}
     assert not (run_dir / "noisy").exists()
     assert "noisy" not in (run_dir / "split_manifest.json").read_text()
     assert (run_dir / "seed/evaluation/result.json").is_file()
@@ -156,6 +216,8 @@ def test_clean_runner_executes_one_arm_and_persists_qualification(tmp_path: Path
     assert report.startswith("# Clean Baseline Qualification Result")
     assert "Accepted updates | 1" in report
     assert result.token_usage["billed_tokens"]["total_tokens"] == 6
+    assert (run_dir / "timing/events.jsonl").is_file()
+    assert (run_dir / "timing/summary.json").is_file()
 
 
 @pytest.mark.parametrize(
@@ -272,4 +334,11 @@ def test_clean_runner_persists_operational_failure_before_raising(tmp_path: Path
     failure = json.loads((run_dir / "failure.json").read_text(encoding="utf-8"))
     assert failure == {"exception_type": "RuntimeError", "message": "evolution crashed"}
     assert (run_dir / "token_usage/summary.json").is_file()
+    timing = json.loads((run_dir / "timing/summary.json").read_text())
+    assert timing["run"]["status"] == "failed"
+    assert {span["name"] for span in timing["stages"]} == {
+        "seed_evaluation",
+        "evolution",
+    }
+    assert timing["stages"][-1]["status"] == "failed"
     assert not (run_dir / "noisy").exists()
