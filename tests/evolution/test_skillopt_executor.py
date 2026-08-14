@@ -486,9 +486,9 @@ def test_skillopt_executor_exposes_officeqa_oracle_parsed_root(tmp_path: Path):
         environment={"DEEPSEEK_API_KEY": "secret"},
     )
 
-    assert f"env.data_dirs={corpus},{parsed}" in executor._domain_options(
-        "officeqa_full"
-    )
+    options = executor._domain_options("officeqa_full")
+    assert f"env.data_dirs={corpus},{parsed}" in options
+    assert "evaluation.gate_metric=hard" in options
 
 
 def test_skillopt_executor_selects_docvqa_config(tmp_path: Path):

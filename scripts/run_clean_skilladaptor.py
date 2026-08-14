@@ -69,12 +69,31 @@ def _write_json(path: Path, payload: dict[str, Any], *, immutable: bool) -> None
     path.write_text(encoded, encoding="utf-8")
 
 
+def _calibration_selection_path(
+    manifest: Path,
+    split: CleanEvolutionSplitManifest,
+) -> Path:
+    local = manifest.parent / "webshop_validation_selection.json"
+    locator = str(split.metadata.get("calibration_selection_path") or "").strip()
+    if not locator:
+        return local
+    prefix = "rsebench-project://"
+    if locator.startswith(prefix):
+        return PROJECT_ROOT / locator.removeprefix(prefix)
+    path = Path(locator)
+    return path if path.is_absolute() else PROJECT_ROOT / path
+
+
 def _calibration_evidence(
     manifest: Path,
     split: CleanEvolutionSplitManifest,
 ) -> dict[str, Any]:
-    selection_path = manifest.parent / "webshop_validation_selection.json"
+    selection_path = _calibration_selection_path(manifest, split)
     if not selection_path.is_file():
+        if split.metadata.get("calibration_selection_path"):
+            raise FileNotFoundError(
+                f"declared WebShop calibration selection is missing: {selection_path}"
+            )
         return {"available": False}
     selection = json.loads(selection_path.read_text(encoding="utf-8"))
     selected_ids = [f"goal_{value}" for value in selection["selected_ids"]]
@@ -148,13 +167,23 @@ def run_manifest(
         raise ValueError("clean SkillAdaptor qualification requires exact 5/5/20")
     if split.metadata.get("runtime") != RUNTIME:
         raise ValueError("WebShop runtime metadata differs from formal settings")
+    qualification_version = str(
+        split.metadata.get("qualification_version") or "clean-qualification-v1"
+    )
+    if qualification_version not in {
+        "clean-qualification-v1",
+        "clean-qualification-v2",
+    }:
+        raise ValueError(
+            f"unsupported WebShop qualification version: {qualification_version}"
+        )
     seed_skill = seed_skill.resolve()
     if not seed_skill.is_file():
         raise FileNotFoundError(f"SkillAdaptor seed skill is missing: {seed_skill}")
 
     patch_hashes = _patch_hashes()
     parameters = {
-        "qualification_version": "clean-qualification-v1",
+        "qualification_version": qualification_version,
         "model": "deepseek-v4-flash",
         "temperature": 0,
         "thinking": "disabled",

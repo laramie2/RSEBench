@@ -3,7 +3,10 @@ from pathlib import Path
 
 import pytest
 
-from scripts.build_clean_webshop_qualification import build_clean_webshop_split
+from scripts.build_clean_webshop_qualification import (
+    build_clean_webshop_split,
+    build_clean_webshop_split_v2,
+)
 from scripts.calibrate_clean_webshop_validation import select_validation_ids
 
 
@@ -89,3 +92,34 @@ def test_clean_webshop_manifest_is_disjoint_noise_free_and_budget_locked() -> No
     ]
     assert selection["uses_evolved_outcomes"] is False
     assert selection["uses_clean_test_outcomes"] is False
+
+
+def test_webshop_v2_preserves_split_and_pins_runtime_repairs() -> None:
+    v1 = build_clean_webshop_split(
+        source_path=SOURCE_PATH,
+        selection_path=SELECTION_PATH,
+    )
+    v2 = build_clean_webshop_split_v2(
+        source_path=SOURCE_PATH,
+        selection_path=SELECTION_PATH,
+    )
+
+    for partition in ("train", "validation", "clean_test"):
+        assert [task.task_id for task in getattr(v2, partition)] == [
+            task.task_id for task in getattr(v1, partition)
+        ]
+    assert v2.metadata["qualification_version"] == "clean-qualification-v2"
+    assert v2.metadata["validation_selection"] == v1.metadata["validation_selection"]
+    assert v2.metadata["runtime_baseline"]["patch_hashes"][
+        "skilladaptor-clean-qualification.patch"
+    ] != v1.metadata["validation_selection"]["baseline"]["patch_hashes"][
+        "skilladaptor-clean-qualification.patch"
+    ]
+    assert v2.metadata["qualification_amendment"]["repairs"] == [
+        "normalize_numeric_webshop_task_ids",
+        "fallback_to_available_navigation_after_bad_action_repair",
+        "skip_one_malformed_linker_attribution_candidate",
+    ]
+    assert v2.metadata["calibration_selection_path"].startswith(
+        "rsebench-project://"
+    )

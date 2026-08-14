@@ -195,6 +195,7 @@ class SkillOptExecutor:
                     "env.search_mode=offline",
                     "env.use_local_tools=true",
                     f"env.max_tool_turns={self.budget.max_turns}",
+                    "evaluation.gate_metric=hard",
                 )
             )
         elif benchmark == "livemathematicianbench":

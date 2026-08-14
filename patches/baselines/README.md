@@ -9,11 +9,13 @@ patches are incremental and therefore follow the provider/evidence patches.
 git apply "$RSEBENCH_ROOT/patches/baselines/skillopt-deepseek-thinking.patch"
 git apply "$RSEBENCH_ROOT/patches/baselines/skillopt-evidence-hook.patch"
 git apply "$RSEBENCH_ROOT/patches/baselines/skillopt-officeqa-tool-json-repair.patch"
+git apply "$RSEBENCH_ROOT/patches/baselines/skillopt-officeqa-bounded-recovery.patch"
 ```
 
-The last patch accepts literal JSON control characters emitted inside
-DeepSeek tool arguments but continues to reject structurally invalid JSON and
-non-object arguments.
+The tool-JSON patch accepts literal JSON control characters emitted inside
+DeepSeek tool arguments but continues to reject structurally invalid JSON. The
+bounded-recovery patch prevents repeated unstructured OfficeQA analysis from
+consuming the entire tool-turn budget while preserving one normal repair turn.
 
 ## SkillAdaptor
 
