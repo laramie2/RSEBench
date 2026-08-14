@@ -29,6 +29,10 @@ from rsebench.experiments.preflight import (
     load_experiment_matrix,
     preflight_matrix,
 )
+from rsebench.experiments.release import (
+    freeze_clean_release,
+    normalize_release_aggregate,
+)
 from rsebench.experiments.scheduler import ExperimentScheduler
 from rsebench.generation import generate_from_profile
 from rsebench.providers.deepseek import DeepSeekClient
@@ -38,8 +42,10 @@ from rsebench.registry import validate_registries
 app = typer.Typer(no_args_is_help=True)
 baselines_app = typer.Typer(no_args_is_help=True)
 experiment_app = typer.Typer(no_args_is_help=True)
+release_app = typer.Typer(no_args_is_help=True)
 app.add_typer(baselines_app, name="baselines")
 app.add_typer(experiment_app, name="experiment")
+app.add_typer(release_app, name="release")
 ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_EXPERIMENT_MATRIX = ROOT / "configs/experiments/clean-v2.yaml"
 
@@ -294,6 +300,45 @@ def experiment_aggregate(
         encoding="utf-8",
     )
     typer.echo(target)
+
+
+@release_app.command("freeze")
+def release_freeze(
+    run_id: str = typer.Option(..., "--run-id"),
+    matrix: Path = typer.Option(
+        DEFAULT_EXPERIMENT_MATRIX,
+        "--matrix",
+        exists=True,
+        dir_okay=False,
+        readable=True,
+    ),
+) -> None:
+    """Freeze an efficacy-ready run into an immutable compact release."""
+
+    run_root = ROOT / "outputs/runs" / run_id
+    aggregate_path = run_root / "aggregate.json"
+    if not aggregate_path.is_file():
+        raise typer.BadParameter(f"aggregate is missing: {aggregate_path}")
+    matrix_contract = load_experiment_matrix(matrix)
+    aggregate = json.loads(aggregate_path.read_text(encoding="utf-8"))
+    normalized = normalize_release_aggregate(aggregate, matrix_contract)
+    baseline_names = list(
+        dict.fromkeys(cell.baseline for cell in matrix_contract.cells)
+    )
+    fingerprints = verify_registered_baselines(
+        project_root=ROOT,
+        methods_root=_configured_methods_root(),
+        names=baseline_names,
+    )
+    frozen = freeze_clean_release(
+        run_root=run_root,
+        aggregate_path=normalized,
+        release_root=ROOT / "releases/clean-v2",
+        run_id=run_id,
+        baseline_fingerprints=fingerprints,
+    )
+    typer.echo(f"release_id={frozen.release_id}")
+    typer.echo(frozen.path)
 
 
 if __name__ == "__main__":

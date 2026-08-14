@@ -62,3 +62,6 @@ def test_unified_subapps_expose_expected_commands() -> None:
     assert {"preflight", "run", "status", "aggregate"} <= set(
         experiment_help.stdout.split()
     )
+    release_help = runner.invoke(cli.app, ["release", "--help"])
+    assert release_help.exit_code == 0
+    assert "freeze" in release_help.stdout.split()
