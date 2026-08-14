@@ -1,0 +1,29 @@
+--- a/skillopt/envs/officeqa/rollout.py
++++ b/skillopt/envs/officeqa/rollout.py
+@@ -681,15 +681,16 @@ def process_one(
+             messages: list[dict] = [
+                 {"role": "system", "content": system},
+                 {"role": "user", "content": user},
+             ]
++            force_answer_without_tools = False
+             for turn in range(1, max_tool_turns + 1):
+                 message, _ = chat_target_messages(
+                     messages=messages,
+                     max_completion_tokens=max_completion_tokens,
+                     retries=5,
+                     stage="rollout",
+-                    tools=_TOOL_SCHEMAS,
+-                    tool_choice="auto",
++                    tools=None if force_answer_without_tools else _TOOL_SCHEMAS,
++                    tool_choice=None if force_answer_without_tools else "auto",
+                     return_message=True,
+                 )
+                 response = message.content or ""
+@@ -718,6 +719,7 @@ def process_one(
+                     fail_reason = f"Exceeded tool-turn budget ({max_tool_turns})"
+                 else:
+                     recovery_prompt = _officeqa_recovery_prompt(turn=turn)
++                    force_answer_without_tools = turn > 1
+                     messages.append({"role": "user", "content": recovery_prompt})
+                     conversation.append({
+                         "type": "recovery_prompt",

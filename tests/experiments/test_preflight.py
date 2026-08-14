@@ -268,3 +268,15 @@ def test_clean_v2_canary_matrix_selects_one_preregistered_seed_per_cell() -> Non
         "webshop-skilladaptor": [20260815],
         "skilllearn-offer-letter": [20260813],
     }
+
+
+def test_officeqa_retry_canary_contains_only_the_affected_cell() -> None:
+    matrix = load_experiment_matrix(
+        PROJECT_ROOT
+        / "configs/experiments/clean-v2-canary-officeqa-retry.yaml"
+    )
+
+    assert matrix.purpose == "canary"
+    assert [(cell.key, cell.method_seeds) for cell in matrix.cells] == [
+        ("officeqa-skillopt", [20260813])
+    ]
