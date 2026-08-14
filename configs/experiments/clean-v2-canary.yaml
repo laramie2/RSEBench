@@ -1,0 +1,85 @@
+schema_version: rsebench.experiment-matrix.v1
+qualification_version: clean-qualification-v2
+purpose: canary
+stage: clean
+method_seeds: [20260813, 20260814, 20260815]
+provider: deepseek
+model: deepseek-v4-flash
+temperature: 0.0
+thinking: disabled
+provider_config: configs/pilot/deepseek-v4-flash-4096.yaml
+output_root: outputs/runs/clean-v2-canary-20260814
+cells:
+  - key: spreadsheet-skillopt
+    benchmark: spreadsheetbench_verified
+    baseline: skillopt
+    launcher: scripts/run_clean_skillopt.py
+    manifest: benchmark/validation/clean_qualification_v2/spreadsheetbench_verified.json
+    seed_skill: methods://skillopt/skillopt/envs/spreadsheetbench/skills/initial.md
+    seed_skill_argument: false
+    method_seeds: [20260814]
+    task_counts: {train: 20, validation: 10, clean_test: 30}
+    runtime:
+      max_steps: 3
+      batch_size: 7
+      workers: 2
+      max_tool_turns: 3
+      max_completion_tokens: 2048
+    adapter_key: skillopt
+    adapter_max_parallel: 2
+    mutable_resource_keys: []
+
+  - key: officeqa-skillopt
+    benchmark: officeqa_full
+    baseline: skillopt
+    launcher: scripts/run_clean_skillopt.py
+    manifest: benchmark/validation/clean_qualification_v2/officeqa_full.json
+    seed_skill: methods://skillopt/skillopt/envs/officeqa/skills/initial.md
+    seed_skill_argument: false
+    method_seeds: [20260813]
+    task_counts: {train: 12, validation: 12, clean_test: 20}
+    runtime:
+      max_steps: 3
+      batch_size: 4
+      workers: 2
+      max_tool_turns: 12
+      max_completion_tokens: 4096
+    adapter_key: skillopt
+    adapter_max_parallel: 2
+    mutable_resource_keys: []
+
+  - key: webshop-skilladaptor
+    benchmark: webshop
+    baseline: skilladaptor
+    launcher: scripts/run_clean_skilladaptor.py
+    manifest: benchmark/validation/clean_qualification_v2/webshop.json
+    seed_skill: benchmark/core1/seeds/skilladaptor_webshop.json
+    method_seeds: [20260815]
+    task_counts: {train: 5, validation: 5, clean_test: 20}
+    runtime:
+      max_iterations: 3
+      max_episode_steps: 15
+      min_sample_size: 5
+    adapter_key: skilladaptor
+    adapter_max_parallel: 1
+    mutable_resource_keys: []
+
+  - key: skilllearn-offer-letter
+    benchmark: skilllearnbench
+    baseline: skilllearn_self_feedback
+    family: offer-letter-generator
+    launcher: scripts/run_clean_skilllearn.py
+    manifest: benchmark/validation/clean_qualification_v2/skilllearnbench/offer-letter-generator.json
+    seed_skill: benchmark/core1/seeds/skilllearn.md
+    image_manifest: benchmark/validation/clean_qualification_v2/skilllearn_image_manifest.json
+    method_seeds: [20260813]
+    task_counts: {train: 2, validation: 1, clean_test: 3}
+    runtime:
+      evolution_rounds: 2
+      max_completion_tokens: 4096
+      max_tool_turns: 16
+      require_prebuilt_images: true
+    adapter_key: skilllearn
+    adapter_max_parallel: 1
+    mutable_resource_keys:
+      - docker:skilllearn:offer-letter-generator:{method_seed}

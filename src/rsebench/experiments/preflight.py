@@ -60,6 +60,7 @@ class ExperimentCell(StrictModel):
     adapter_max_parallel: int = Field(default=1, ge=1)
     mutable_resource_keys: list[str] = Field(default_factory=list)
     family: str | None = None
+    method_seeds: list[int] | None = Field(default=None, min_length=1)
 
     @field_validator("mutable_resource_keys")
     @classmethod
@@ -70,10 +71,18 @@ class ExperimentCell(StrictModel):
             raise ValueError("mutable resource keys must be unique")
         return value
 
+    @field_validator("method_seeds")
+    @classmethod
+    def validate_method_seeds(cls, value: list[int] | None) -> list[int] | None:
+        if value is not None and len(value) != len(set(value)):
+            raise ValueError("cell method seeds must be unique")
+        return value
+
 
 class ExperimentMatrix(StrictModel):
     schema_version: Literal["rsebench.experiment-matrix.v1"]
     qualification_version: Literal["clean-qualification-v2"]
+    purpose: Literal["formal", "canary"] = "formal"
     stage: Literal["clean"]
     method_seeds: list[int]
     provider: Literal["deepseek"]
@@ -95,6 +104,15 @@ class ExperimentMatrix(StrictModel):
         keys = [cell.key for cell in self.cells]
         if len(keys) != len(set(keys)):
             raise ValueError("experiment cell keys must be unique")
+        formal_seeds = set(self.method_seeds)
+        for cell in self.cells:
+            if self.purpose == "formal" and cell.method_seeds is not None:
+                raise ValueError("formal matrix cannot override cell seeds")
+            if self.purpose == "canary":
+                if cell.method_seeds is None or len(cell.method_seeds) != 1:
+                    raise ValueError("canary matrix requires exactly one seed per cell")
+                if not set(cell.method_seeds).issubset(formal_seeds):
+                    raise ValueError("canary cell seed must be a formal method seed")
         return self
 
 
@@ -379,7 +397,8 @@ def preflight_matrix(
             runtime["family"] = cell.family
         if image_manifest is not None:
             runtime["image_manifest_hash"] = sha256_file(image_manifest)
-        for method_seed in matrix.method_seeds:
+        selected_seeds = cell.method_seeds or matrix.method_seeds
+        for method_seed in selected_seeds:
             identity = build_experiment_identity(
                 ExperimentIdentityInput(
                     repository_commit=repository_commit,

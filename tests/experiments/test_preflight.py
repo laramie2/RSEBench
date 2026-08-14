@@ -200,6 +200,39 @@ def test_preflight_rejects_output_outside_project_outputs(
         )
 
 
+def test_canary_matrix_expands_only_the_cell_selected_seed(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    root, matrix, fingerprint = _fixture_project(tmp_path)
+    monkeypatch.setenv("FIXTURE_API_KEY", "declared")
+    payload = yaml.safe_load(matrix.read_text(encoding="utf-8"))
+    payload["purpose"] = "canary"
+    payload["cells"][0]["method_seeds"] = [20260814]
+    matrix.write_text(yaml.safe_dump(payload, sort_keys=False), encoding="utf-8")
+    _git(root, "add", str(matrix.relative_to(root)))
+    _git(root, "commit", "-q", "-m", "select canary seed")
+
+    report = preflight_matrix(
+        matrix,
+        project_root=root,
+        package_file=root / "src/rsebench/__init__.py",
+        fingerprint_resolver=lambda baseline: fingerprint,
+    )
+
+    assert [unit.method_seed for unit in report.units] == [20260814]
+
+
+def test_formal_matrix_rejects_per_cell_seed_selection(tmp_path: Path) -> None:
+    root, matrix, _ = _fixture_project(tmp_path)
+    payload = yaml.safe_load(matrix.read_text(encoding="utf-8"))
+    payload["cells"][0]["method_seeds"] = [20260814]
+    matrix.write_text(yaml.safe_dump(payload, sort_keys=False), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="formal matrix cannot override cell seeds"):
+        load_experiment_matrix(matrix)
+
+
 def test_clean_v2_matrix_declares_four_portable_cells() -> None:
     matrix = load_experiment_matrix(
         PROJECT_ROOT / "configs/experiments/clean-v2.yaml"
@@ -221,3 +254,17 @@ def test_clean_v2_matrix_declares_four_portable_cells() -> None:
     skilllearn = matrix.cells[-1]
     assert skilllearn.family == "offer-letter-generator"
     assert "{method_seed}" in skilllearn.mutable_resource_keys[0]
+
+
+def test_clean_v2_canary_matrix_selects_one_preregistered_seed_per_cell() -> None:
+    matrix = load_experiment_matrix(
+        PROJECT_ROOT / "configs/experiments/clean-v2-canary.yaml"
+    )
+
+    assert matrix.purpose == "canary"
+    assert {cell.key: cell.method_seeds for cell in matrix.cells} == {
+        "spreadsheet-skillopt": [20260814],
+        "officeqa-skillopt": [20260813],
+        "webshop-skilladaptor": [20260815],
+        "skilllearn-offer-letter": [20260813],
+    }

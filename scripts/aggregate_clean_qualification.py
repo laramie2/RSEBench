@@ -337,13 +337,15 @@ def _build_matrix_aggregate(
     matrix: ExperimentMatrix,
 ) -> dict[str, Any]:
     status = _scheduler_status(run_root)
-    expected_seeds = tuple(matrix.method_seeds)
-    expected_unit_count = len(matrix.cells) * len(expected_seeds)
+    expected_unit_count = sum(
+        len(cell.method_seeds or matrix.method_seeds) for cell in matrix.cells
+    )
     declared_count = status.get("metadata", {}).get("expected_units")
     if declared_count is not None and int(declared_count) != expected_unit_count:
         raise ValueError("scheduler expected unit count differs from matrix")
     cells: dict[str, Any] = {}
     for cell in matrix.cells:
+        expected_seeds = tuple(cell.method_seeds or matrix.method_seeds)
         runs = [
             _collect_scheduled_seed(
                 run_root,
@@ -366,7 +368,8 @@ def _build_matrix_aggregate(
     return {
         "schema_version": SCHEMA_VERSION,
         "run_root": str(run_root),
-        "method_seeds": list(expected_seeds),
+        "purpose": matrix.purpose,
+        "method_seeds": list(matrix.method_seeds),
         "cells": cells,
         "all_cells_engineering_ready": all_engineering_ready,
         "all_cells_efficacy_ready": all_efficacy_ready,
