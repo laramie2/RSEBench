@@ -1,0 +1,315 @@
+{
+  "all_attempt_token_usage": {
+    "attempted_calls": 7291,
+    "billed_tokens": {
+      "completion_tokens": 1649144,
+      "prompt_tokens": 24500693,
+      "total_tokens": 26149837
+    },
+    "failed_calls": 0,
+    "observed_coverage": 1.0
+  },
+  "all_canaries_passed": true,
+  "cells": {
+    "officeqa-skillopt": {
+      "attempt_id": "b383bd33-7cc4-4a43-bd8e-9cefa70f5307",
+      "baseline": "skillopt",
+      "baseline_fingerprint": "bbf775793ff2cc1e9f22b2c530a82957ba87d05749a50f6f53657c01549d9033",
+      "benchmark": "officeqa_full",
+      "execution_failures": {
+        "evolved": {},
+        "seed": {}
+      },
+      "experiment_id": "b8cc7909cc2a02beb4b1eff13ba2add26aa0a6ce73407eeccac11e4bb1d15588",
+      "method_seed": 20260813,
+      "qualification": {
+        "accepted_update_count": 1,
+        "artifact_updated": true,
+        "clean_gain": 0.0,
+        "evolved_score": 0.65,
+        "execution_coverage_passed": true,
+        "failure_reasons": [],
+        "nondegrading": true,
+        "passed": true,
+        "runtime_gates_passed": true,
+        "seed_score": 0.65,
+        "strictly_positive_gain": false
+      },
+      "repository_commit": "e7a91cd5765bd998f5497c4782f16e3ed68d06ff",
+      "result_hash": "9c2dbea034948717cd8effe5b37f51bffa5dc33b11ce88d1600e6da693a9ebc2",
+      "result_locator": "rsebench-output://runs/clean-v2-canary-officeqa-retry2-20260814/attempts/officeqa-skillopt-20260813-dceebdf0/0001-b383bd33-7cc4-4a43-bd8e-9cefa70f5307/runner/officeqa_full/20260813/20260814T160418078803Z-skillopt/result.json",
+      "scheduler_duration_seconds": 944.1768086962402,
+      "timing": {
+        "run": {
+          "duration_seconds": 942.7924402672797,
+          "ended_at": "2026-08-14T16:20:00.871520Z",
+          "started_at": "2026-08-14T16:04:18.079075Z"
+        },
+        "stages": [
+          {
+            "duration_seconds": 155.40530662611127,
+            "name": "seed_evaluation"
+          },
+          {
+            "duration_seconds": 632.5946188848466,
+            "name": "evolution"
+          },
+          {
+            "duration_seconds": 154.78889088891447,
+            "name": "clean_test_evaluation"
+          }
+        ]
+      },
+      "token_usage": {
+        "attempted_calls": 460,
+        "billed_tokens": {
+          "completion_tokens": 233694,
+          "prompt_tokens": 5133941,
+          "total_tokens": 5367635
+        },
+        "failed_calls": 0,
+        "observed_coverage": 1.0
+      }
+    },
+    "skilllearn-offer-letter": {
+      "attempt_id": "d2011c53-fb13-4c13-b8ef-5a754ae3670a",
+      "baseline": "skilllearn_self_feedback",
+      "baseline_fingerprint": "033cc887ba59a8692a7c416f0a050dff37f086e4d8715b690096189a8df1ebf7",
+      "benchmark": "skilllearnbench",
+      "execution_failures": {
+        "evolved": {},
+        "seed": {}
+      },
+      "experiment_id": "10cfefbbc3d79aae0dad19e197dc2fe5a83153cd79eb16b6c577d6690055c272",
+      "family": "offer-letter-generator",
+      "method_seed": 20260813,
+      "qualification": {
+        "accepted_update_count": 2,
+        "artifact_updated": true,
+        "clean_gain": 0.6666666666666667,
+        "evolved_score": 1.0,
+        "execution_coverage_passed": true,
+        "failure_reasons": [],
+        "nondegrading": true,
+        "passed": true,
+        "runtime_gates_passed": true,
+        "seed_score": 0.3333333333333333,
+        "strictly_positive_gain": true
+      },
+      "repository_commit": "532f709a413eaff18ac74b5360d3e8c92a75d962",
+      "result_hash": "6d5f67a8b635e268f069eb9d83c0f0ebca1930fbe83b69798eb9190cae233207",
+      "result_locator": "rsebench-output://runs/clean-v2-canary-20260814/attempts/skilllearn-offer-letter-20260813-9276a54c/0001-d2011c53-fb13-4c13-b8ef-5a754ae3670a/runner/offer-letter-generator/20260813/20260814T121555778953Z-skilllearn_self_feedback/result.json",
+      "scheduler_duration_seconds": 888.837665617466,
+      "timing": {
+        "run": {
+          "duration_seconds": 887.5186289213598,
+          "ended_at": "2026-08-14T12:30:43.297831Z",
+          "started_at": "2026-08-14T12:15:55.779200Z"
+        },
+        "stages": [
+          {
+            "duration_seconds": 220.0061294119805,
+            "name": "seed_evaluation"
+          },
+          {
+            "duration_seconds": 411.92471906356514,
+            "name": "evolution"
+          },
+          {
+            "duration_seconds": 255.58526655845344,
+            "name": "clean_test_evaluation"
+          }
+        ]
+      },
+      "token_usage": {
+        "attempted_calls": 114,
+        "billed_tokens": {
+          "completion_tokens": 55372,
+          "prompt_tokens": 730974,
+          "total_tokens": 786346
+        },
+        "failed_calls": 0,
+        "observed_coverage": 1.0
+      }
+    },
+    "spreadsheet-skillopt": {
+      "attempt_id": "8f58eb09-8108-4817-a10f-a4b3cf89a5e1",
+      "baseline": "skillopt",
+      "baseline_fingerprint": "b209b2686c902166e31062e6473075f5a87d1058759d81ce66f6864efafcc3a3",
+      "benchmark": "spreadsheetbench_verified",
+      "execution_failures": {
+        "evolved": {},
+        "seed": {}
+      },
+      "experiment_id": "6d027354064b3f0974f219d2ea82b7236f21a4a4707ca7ab7a7831b361bc8884",
+      "method_seed": 20260814,
+      "qualification": {
+        "accepted_update_count": 1,
+        "artifact_updated": true,
+        "clean_gain": 0.10000000000000003,
+        "evolved_score": 0.43333333333333335,
+        "execution_coverage_passed": true,
+        "failure_reasons": [],
+        "nondegrading": true,
+        "passed": true,
+        "runtime_gates_passed": true,
+        "seed_score": 0.3333333333333333,
+        "strictly_positive_gain": true
+      },
+      "repository_commit": "532f709a413eaff18ac74b5360d3e8c92a75d962",
+      "result_hash": "4e150a4c9248996bc470351868dc967012352cd2f756012d19710e2291d781ae",
+      "result_locator": "rsebench-output://runs/clean-v2-canary-20260814/attempts/spreadsheet-skillopt-20260814-510cc237/0001-8f58eb09-8108-4817-a10f-a4b3cf89a5e1/runner/spreadsheetbench_verified/20260814/20260814T121555795443Z-skillopt/result.json",
+      "scheduler_duration_seconds": 666.6421055775136,
+      "timing": {
+        "run": {
+          "duration_seconds": 665.365888768807,
+          "ended_at": "2026-08-14T12:27:01.161556Z",
+          "started_at": "2026-08-14T12:15:55.795664Z"
+        },
+        "stages": [
+          {
+            "duration_seconds": 139.09605937451124,
+            "name": "seed_evaluation"
+          },
+          {
+            "duration_seconds": 399.57747828029096,
+            "name": "evolution"
+          },
+          {
+            "duration_seconds": 126.68927896395326,
+            "name": "clean_test_evaluation"
+          }
+        ]
+      },
+      "token_usage": {
+        "attempted_calls": 141,
+        "billed_tokens": {
+          "completion_tokens": 84676,
+          "prompt_tokens": 274505,
+          "total_tokens": 359181
+        },
+        "failed_calls": 0,
+        "observed_coverage": 1.0
+      }
+    },
+    "webshop-skilladaptor": {
+      "attempt_id": "49b7c375-5494-436e-af48-3161f2751aed",
+      "baseline": "skilladaptor",
+      "baseline_fingerprint": "ebcfa0ccc76c5589bd95da3e7ae21a4065dd5e060f9abc207954e4cd750ef014",
+      "benchmark": "webshop",
+      "execution_failures": {
+        "evolved": {},
+        "seed": {}
+      },
+      "experiment_id": "9ae3d578911f0e699bd9bf546dae7abb30df36e63eab1d9d48e5773e2ee22794",
+      "method_seed": 20260815,
+      "qualification": {
+        "accepted_update_count": 5,
+        "artifact_updated": true,
+        "clean_gain": 0.1975,
+        "evolved_score": 0.3,
+        "execution_coverage_passed": true,
+        "failure_reasons": [],
+        "nondegrading": true,
+        "passed": true,
+        "runtime_gates_passed": true,
+        "seed_score": 0.1025,
+        "strictly_positive_gain": true
+      },
+      "repository_commit": "532f709a413eaff18ac74b5360d3e8c92a75d962",
+      "result_hash": "00bbb1e5fa01525da6081767881cb21cee1cecfa03e3fb21cdda8a7df378df07",
+      "result_locator": "rsebench-output://runs/clean-v2-canary-20260814/attempts/webshop-skilladaptor-20260815-4c8dec9b/0001-49b7c375-5494-436e-af48-3161f2751aed/runner/20260815/20260814T121555745024Z-skilladaptor/result.json",
+      "scheduler_duration_seconds": 11861.708545386791,
+      "timing": {
+        "run": {
+          "duration_seconds": 11860.38913891837,
+          "ended_at": "2026-08-14T15:33:36.134390Z",
+          "started_at": "2026-08-14T12:15:55.745249Z"
+        },
+        "stages": [
+          {
+            "duration_seconds": 652.2157748416066,
+            "name": "seed_evaluation"
+          },
+          {
+            "duration_seconds": 10651.065327059478,
+            "name": "evolution"
+          },
+          {
+            "duration_seconds": 557.1057660859078,
+            "name": "clean_test_evaluation"
+          }
+        ]
+      },
+      "token_usage": {
+        "attempted_calls": 5583,
+        "billed_tokens": {
+          "completion_tokens": 793609,
+          "prompt_tokens": 6865636,
+          "total_tokens": 7659245
+        },
+        "failed_calls": 0,
+        "observed_coverage": 1.0
+      }
+    }
+  },
+  "formal_qualification": false,
+  "qualification_version": "clean-qualification-v2",
+  "schema_version": "rsebench.clean-canary-diagnostic.v1",
+  "selected_scheduler_unit_seconds": 14361.365125278011,
+  "selected_token_usage": {
+    "attempted_calls": 6298,
+    "billed_tokens": {
+      "completion_tokens": 1167351,
+      "prompt_tokens": 13005056,
+      "total_tokens": 14172407
+    },
+    "failed_calls": 0,
+    "observed_coverage": 1.0
+  },
+  "superseded_officeqa_evidence": [
+    {
+      "attempt_id": "a9cfd00b-c8d5-494b-b855-49319eb9a320",
+      "experiment_id": "3b2a319e1850fd5fee1c823a7a321cc0688871540015b8d649f09b5c6d96c4e8",
+      "failure_reasons": [
+        "execution_failure"
+      ],
+      "result_hash": "f8287796311d102f03e554a9e62d48932dc650dea39d398f5e95ee2cf6bf7d55",
+      "scheduler_duration_seconds": 1033.685764580965,
+      "state": "completed"
+    },
+    {
+      "attempt_id": "83c8f458-27da-4bdf-81a5-fc8b8882c9d5",
+      "experiment_id": "ad47bf2d6e1818167252ac90141b3fcb8e41a7884cf96dd423d40cedac0989ac",
+      "failure_reasons": [
+        "artifact_unchanged",
+        "no_accepted_update"
+      ],
+      "result_hash": "8805aab46e6991f43f9254ba160a69d4a6b617d6bb0a53b18a9fd5e71a0416a7",
+      "scheduler_duration_seconds": 778.8398723248392,
+      "state": "completed"
+    },
+    {
+      "attempt_id": "e34db791-4d25-480a-b61a-66a0a70033cc",
+      "experiment_id": "ad47bf2d6e1818167252ac90141b3fcb8e41a7884cf96dd423d40cedac0989ac",
+      "failure_reasons": [
+        "seed_answer_missing_UID0015",
+        "seed_answer_missing_UID0117",
+        "scheduler_interrupted_after_decisive_failure"
+      ],
+      "result_hash": null,
+      "scheduler_duration_seconds": 166.3278624713421,
+      "state": "interrupted"
+    }
+  ],
+  "timing_contract": {
+    "levels": [
+      "run",
+      "stage",
+      "task"
+    ],
+    "task_records_preserved_in_source_results": true
+  },
+  "total_scheduler_unit_seconds_all_attempts": 16340.218624655157,
+  "track": "diagnostic"
+}
