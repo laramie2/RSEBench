@@ -147,7 +147,7 @@
 +                response = self.client.chat.completions.create(model=model, messages=messages, max_tokens=512, temperature=0, extra_body={'thinking': {'type': 'disabled'}})
              except Exception as exc:
                  record_rsebench_chat_usage(
-@@ -127,16 +173,46 @@
+@@ -127,16 +173,58 @@
              content = response.choices[0].message.content
              if not content:
                  raise RuntimeError('WebShop LLM returned empty response')
@@ -192,6 +192,18 @@
 +        )
 +        if repaired_action:
 +            return repaired_action
++        fallback_actions = list(valid_actions or [])
++        if not fallback_actions and not available_actions.get('has_search_bar', False):
++            fallback_actions = [
++                f'click[{clickable}]'
++                for clickable in available_actions.get('clickables', [])
++            ]
++        for preferred in ('click[back to search]', 'click[next >]', 'click[< prev]'):
++            for candidate in fallback_actions:
++                if candidate.casefold().strip() == preferred:
++                    return candidate
++        if fallback_actions:
++            return fallback_actions[0]
 +        raise RuntimeError(
 +            'Failed to parse WebShop action after one deterministic repair: '
 +            f'{repaired_content[:300]!r}'
@@ -269,7 +281,13 @@
          timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
 --- a/skill-adaptor/core/orchestrator.py
 +++ b/skill-adaptor/core/orchestrator.py
-@@ -88,6 +88,9 @@
+@@ -14,4 +14,5 @@
+ from .skill_bank import SkillBankManager
+ from .skill_matcher import SemanticSkillMatcher
+ from .task_context import load_task_markdown
++from .llm_json import LLMJSONParseError
+ from .skill_body_utils import refine_localized_fault, coerce_cold_start_fault, coerce_degraded_bank_fault
+@@ -88,6 +89,9 @@
          config.create_directories()
  
      def run(self, training_tasks: List[str], validation_tasks: List[str], eval_func: Callable[[Dict[str, Skill]], Dict[str, Any]], initial_skill_bank: Optional[Dict[str, Skill]]=None) -> Dict[str, Any]:
@@ -279,7 +297,7 @@
          if initial_skill_bank:
              for skill in initial_skill_bank.values():
                  self.skill_bank.add_skill(skill)
-@@ -122,6 +125,7 @@
+@@ -122,6 +126,7 @@
                  break
              print('\n[5-7] Evolving skills (fault_chain retry, max 3 steps)...')
              accepted, revised_candidates, new_candidates = self._process_failures_with_chain_validation(issue_cases, validation_tasks, eval_func)
@@ -287,7 +305,7 @@
              print(f'\n[7] Results: {len(accepted)} accepted this iteration')
              if accepted:
                  self.consecutive_rejections = 0
-@@ -130,6 +134,7 @@
+@@ -130,6 +135,7 @@
              if self._iteration_principles:
                  print('\n[6b] Validating global prior π candidate...')
                  if self._try_adopt_global_prior(validation_tasks, eval_func):
@@ -295,7 +313,20 @@
                      print('      -> π ADOPTED')
                      self.consecutive_rejections = 0
                  elif self._aggregate_prior_candidate():
-@@ -608,7 +613,7 @@
+@@ -398,6 +404,11 @@
+                     continue
+                 print(f"      Chain attempt {attempt_idx}/{len(chain)} at step {step_1based} (S_{{t*}}={attempt_fault.skills_at_fault or '[]'})")
+-                revised, new = self._generate_candidates_for_fault(trajectory, attempt_fault)
++                try:
++                    revised, new = self._generate_candidates_for_fault(trajectory, attempt_fault)
++                except LLMJSONParseError as exc:
++                    print(f'      Candidate generation JSON parse failed: {exc}')
++                    print('      Treating malformed candidate as rejected; trying next chain step...')
++                    continue
+                 revised = self.skill_bank.deduplicate(revised)
+                 new = self.skill_bank.deduplicate(new)
+                 all_revised.extend(revised)
+@@ -608,7 +619,7 @@
                  if sid not in seen_adopted:
                      seen_adopted.add(sid)
                      newly_adopted.append(sid)

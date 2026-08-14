@@ -98,10 +98,17 @@ def _execution_audit_from_report(
             "SkillAdaptor report lacks execution-audit fields: "
             + ", ".join(missing)
         )
+    def normalize_task_id(value: Any) -> str:
+        task_id = str(value).strip()
+        match = re.fullmatch(r"(?:goal[_-])?(\d+)", task_id)
+        return f"goal_{match.group(1)}" if match is not None else task_id
+
     return EvolutionExecutionAudit(
-        train_task_ids=[str(value) for value in report["training_task_ids"]],
+        train_task_ids=[
+            normalize_task_id(value) for value in report["training_task_ids"]
+        ],
         validation_task_ids=[
-            str(value) for value in report["validation_task_ids"]
+            normalize_task_id(value) for value in report["validation_task_ids"]
         ],
         accepted_update_count=int(report["accepted_update_count"]),
         metadata={

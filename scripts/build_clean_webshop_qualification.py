@@ -18,6 +18,7 @@ from rsebench.evidence import canonical_hash  # noqa: E402
 from rsebench.evolution.clean_contracts import (  # noqa: E402
     CleanEvolutionSplitManifest,
 )
+from rsebench.hashing import sha256_file  # noqa: E402
 from scripts.build_core1_splits import _webshop_task  # noqa: E402
 
 
@@ -25,6 +26,16 @@ OUTPUT_ROOT = PROJECT_ROOT / "benchmark/validation/clean_qualification_v1"
 DEFAULT_SOURCE = OUTPUT_ROOT / "webshop_source.json"
 DEFAULT_SELECTION = OUTPUT_ROOT / "webshop_validation_selection.json"
 DEFAULT_OUTPUT = OUTPUT_ROOT / "webshop.json"
+V2_OUTPUT_ROOT = PROJECT_ROOT / "benchmark/validation/clean_qualification_v2"
+V2_OUTPUT = V2_OUTPUT_ROOT / "webshop.json"
+_PATCH_NAMES = (
+    "skilladaptor-deepseek-runtime.patch",
+    "skilladaptor-evidence-hook.patch",
+    "skilladaptor-webshop-static-overlay.patch",
+    "skilladaptor-core1-calibration.patch",
+    "skilladaptor-lexical-fault-dedup.patch",
+    "skilladaptor-clean-qualification.patch",
+)
 
 
 def build_clean_webshop_split(
@@ -98,26 +109,92 @@ def build_clean_webshop_split(
     )
 
 
+def build_clean_webshop_split_v2(
+    *,
+    source_path: Path = DEFAULT_SOURCE,
+    selection_path: Path = DEFAULT_SELECTION,
+) -> CleanEvolutionSplitManifest:
+    """Preserve V1 sampling while pinning the repaired SkillAdaptor runtime."""
+
+    v1 = build_clean_webshop_split(
+        source_path=source_path,
+        selection_path=selection_path,
+    )
+    metadata = json.loads(json.dumps(v1.metadata))
+    patch_root = PROJECT_ROOT / "patches/baselines"
+    calibration_baseline = metadata["validation_selection"]["baseline"]
+    metadata.update(
+        {
+            "config_version": "clean-qualification-v2",
+            "qualification_version": "clean-qualification-v2",
+            "calibration_selection_path": (
+                "rsebench-project://benchmark/validation/clean_qualification_v1/"
+                "webshop_validation_selection.json"
+            ),
+            "runtime_baseline": {
+                "name": "skilladaptor",
+                "revision": calibration_baseline["revision"],
+                "seed_skill_hash": calibration_baseline["seed_skill_hash"],
+                "patch_hashes": {
+                    name: sha256_file(patch_root / name) for name in _PATCH_NAMES
+                },
+            },
+            "qualification_amendment": {
+                "supersedes": "clean-qualification-v1",
+                "sampling_changed": False,
+                "repairs": [
+                    "normalize_numeric_webshop_task_ids",
+                    "fallback_to_available_navigation_after_bad_action_repair",
+                    "skip_one_malformed_linker_attribution_candidate",
+                ],
+            },
+        }
+    )
+    payload = {
+        "benchmark": v1.benchmark,
+        "domain": v1.domain,
+        "seed": v1.seed,
+        "train": [task.model_dump(mode="json") for task in v1.train],
+        "validation": [task.model_dump(mode="json") for task in v1.validation],
+        "clean_test": [task.model_dump(mode="json") for task in v1.clean_test],
+        "metadata": metadata,
+    }
+    return v1.model_copy(
+        update={"source_hash": canonical_hash(payload), "metadata": metadata}
+    )
+
+
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--qualification-version", choices=("v1", "v2"), default="v1"
+    )
     parser.add_argument("--source", type=Path, default=DEFAULT_SOURCE)
     parser.add_argument("--selection", type=Path, default=DEFAULT_SELECTION)
-    parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
+    parser.add_argument("--output", type=Path)
     return parser.parse_args()
 
 
 def main() -> None:
     args = _parse_args()
-    split = build_clean_webshop_split(
-        source_path=args.source,
-        selection_path=args.selection,
-    )
+    if args.qualification_version == "v2":
+        split = build_clean_webshop_split_v2(
+            source_path=args.source,
+            selection_path=args.selection,
+        )
+        output = args.output or V2_OUTPUT
+    else:
+        split = build_clean_webshop_split(
+            source_path=args.source,
+            selection_path=args.selection,
+        )
+        output = args.output or DEFAULT_OUTPUT
     encoded = (split.model_dump_json(indent=2) + "\n").encode("utf-8")
-    if args.output.exists() and args.output.read_bytes() != encoded:
-        raise FileExistsError(f"different clean manifest already exists: {args.output}")
-    args.output.parent.mkdir(parents=True, exist_ok=True)
-    args.output.write_bytes(encoded)
-    print(args.output)
+    if output.exists() and output.read_bytes() != encoded:
+        raise FileExistsError(f"different clean manifest already exists: {output}")
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_bytes(encoded)
+    print(output)
 
 
 if __name__ == "__main__":

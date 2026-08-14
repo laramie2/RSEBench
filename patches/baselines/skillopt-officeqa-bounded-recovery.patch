@@ -1,0 +1,35 @@
+--- a/skillopt/envs/officeqa/rollout.py
++++ b/skillopt/envs/officeqa/rollout.py
+@@ -254,2 +254,19 @@
++def _officeqa_recovery_prompt(*, turn: int) -> str:
++    """Return a bounded recovery instruction for unstructured model output."""
++
++    if turn <= 1:
++        return (
++            "Your previous response did not use a tool or return a final answer. "
++            "Continue from that analysis without restarting it: use a tool if more "
++            "evidence or computation is needed, or return the final answer inside "
++            "<answer>...</answer>."
++        )
++    return (
++        "Stop repeating the previous analysis. Return one best-effort final answer "
++        "now inside <answer>...</answer>. Do not use a tool and do not restate the "
++        "analysis."
++    )
++
++
+ def _docs_link_targets(docs_roots: list[str]) -> list[tuple[str, str]]:
+     return [(root, os.path.join("docs", f"root_{idx}")) for idx, root in enumerate(docs_roots, start=1)]
+@@ -683,11 +700,7 @@ def process_one(
+                 if turn == max_tool_turns:
+                     fail_reason = f"Exceeded tool-turn budget ({max_tool_turns})"
+                 else:
+-                    recovery_prompt = (
+-                        "Your previous response did not use a tool or return a final answer. "
+-                        "Continue the task: use a tool if more evidence or computation is "
+-                        "needed, or return the final answer inside <answer>...</answer>."
+-                    )
++                    recovery_prompt = _officeqa_recovery_prompt(turn=turn)
+                     messages.append({"role": "user", "content": recovery_prompt})
+                     conversation.append({
+                         "type": "recovery_prompt",

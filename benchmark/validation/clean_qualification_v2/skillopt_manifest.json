@@ -1,0 +1,20 @@
+{
+  "config_version": "clean-qualification-v2",
+  "method_seeds": [
+    20260813,
+    20260814,
+    20260815
+  ],
+  "outputs": {
+    "officeqa_full": {
+      "path": "officeqa_full.json",
+      "sizes": {
+        "clean_test": 20,
+        "train": 12,
+        "validation": 12
+      },
+      "source_hash": "b942f7f8f947daff9d48dfc3bf8206cfb2010afdd3c0a74af2346e123d69cd16"
+    }
+  },
+  "schema_version": "rsebench.clean-skillopt-manifest.v1"
+}

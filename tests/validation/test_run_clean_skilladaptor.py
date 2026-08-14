@@ -39,6 +39,7 @@ def _manifest(
     benchmark: str = "webshop",
     sizes: tuple[int, int, int] = (5, 5, 20),
     runtime: dict[str, int] | None = None,
+    qualification_version: str = "clean-qualification-v1",
 ) -> Path:
     train_size, validation_size, test_size = sizes
     cursor = 1
@@ -60,7 +61,10 @@ def _manifest(
         train=tasks(train_size),
         validation=tasks(validation_size),
         clean_test=tasks(test_size),
-        metadata={"runtime": runtime or RUNTIME},
+        metadata={
+            "runtime": runtime or RUNTIME,
+            "qualification_version": qualification_version,
+        },
     )
     path = tmp_path / "manifest.json"
     path.write_text(split.model_dump_json(indent=2), encoding="utf-8")
@@ -102,7 +106,7 @@ def test_clean_skilladaptor_launcher_locks_budget_parameters_and_policy(
     )
 
     run_dir = run_clean_skilladaptor.run_manifest(
-        _manifest(tmp_path),
+        _manifest(tmp_path, qualification_version="clean-qualification-v2"),
         seed_skill=seed,
         method_seed=20260813,
         output_root=tmp_path / "runs",
@@ -118,6 +122,10 @@ def test_clean_skilladaptor_launcher_locks_budget_parameters_and_policy(
     assert captured["run"]["parameters"]["runtime"] == RUNTIME
     assert captured["run"]["parameters"]["retrieval_threshold"] == 0.10
     assert captured["run"]["parameters"]["patch_hashes"]
+    assert (
+        captured["run"]["parameters"]["qualification_version"]
+        == "clean-qualification-v2"
+    )
 
 
 @pytest.mark.parametrize(
@@ -203,3 +211,33 @@ def test_clean_skilladaptor_dry_run_makes_no_executor_or_provider_call(
     assert payload["runtime"] == RUNTIME
     assert payload["provider_calls"] == 0
     assert list(run_dir.rglob("*.jsonl")) == []
+
+
+def test_webshop_v2_resolves_declared_v1_calibration_selection(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    manifest = _manifest(tmp_path)
+    split = CleanEvolutionSplitManifest.model_validate_json(
+        manifest.read_text(encoding="utf-8")
+    )
+    split = split.model_copy(
+        update={
+            "metadata": {
+                **split.metadata,
+                "calibration_selection_path": (
+                    "rsebench-project://benchmark/validation/clean_qualification_v1/"
+                    "webshop_validation_selection.json"
+                ),
+            }
+        }
+    )
+    monkeypatch.setattr(run_clean_skilladaptor, "PROJECT_ROOT", tmp_path)
+
+    resolved = run_clean_skilladaptor._calibration_selection_path(manifest, split)
+
+    assert resolved == (
+        tmp_path
+        / "benchmark/validation/clean_qualification_v1/"
+        "webshop_validation_selection.json"
+    )

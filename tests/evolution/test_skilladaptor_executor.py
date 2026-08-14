@@ -34,6 +34,7 @@ from core.orchestrator import (  # noqa: E402
     _rsebench_after_rollout,
 )
 from core.llm_factory import _RetryingChatCompletions  # noqa: E402
+from core.llm_json import LLMJSONParseError  # noqa: E402
 from core.skill_matcher import SemanticSkillMatcher  # noqa: E402
 from core.skill_bank import SkillBankManager  # noqa: E402
 from core.types import Skill, ValidationResult  # noqa: E402
@@ -410,6 +411,85 @@ def test_goal_994_regression_repairs_one_non_executable_action(monkeypatch) -> N
     assert repair_messages[0]["content"] == f"{page_prompt}\n\n{repair_suffix}"
 
 
+def test_webshop_policy_falls_back_to_available_navigation_after_bad_repair(
+    monkeypatch,
+) -> None:
+    class FakeCompletions:
+        def __init__(self) -> None:
+            self.responses = iter(
+                [
+                    "Thought: none of the visible products match every constraint.",
+                    "Thought: I should inspect another result page.",
+                ]
+            )
+
+        def create(self, **kwargs):
+            del kwargs
+            return SimpleNamespace(
+                choices=[
+                    SimpleNamespace(
+                        message=SimpleNamespace(content=next(self.responses))
+                    )
+                ],
+                usage=None,
+            )
+
+    monkeypatch.setattr(SkillAugmentedLLMPolicy, "_setup_client", lambda self: None)
+    policy = SkillAugmentedLLMPolicy(
+        {"api_key": "unused", "model": "deepseek-v4-flash", "max_retries": 1}
+    )
+    policy.client = SimpleNamespace(
+        chat=SimpleNamespace(completions=FakeCompletions())
+    )
+
+    action = policy._call_llm(  # noqa: SLF001
+        "result page with no exact match",
+        {
+            "has_search_bar": False,
+            "clickables": ["Next >", "Back to Search"],
+        },
+    )
+
+    assert action == "click[Back to Search]"
+
+
+def test_fault_chain_skips_one_malformed_llm_json_candidate() -> None:
+    orchestrator = SkillAdaptorOrchestrator.__new__(SkillAdaptorOrchestrator)
+    trajectory = _trajectory()
+    fault = LocalizedFault(
+        task_id=trajectory.task_id,
+        step_index=0,
+        fault_type=FaultType.SKILL_MISSING,
+        observation=trajectory.steps[0].observation,
+        wrong_action=trajectory.steps[0].action,
+        improvement_principle="Use a more specific query.",
+        fault_chain=[1, 2],
+    )
+    orchestrator.localizer = SimpleNamespace(localize=lambda unused: fault)
+    orchestrator._finalize_localized_fault = lambda *unused: fault
+    orchestrator._deduplicate_faults_by_embedding = lambda faults: faults
+    orchestrator._iteration_principles = []
+    orchestrator._fault_at_chain_step = lambda *unused: fault
+    orchestrator.skill_bank = SimpleNamespace(deduplicate=lambda candidates: candidates)
+    attempts = 0
+
+    def generate(*unused):
+        nonlocal attempts
+        attempts += 1
+        if attempts == 1:
+            raise LLMJSONParseError("Linker attribution: malformed JSON")
+        return [], []
+
+    orchestrator._generate_candidates_for_fault = generate
+
+    result = orchestrator._process_failures_with_chain_validation(
+        [trajectory], [], lambda unused: {}
+    )
+
+    assert attempts == 2
+    assert result == ([], [], [])
+
+
 def test_skilladaptor_report_audits_accepted_updates_and_task_ids(
     tmp_path: Path,
 ) -> None:
@@ -448,6 +528,22 @@ def test_skilladaptor_report_audits_accepted_updates_and_task_ids(
     assert report["training_task_ids"] == ["goal_1", "goal_2"]
     assert report["validation_task_ids"] == ["goal_3", "goal_4"]
     assert report["accepted_update_count"] == 3
+
+
+def test_skilladaptor_report_normalizes_numeric_webshop_task_ids() -> None:
+    audit = _execution_audit_from_report(
+        {
+            "iterations": 1,
+            "final_skill_count": 2,
+            "accepted_update_count": 1,
+            "newly_adopted_skill_ids": ["verify-options"],
+            "training_task_ids": [1554, "1665", "goal_2446"],
+            "validation_task_ids": [1195, "goal-1362"],
+        }
+    )
+
+    assert audit.train_task_ids == ["goal_1554", "goal_1665", "goal_2446"]
+    assert audit.validation_task_ids == ["goal_1195", "goal_1362"]
 
 
 def test_fault_deduplication_honors_lexical_matching_without_embedding_api(
