@@ -1,230 +1,170 @@
-# Collaborator Project Roadmap Document Design
+# 协作者项目路线图文档设计
 
-Date: 2026-08-14
+日期：2026-08-14
 
-## Objective
+## 目标
 
-Create one Chinese-language entry document for repository collaborators at
-`docs/project-roadmap.md`. The document must let a new contributor answer four
-questions without reconstructing the project from historical plans:
+在 `docs/project-roadmap.md` 中创建一份面向仓库协作者的中文入口文档。新协作者无需重新阅读全部历史计划，就应能回答以下四个问题：
 
-1. Which benchmarks and baselines are in the current executable scope?
-2. What do N1, N2, N3, and N4 change in each benchmark?
-3. What evidence is required before a benchmark cell or noise operator advances?
-4. What implementation and experimental work remains?
+1. 当前可执行范围包含哪些 benchmark 和 baseline？
+2. N1、N2、N3、N4 分别在每个 benchmark 的什么位置、以什么方式加噪？
+3. 一个 benchmark 单元或噪声算子进入下一阶段前需要哪些证据？
+4. 项目还需要完成哪些实现和实验工作？
 
-The document is an execution guide, not a replacement for the detailed design
-specifications, machine-readable registries, experiment reports, or benchmark
-card.
+该文档定位为协作执行手册，不取代详细设计规格、机器可读 registry、实验报告或最终 benchmark card。
 
-## Audience and authority
+## 受众与权威边界
 
-The primary audience is a repository collaborator who understands agent
-evaluation but has not followed the local validation history. The document uses
-concise research terminology, tables, explicit status labels, and repository
-links rather than narrating every pilot run.
+主要读者是了解 agent evaluation、但没有跟进本地验证历史的仓库协作者。文档使用简洁的研究术语、表格、明确的状态标签和仓库链接，不逐轮复述所有 pilot 实验。
 
-The current Core-1 scope is authoritative:
+当前以 Core-1 范围为准：
 
-| Domain | Benchmark | Primary clean/noise validation baseline |
+| 领域 | Benchmark | 主要 clean/noise 验证 baseline |
 |---|---|---|
 | Spreadsheet | SpreadsheetBench-Verified | SkillOpt |
 | Document QA | OfficeQA Full | SkillOpt |
 | Interactive | WebShop | SkillAdaptor |
-| Skill learning | SkillLearnBench | separated-round self-feedback; teacher-feedback for N4 |
+| Skill Learning | SkillLearnBench | 分轮 self-feedback；N4 使用 teacher-feedback |
 
-Mathematics, DocVQA, WikiTableQuestions, SearchQA, SealQA, SkillsBench,
-SkillFlow-Task, and other historical candidates are not current Core-1
-commitments. They appear only in a clearly marked extension appendix.
+Mathematics、DocVQA、WikiTableQuestions、SearchQA、SealQA、SkillsBench、SkillFlow-Task 及其他历史候选不属于当前 Core-1 承诺范围，只放在明确标注的候选扩展附录中。
 
-When sources differ, the document applies this precedence order:
+当不同来源存在差异时，文档按以下优先级取值：
 
-1. active entries in `benchmark/registry/` and executable experiment YAML;
-2. the unified clean-v2 release design and Core-1 runtime contract;
-3. the frozen Core-1 operator specification and manifests;
-4. dated validation reports;
-5. the early project-wide design, used only for long-term intent.
+1. `benchmark/registry/` 中的 active 项和可执行实验 YAML；
+2. unified clean-v2 release design 与 Core-1 runtime contract；
+3. 已冻结的 Core-1 operator 规格和 manifest；
+4. 带日期的验证报告；
+5. 早期项目总设计，仅用于说明长期意图。
 
-This prevents an early proposal from overriding a later frozen configuration.
+该顺序保证早期提案不会覆盖后续已经冻结的配置。
 
-## Deliverable structure
+## 最终文档结构
 
-The final document uses an execution-manual structure.
+最终文档采用“协作者执行手册”结构。
 
-### 1. Project purpose and research claim
+### 1. 项目目标与研究命题
 
-Explain that RSEBench evaluates the complete self-evolution loop, not only
-noisy inference. State the intended comparison between a seed skill, a skill
-evolved on clean evidence, and a skill evolved on noisy evidence, all evaluated
-on untouched held-out data. Separate intended hypotheses from demonstrated
-results.
+说明 RSEBench 评测的是完整 self-evolution loop，而不只是 noisy inference。明确比较对象包括 seed skill、在 clean evidence 上进化的 skill，以及在 noisy evidence 上进化的 skill；最终均在未参与进化和选择的 held-out data 上评测。预期研究假设与已经得到的实验结论必须分开陈述。
 
-### 2. Current Core-1 benchmarks
+### 2. 当前 Core-1 benchmark
 
-For each of the four benchmarks, describe:
+每个 benchmark 需要说明：
 
-- the task and verifier;
-- the unit of evolution;
-- the current clean-v2 acquisition/validation/test scale;
-- the primary baseline;
-- why the domain contributes a distinct self-evolution failure mode.
+- 任务形式和 verifier；
+- self-evolution 的基本单位；
+- 当前 clean-v2 的 acquisition、validation 和 clean test 规模；
+- 主要 baseline；
+- 该领域覆盖的独特 self-evolution failure mode。
 
-The clean-v2 scale is taken from `configs/experiments/clean-v2.yaml`, while
-Core-1 noise-screen scales are identified separately as pilot scales. The two
-must not be merged into one table without labels.
+Clean-v2 规模以 `configs/experiments/clean-v2.yaml` 为准；Core-1 noise screen 的规模单独标为 pilot scale。两者不得在没有标签的情况下合并成同一组规模。
 
-### 3. Baseline methods and status tiers
+### 3. Baseline 方法与状态分层
 
-Use three tiers:
+Baseline 分为三层：
 
-- **Current reference baselines:** SkillOpt, SkillAdaptor, SkillLearnBench
-  self-feedback, and SkillLearnBench teacher-feedback for N4.
-- **Planned comparison baselines:** Trace2Skill, SkillGrad, EvoSkill,
-  RethinkSkill, Skills-Coach, SkillFlow, and FederatedSkill. Each entry states
-  its native domain, update mechanism, and current inactive/adaptation status.
-- **Non-executable reference:** CoEvoSkills, marked paper-only until runnable
-  code or an explicitly labeled reimplementation exists.
+- **当前 reference baseline：** SkillOpt、SkillAdaptor、SkillLearnBench self-feedback，以及用于 N4 的 SkillLearnBench teacher-feedback。
+- **计划接入的 comparison baseline：** Trace2Skill、SkillGrad、EvoSkill、RethinkSkill、Skills-Coach、SkillFlow 和 FederatedSkill。每项说明原生领域、更新机制及当前 inactive/adaptation 状态。
+- **不可执行的研究参考：** CoEvoSkills。在官方代码可运行或出现明确标注的独立 reimplementation 前，保持 paper-only 状态。
 
-The section must distinguish native reproduction, compatibility patches, and
-unified-harness adaptation. It must not imply that an inactive registry entry
-has completed a formal run.
+该部分必须区分 native reproduction、compatibility patch 和 unified-harness adaptation，不能暗示 inactive registry 项已经完成正式实验。
 
-### 4. N1–N4 noise model
+### 4. N1–N4 噪声模型
 
-Define the stages by their location in the learning pipeline:
+按噪声进入 learning pipeline 的位置定义四个阶段：
 
 ```text
 task instance -> environment interaction -> stored trajectory -> update feedback
       N1                  N2                     N3                 N4
 ```
 
-- N1 changes task-side context before the first action.
-- N2 changes execution-visible evidence or observation sources.
-- N3 changes the stored trajectory after execution/reward and before
-  reflection.
-- N4 changes reflection, critique, or fault attribution before skill update.
+- N1 在第一次 action 前改变 task-side context。
+- N2 改变执行期间可见的 evidence 或 observation source。
+- N3 在 execution/reward 之后、reflection 之前改变保存的 trajectory。
+- N4 在 skill update 之前改变 reflection、critique 或 fault attribution。
 
-State that N1/N2 are static paired artifacts, N3/N4 are deterministic runtime
-mutations with replay packs, and the four stages are independent experimental
-arms rather than a Cartesian composition. All current Core-1 operators use one
-L2 mutation with fail-closed applicability reporting.
+文档应明确：N1/N2 是静态 paired artifacts；N3/N4 是会生成 replay pack 的确定性 runtime mutation；四个阶段是相互独立的实验 arm，而不是默认进行笛卡尔组合。当前所有 Core-1 operator 均采用一次 L2 mutation，并在不适用时 fail closed、记录 `applicable=false`。
 
-### 5. Four-domain noise matrix
+### 5. 四领域加噪矩阵
 
-Include a 4 x 4 table populated from the active Core-1 YAML files. Each cell
-must name both the concrete operator and the protected information that remains
-unchanged. This is the central reference table for collaborators implementing
-or reviewing noise adapters.
+加入一张从 active Core-1 YAML 逐项生成的 4×4 表格。每个单元格同时写出具体 operator 和必须保持不变的 protected information。该表是协作者实现和审查 noise adapter 时的核心参考。
 
-### 6. Experimental workflow and promotion gates
+### 6. 实验流程与晋级门槛
 
-Show the stage barrier:
+展示以下阶段依赖：
 
 ```text
-baseline bootstrap and identity verification
+baseline bootstrap 与 identity verification
 -> clean engineering readiness
 -> clean efficacy readiness
 -> immutable clean release
--> independent N1-N4 validation
+-> 独立验证 N1-N4
 -> benchmark freeze
--> comparison baselines and RGSE
+-> comparison baseline 与 RGSE
 ```
 
-Document the clean-v2 cell rules exactly:
+严格记录 clean-v2 单元判定规则：
 
-- engineering readiness requires at least two of three fixed method seeds to
-  produce an accepted, semantically changed, non-degrading artifact without a
-  systemic execution failure;
-- efficacy readiness additionally requires strictly positive clean gain in at
-  least two of three seeds;
-- N1-N4 remain locked until every required Core-1 cell is efficacy-ready.
+- `engineering_ready`：三个固定 method seed 中至少两个产生通过 baseline 原生 validation gate 的更新；artifact 语义发生变化；clean performance 不下降；且没有使结果失效的系统性执行错误。
+- `efficacy_ready`：首先满足 `engineering_ready`，并且三个固定 seed 中至少两个获得严格为正的 clean gain。
+- 所有必需 Core-1 单元达到 `efficacy_ready` 后，才允许开始 N1–N4 正式验证。
 
-Noise promotion then requires validity, seed calibration, applicability, a
-real clean update, a clean-minus-noisy effect on untouched clean test data, and
-replication. Null, opposite, blocked, and inapplicable outcomes remain in the
-denominator or are reported under their typed status as required by the
-protocol.
+Noise operator 的后续晋级依次要求 validity、seed calibration、applicability、真实 clean update、在 untouched clean test 上可观察的 clean-minus-noisy effect，以及独立重复。Null、opposite、blocked、inapplicable 等结果必须按照协议留在分母中或以对应 typed status 报告。
 
-### 7. Current status and known limitations
+### 7. 当前状态与已知限制
 
-Provide a date-stamped status block and link to detailed reports. It must
-separate:
+提供带日期的状态块，并链接到详细报告。状态必须分别描述：
 
-- execution/interface readiness;
-- ability to accept an update;
-- positive clean efficacy;
-- stable noise efficacy.
+- execution/interface readiness；
+- 是否能够接受 update；
+- 是否得到 positive clean efficacy；
+- 是否得到 stable noise efficacy。
 
-The document must not claim that all four cells are ready merely because their
-processes launch. Volatile live-run numbers belong in dated reports or frozen
-release summaries, not in the timeless benchmark definition.
+不能因为四个单元都能启动进程，就声称它们都已满足 readiness。实时运行中的易变数字应进入带日期的报告或冻结 release summary，不应写入长期有效的 benchmark 定义。
 
-### 8. Contributor work plan
+### 8. 协作者工作计划
 
-Organize work by dependency rather than by repository directory:
+按依赖关系组织任务，而不是按仓库目录罗列：
 
-1. finish and freeze clean-v2 evidence;
-2. repair and rerun only cells invalidated by typed interface failures;
-3. obtain the required clean engineering and efficacy readiness;
-4. validate N1 one domain at a time, then N2-N4 independently;
-5. freeze promoted operators, manifests, hashes, replay packs, and reports;
-6. activate comparison baselines by native-domain priority;
-7. implement and evaluate RGSE only after the benchmark freeze;
-8. run final multi-seed, paired, cost-accounted experiments and publish the
-   benchmark card.
+1. 完成并冻结 clean-v2 证据；
+2. 只修复由 typed interface failure 判定为无效的单元，并完整重跑受影响单元；
+3. 达到规定的 clean engineering 和 efficacy readiness；
+4. 先逐领域验证 N1，再独立验证 N2–N4；
+5. 冻结通过晋级的 operator、manifest、hash、replay pack 和报告；
+6. 按 native-domain 优先级激活 comparison baseline；
+7. 只在 benchmark freeze 后实现和评测 RGSE；
+8. 运行最终多 seed、paired、完整计费实验并发布 benchmark card。
 
-Each phase names its acceptance evidence and the changes that invalidate prior
-results. The checklist also states prohibited shortcuts: selecting final-test
-samples by observed outcome, retuning noise after test observation, modifying
-baseline core algorithms without disclosure, dropping zero-update seeds, or
-committing secrets/raw run directories.
+每个阶段都要说明验收证据，以及哪些修改会使旧结果失效。清单还要明确禁止以下捷径：按已观察到的 final-test outcome 选择样本、查看 test 后重新调噪声、未披露地修改 baseline 核心算法、删除 zero-update seed、提交 secret 或原始大规模运行目录。
 
-### 9. Reproducibility and repository map
+### 9. 可复现性与仓库索引
 
-Link collaborators to registries, baseline patch series, clean manifests,
-Core-1 configs, runtime evidence interface, compact releases, result contracts,
-and the unified CLI. Explain that external baseline clones, raw datasets,
-trajectories, token ledgers, and secrets are local/gitignored artifacts.
+链接到 registry、baseline patch series、clean manifest、Core-1 config、runtime evidence interface、compact release、result contract 和 unified CLI。说明 external baseline clone、raw dataset、完整 trajectory、逐调用 token ledger 和 secret 均为本地/gitignored 产物。
 
-### 10. Candidate extensions
+### 10. 候选扩展
 
-List inactive benchmarks and methods by their evidence status. Label them as
-future candidates, not blockers for Core-1. State the activation rule: a new
-benchmark requires a reliable verifier, frozen split, at least two credible
-method intersections or explicitly adapted baselines, and the same clean/noise
-qualification contract.
+按证据状态列出 inactive benchmark 和方法，明确它们是未来候选，而非 Core-1 blocker。候选 benchmark 的激活条件为：具有可靠 verifier、冻结 split、至少两个可信方法交集或明确标记的 adapted baseline，并使用与 Core-1 相同的 clean/noise qualification contract。
 
-## Style and maintenance rules
+## 写作与维护规则
 
-- Write in Chinese; preserve official benchmark, method, schema, and metric
-  names in English.
-- Prefer tables and short definitions over historical narration.
-- Use relative repository links so GitHub renders the document correctly.
-- Mark status with explicit terms such as active, inactive, candidate,
-  blocked, diagnostic, or paper-only.
-- Never describe a hypothesis, pilot signal, or one-family result as a stable
-  benchmark conclusion.
-- Point detailed numeric results to dated reports; update the roadmap only when
-  scope, gates, or frozen release state changes.
-- Do not include credentials, machine-specific paths, or links to gitignored
-  outputs as the only evidence for a public claim.
+- 使用中文写作，保留正式 benchmark、method、schema 和 metric 的英文名称。
+- 优先使用表格和短定义，减少历史流水账。
+- 使用相对仓库链接，确保 GitHub 可以正确渲染。
+- 使用 active、inactive、candidate、blocked、diagnostic、paper-only 等明确状态词。
+- 不得把研究假设、pilot signal 或单一 family 结果描述成稳定 benchmark 结论。
+- 详细数值结果指向带日期的报告；只有项目范围、判定门槛或 frozen release 状态发生变化时才更新路线图。
+- 不包含 credential、本机绝对路径，也不把仅存在于 gitignored output 中的文件作为公开结论的唯一证据。
 
-## Verification
+## 验证要求
 
-Before committing the final document:
+提交最终文档前必须：
 
-1. check every active benchmark, method, repository revision, operator, and
-   sample count against the registry or executable YAML;
-2. verify all 16 Core-1 operator cells are represented exactly once;
-3. scan for contradictions between current and extension scope;
-4. scan for placeholders and unsupported completion claims;
-5. validate every relative repository link;
-6. run the relevant documentation/registry tests and the repository test suite
-   required by the current branch policy.
+1. 根据 registry 或可执行 YAML 核对每个 active benchmark、method、repository revision、operator 和样本规模；
+2. 确认 16 个 Core-1 operator 单元均且仅出现一次；
+3. 检查当前范围与候选扩展是否存在矛盾；
+4. 扫描占位符和缺少证据的完成性表述；
+5. 验证全部相对仓库链接；
+6. 运行当前分支规则要求的文档/registry 测试及仓库测试。
 
-## Acceptance criteria
+## 完成标准
 
-The document is complete when a collaborator can identify the active four-domain
-matrix, understand every N1-N4 injection point, distinguish current and planned
-baselines, follow the stage gates, select the next unblocked task, and find the
-machine-readable source for every operational claim.
+当协作者能够通过该文档识别当前四领域矩阵、理解每个 N1–N4 注入位置、区分当前与计划 baseline、遵循阶段门槛、选择下一个未阻塞任务，并能找到每项可执行声明对应的机器可读来源时，文档视为完成。
