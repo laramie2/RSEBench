@@ -1,6 +1,10 @@
 # RSE-Bench
 
-RSE-Bench constructs paired clean/noisy tasks for evaluating robust skill self-evolution. The current implementation phase covers pinned baseline/data acquisition and small pilot experiments. Pilot model calls are locked to `deepseek-v4-flash`.
+RSE-Bench evaluates whether skill self-evolution remains effective when task context, environment evidence, stored trajectories, or update feedback contain controlled noise. The active Core-1 scope covers SpreadsheetBench-Verified, OfficeQA Full, WebShop, and SkillLearnBench.
+
+## Collaborator roadmap
+
+Start with the [Chinese project roadmap](docs/project-roadmap.md) for the active benchmarks, baseline methods, N1–N4 noise matrix, experiment gates, current limitations, and pending work. Machine-readable registries and executable configs remain the source of truth.
 
 ## Setup
 
