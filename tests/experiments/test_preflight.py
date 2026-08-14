@@ -155,6 +155,7 @@ def test_preflight_builds_three_identities_without_provider_calls(
     assert len({unit.identity.experiment_id for unit in report.units}) == 3
     assert all(unit.task_order_hash == report.units[0].task_order_hash for unit in report.units)
     assert all(unit.scheduled.mutable_resource_keys == [] for unit in report.units)
+    assert all(unit.scheduled.identity == unit.identity for unit in report.units)
     assert len({unit.scheduled.output_dir for unit in report.units}) == 3
     assert report.provider_configuration.credential_name == "FIXTURE_API_KEY"
     assert report.provider_configuration.credential_declared is True
@@ -218,4 +219,5 @@ def test_clean_v2_matrix_declares_four_portable_cells() -> None:
     assert len(skillopt) == 2
     assert all(cell.mutable_resource_keys == [] for cell in skillopt)
     skilllearn = matrix.cells[-1]
+    assert skilllearn.family == "offer-letter-generator"
     assert "{method_seed}" in skilllearn.mutable_resource_keys[0]

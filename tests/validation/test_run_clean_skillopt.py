@@ -129,6 +129,13 @@ def test_clean_skillopt_launcher_locks_budget_and_policy(
     monkeypatch.setattr(run_clean_skillopt, "SkillOptExecutor", FakeExecutor)
     monkeypatch.setattr(run_clean_skillopt, "CleanEvolutionRunner", FakeRunner)
     monkeypatch.setattr(run_clean_skillopt, "methods_root", lambda: methods)
+    identity = object()
+    attempt = object()
+    monkeypatch.setattr(
+        run_clean_skillopt,
+        "load_runtime_identity",
+        lambda **kwargs: (identity, attempt),
+    )
     monkeypatch.setattr(
         run_clean_skillopt,
         "combined_method_env",
@@ -156,6 +163,11 @@ def test_clean_skillopt_launcher_locks_budget_and_policy(
         tmp_path / "runs" / benchmark / "20260813"
     )
     assert captured["run"]["parameters"]["runtime"] == expected_runtime
+    assert captured["run"]["identity"] is identity
+    assert captured["run"]["attempt"] is attempt
+    assert captured["run"]["parameters"]["qualification_version"] == (
+        "clean-qualification-v1"
+    )
 
 
 def test_clean_skillopt_cli_has_no_seed_gate_or_noise_stage() -> None:

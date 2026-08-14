@@ -419,6 +419,7 @@ def preflight_matrix(
             scheduled = ScheduledUnit(
                 key=key,
                 experiment_id=identity.experiment_id,
+                identity=identity,
                 command=command,
                 output_dir=output_value,
                 mutable_resource_keys=_expanded_resources(cell, method_seed),

@@ -11,8 +11,10 @@ from typing import Any
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT))
+PROJECT_SRC = PROJECT_ROOT / "src"
+for source in reversed((PROJECT_SRC, PROJECT_ROOT)):
+    if str(source) not in sys.path:
+        sys.path.insert(0, str(source))
 SHARED_ROOT = (
     PROJECT_ROOT.parents[1] if ".worktrees" in PROJECT_ROOT.parts else PROJECT_ROOT
 )
@@ -43,6 +45,7 @@ from rsebench.evolution.skilllearn_executor import (  # noqa: E402
     SkillLearnExecutor,
 )
 from rsebench.hashing import sha256_file  # noqa: E402
+from rsebench.experiments.runtime import load_runtime_identity  # noqa: E402
 from rsebench.providers.deepseek import DeepSeekClient  # noqa: E402
 from scripts.baselines.common_env import methods_root  # noqa: E402
 
@@ -93,6 +96,21 @@ def run_manifest(
         raise ValueError("clean SkillLearn qualification requires self feedback")
     if portable.metadata.get("runtime") != RUNTIME:
         raise ValueError("SkillLearn runtime metadata differs from formal settings")
+    qualification_version = str(
+        portable.metadata.get("qualification_version") or "clean-qualification-v1"
+    )
+    if qualification_version not in {
+        "clean-qualification-v1",
+        "clean-qualification-v2",
+    }:
+        raise ValueError(
+            f"unsupported SkillLearn qualification version: {qualification_version}"
+        )
+    identity, attempt = load_runtime_identity(
+        required=qualification_version == "clean-qualification-v2" and not dry_run,
+        benchmark=portable.benchmark,
+        method_seed=method_seed,
+    )
     family = str(portable.metadata.get("task_family") or "").strip()
     if not family:
         raise ValueError("SkillLearn manifest has no task_family")
@@ -121,7 +139,7 @@ def run_manifest(
         methods_root=external_methods,
     )
     parameters = {
-        "qualification_version": "clean-qualification-v1",
+        "qualification_version": qualification_version,
         "family": family,
         "model": "deepseek-v4-flash",
         "thinking": "disabled",
@@ -161,6 +179,7 @@ def run_manifest(
                 "parameters": parameters,
                 "provider_calls": 0,
                 "token_events": 0,
+                "identity": identity.model_dump(mode="json") if identity else None,
             },
         )
         return run_dir
@@ -187,6 +206,8 @@ def run_manifest(
         parameters=parameters,
         output_root=output_root.resolve() / family / str(method_seed),
         policy=CleanQualificationPolicy(),
+        identity=identity,
+        attempt=attempt,
     )
     return Path(result.run_dir)
 

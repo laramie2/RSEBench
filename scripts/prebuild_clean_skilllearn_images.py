@@ -60,15 +60,30 @@ def prebuild_images(
     manifest_root: Path,
     output: Path,
     require_existing: bool = False,
+    record_root: Path | None = None,
 ) -> dict[str, Any]:
     external_methods = methods_root()
+    manifest_paths = _ordered_manifests(manifest_root)
+    versions = {
+        str(
+            CleanEvolutionSplitManifest.model_validate_json(
+                path.read_text(encoding="utf-8")
+            ).metadata.get("qualification_version")
+            or "clean-qualification-v1"
+        )
+        for path in manifest_paths
+    }
+    if len(versions) != 1:
+        raise ValueError("SkillLearn image prebuild cannot mix qualification versions")
+    qualification_version = versions.pop()
+    records = Path(record_root) if record_root is not None else output.parent / "records"
     backend = DockerSkillLearnBackend(
         client=object(),
         require_prebuilt=require_existing,
     )
     payload: dict[str, Any] = {
         "schema_version": "rsebench.skilllearn-image-manifest.v1",
-        "qualification_version": "clean-qualification-v1",
+        "qualification_version": qualification_version,
         "require_existing": require_existing,
         "images": [],
         "task_to_context_hash": {},
@@ -76,7 +91,7 @@ def prebuild_images(
         "all_ready": False,
     }
     images: dict[str, dict[str, Any]] = {}
-    for manifest_path in _ordered_manifests(manifest_root):
+    for manifest_path in manifest_paths:
         portable = CleanEvolutionSplitManifest.model_validate_json(
             manifest_path.read_text(encoding="utf-8")
         )
@@ -91,7 +106,7 @@ def prebuild_images(
             try:
                 record = backend.prepare(
                     task,
-                    output.parent / "records" / task.task_id,
+                    records / task.task_id,
                 )
             except Exception as exc:
                 payload["failures"].append(
@@ -129,11 +144,13 @@ def main() -> None:
     parser.add_argument("--manifest-root", type=Path, default=DEFAULT_MANIFEST_ROOT)
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
     parser.add_argument("--require-existing", action="store_true")
+    parser.add_argument("--record-root", type=Path)
     args = parser.parse_args()
     prebuild_images(
         manifest_root=args.manifest_root,
         output=args.output,
         require_existing=args.require_existing,
+        record_root=args.record_root,
     )
     print(args.output)
 

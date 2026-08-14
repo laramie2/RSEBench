@@ -11,6 +11,11 @@ from rsebench.experiments.scheduler import (
     ScheduledUnit,
     UnitState,
 )
+from rsebench.experiments.bootstrap import BaselineFingerprint
+from rsebench.experiments.contracts import (
+    ExperimentIdentityInput,
+    build_experiment_identity,
+)
 
 
 def _unit(
@@ -195,3 +200,69 @@ def test_scheduler_rejects_changed_resume_metadata(tmp_path: Path) -> None:
         assert "config_hash differs" in str(exc)
     else:
         raise AssertionError("changed scheduler metadata must reject resume")
+
+
+def test_scheduler_materializes_formal_identity_and_attempt_for_launcher(
+    tmp_path: Path,
+) -> None:
+    baseline = BaselineFingerprint(
+        baseline="fixture",
+        repository="https://example.com/fixture.git",
+        upstream_revision="1" * 40,
+        patch_paths=[],
+        patch_hashes=[],
+        patchset_hash="2" * 64,
+        python_version="3.13.5",
+        fingerprint="3" * 64,
+    )
+    identity = build_experiment_identity(
+        ExperimentIdentityInput(
+            repository_commit="4" * 40,
+            baseline=baseline,
+            environment_hash="5" * 64,
+            manifest_hash="6" * 64,
+            dataset_hashes={"split": "7" * 64},
+            seed_skill_hash="8" * 64,
+            model="deepseek-v4-flash",
+            provider="deepseek",
+            runtime={"workers": 1},
+            benchmark="fixture",
+            stage="clean",
+            method_seed=20260813,
+        )
+    )
+    seen = {}
+
+    def fake_runner(command, *, cwd, env, unit):
+        del cwd
+        payload = json.loads(Path(env["RSEBENCH_IDENTITY_PATH"]).read_text())
+        seen.update(payload)
+        assert payload["identity"]["experiment_id"] == unit.experiment_id
+        assert payload["attempt"]["attempt_id"] == env["RSEBENCH_ATTEMPT_ID"]
+        output_root = Path(command[command.index("--output-root") + 1])
+        run_dir = output_root / "run"
+        run_dir.mkdir(parents=True)
+        (run_dir / "result.json").write_text(
+            json.dumps({"identity": {"experiment_id": unit.experiment_id}}),
+            encoding="utf-8",
+        )
+        return SimpleNamespace(returncode=0, stdout=f"{run_dir}\n", stderr="")
+
+    unit = ScheduledUnit(
+        key="fixture:20260813",
+        experiment_id=identity.experiment_id,
+        identity=identity,
+        command=["fake", "--output-root", "unused"],
+        output_dir="unused",
+        adapter_key="fixture",
+    )
+    scheduler = ExperimentScheduler(
+        run_root=tmp_path,
+        project_root=tmp_path,
+        max_parallel=1,
+        command_runner=fake_runner,
+    )
+
+    scheduler.run([unit])
+
+    assert seen["attempt"]["attempt_number"] == 1

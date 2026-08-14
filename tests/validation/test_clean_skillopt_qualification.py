@@ -142,6 +142,7 @@ def test_officeqa_v2_materialization_is_portable_and_byte_stable(
 
     assert first == second
     assert {name: path.read_bytes() for name, path in second.items()} == first_bytes
+    assert set(first) == {"spreadsheetbench_verified", "officeqa_full"}
     raw = first["officeqa_full"].read_text(encoding="utf-8")
     assert "/home/" not in raw
     payload = json.loads(raw)
@@ -153,6 +154,17 @@ def test_officeqa_v2_materialization_is_portable_and_byte_stable(
     assert "UID0240" not in task_ids
     index = json.loads((tmp_path / "skillopt_manifest.json").read_text())
     assert index["config_version"] == "clean-qualification-v2"
+    assert set(index["outputs"]) == {
+        "spreadsheetbench_verified",
+        "officeqa_full",
+    }
+    spreadsheet = json.loads(first["spreadsheetbench_verified"].read_text())
+    assert spreadsheet["metadata"]["qualification_version"] == (
+        "clean-qualification-v2"
+    )
+    assert spreadsheet["metadata"]["qualification_amendment"][
+        "sampling_changed"
+    ] is False
     assert index["outputs"]["officeqa_full"]["sizes"] == {
         "train": 12,
         "validation": 12,

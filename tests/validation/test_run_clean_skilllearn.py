@@ -50,6 +50,7 @@ def _manifest(
     sizes: tuple[int, int, int] = (2, 1, 2),
     feedback_mode: str = "self",
     runtime: dict | None = None,
+    qualification_version: str = "clean-qualification-v1",
 ) -> Path:
     family = "family"
     tasks = [
@@ -66,6 +67,7 @@ def _manifest(
         validation=tasks[train_size : train_size + validation_size],
         clean_test=tasks[train_size + validation_size :],
         metadata={
+            "qualification_version": qualification_version,
             "task_family": family,
             "feedback_mode": feedback_mode,
             "runtime": runtime or RUNTIME,
@@ -131,6 +133,13 @@ def test_clean_skilllearn_launcher_is_self_feedback_floor_tolerant(
     monkeypatch.setattr(run_clean_skilllearn, "SkillLearnExecutor", FakeExecutor)
     monkeypatch.setattr(run_clean_skilllearn, "CleanEvolutionRunner", FakeRunner)
     monkeypatch.setattr(run_clean_skilllearn, "methods_root", lambda: methods)
+    identity = object()
+    attempt = object()
+    monkeypatch.setattr(
+        run_clean_skilllearn,
+        "load_runtime_identity",
+        lambda **kwargs: (identity, attempt),
+    )
 
     run_dir = run_clean_skilllearn.run_manifest(
         _manifest(tmp_path),
@@ -148,6 +157,11 @@ def test_clean_skilllearn_launcher_is_self_feedback_floor_tolerant(
     assert captured["run"]["policy"] == CleanQualificationPolicy()
     assert "seed_score_interval" not in captured["run"]
     assert captured["run"]["parameters"]["family"] == "family"
+    assert captured["run"]["parameters"]["qualification_version"] == (
+        "clean-qualification-v1"
+    )
+    assert captured["run"]["identity"] is identity
+    assert captured["run"]["attempt"] is attempt
 
 
 @pytest.mark.parametrize(

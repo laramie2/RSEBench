@@ -1,0 +1,360 @@
+{
+  "all_ready": true,
+  "failures": [],
+  "images": [
+    {
+      "context_hash": "024666c008f83feaf01d24a96404122f1ad0149826282fa17fd48d5424d60d0b",
+      "image_id": "sha256:25648bd89694425d045907abe1640d3738ae0d1f198a0d5d0b11da6d95b27634",
+      "image_tag": "rsebench-skilllearn:024666c008f83fea",
+      "task_id": "enterprise-information-search-5",
+      "task_ids": [
+        "enterprise-information-search-5"
+      ],
+      "workdir": "/root"
+    },
+    {
+      "context_hash": "02c9dad0d781d429bc5f52119ba5c0e1ff90a3382bfff084189240e51aa8a6f4",
+      "image_id": "sha256:ca2a9ed1c9b8c4a6f9efa1c8034dfb5b2d7877a958f8fd87318cecbdf3e2b56f",
+      "image_tag": "rsebench-skilllearn:02c9dad0d781d429",
+      "task_id": "schedule-planning-1",
+      "task_ids": [
+        "schedule-planning-1"
+      ],
+      "workdir": "/root"
+    },
+    {
+      "context_hash": "034ac551024a06b6494e8724061db0754499199390672f31b1fd7007b249663d",
+      "image_id": "sha256:719035f8f40a9e869552714c0ecad69742e61ac345b8a91ad23fa9c887a16d0b",
+      "image_tag": "rsebench-skilllearn:034ac551024a06b6",
+      "task_id": "enterprise-information-search-2",
+      "task_ids": [
+        "enterprise-information-search-2"
+      ],
+      "workdir": "/root"
+    },
+    {
+      "context_hash": "0ad214d952f89f65cd934095ae51b0accf522bc843913e60be6d513d15b725a4",
+      "image_id": "sha256:0ab5e8e68b285b7588234533f0b9739215658567f0c6a152bfc190fcefb69e2e",
+      "image_tag": "rsebench-skilllearn:0ad214d952f89f65",
+      "task_id": "organize-messy-files-2",
+      "task_ids": [
+        "organize-messy-files-2"
+      ],
+      "workdir": "/root"
+    },
+    {
+      "context_hash": "1021fb2e11cdf6a14609548f92a84b4ea6bbba5c1d2bef3ba29afa9109572d1a",
+      "image_id": "sha256:ac6f5324da903d8ca7bc0cabc01046dc8cb61906cf3cb55e3e2a1cafab2a2fcb",
+      "image_tag": "rsebench-skilllearn:1021fb2e11cdf6a1",
+      "task_id": "organize-messy-files-3",
+      "task_ids": [
+        "organize-messy-files-3"
+      ],
+      "workdir": "/root"
+    },
+    {
+      "context_hash": "1c89fc9c52d2ce149e2ae347e322887fb0e62189e7e799f77f1e44f57ddedf33",
+      "image_id": "sha256:b481673054e154722479a8a41f33e22e58deef49d4e1322c149871f1fbdbb4db",
+      "image_tag": "rsebench-skilllearn:1c89fc9c52d2ce14",
+      "task_id": "offer-letter-generator-6",
+      "task_ids": [
+        "offer-letter-generator-6"
+      ],
+      "workdir": "/root"
+    },
+    {
+      "context_hash": "20d480c2bf7317ec7b22a733a8be5123ccba00168705e466435fbabd8ae272df",
+      "image_id": "sha256:79a8b3f1b371bff3848e6be35e7d3e48db4aeed10677f7c86e965523ddaa472e",
+      "image_tag": "rsebench-skilllearn:20d480c2bf7317ec",
+      "task_id": "schedule-planning-2",
+      "task_ids": [
+        "schedule-planning-2"
+      ],
+      "workdir": "/root"
+    },
+    {
+      "context_hash": "25aad6c5dcb26c48198481696fd6d891d8256883cf0a160bb14de24842cc3acc",
+      "image_id": "sha256:cef71ac669a960623db46d94c3bcfc53d184729d103ac189aa930af14abfcdfd",
+      "image_tag": "rsebench-skilllearn:25aad6c5dcb26c48",
+      "task_id": "stock-data-visualization-4",
+      "task_ids": [
+        "stock-data-visualization-4"
+      ],
+      "workdir": "/root"
+    },
+    {
+      "context_hash": "321dbc3e344076ca79972a67734fbc55438512528ad735b133edf9a2b8c3bb5e",
+      "image_id": "sha256:321acc26be05d976e4d522f704f15322e5d1ba5ffcf23c8e4e038c8e0a3c2254",
+      "image_tag": "rsebench-skilllearn:321dbc3e344076ca",
+      "task_id": "enterprise-information-search-6",
+      "task_ids": [
+        "enterprise-information-search-6"
+      ],
+      "workdir": "/root"
+    },
+    {
+      "context_hash": "40aaa09048148b6781e5ad0611aedf082d7ea466b2e7e90b488d9b5f191cd962",
+      "image_id": "sha256:ce70554403f3e5a3f1721ff349167acf68267949f8a59182127167dc98be131f",
+      "image_tag": "rsebench-skilllearn:40aaa09048148b67",
+      "task_id": "schedule-planning-3",
+      "task_ids": [
+        "schedule-planning-3"
+      ],
+      "workdir": "/root"
+    },
+    {
+      "context_hash": "40af44af0034727092ad945f6e57b6b82e137f2d63317bf0c2657c2552f31995",
+      "image_id": "sha256:f2e5cb0ad24b703dc23cb280bb55e62829f26a621a62bbe2f97143504c51060b",
+      "image_tag": "rsebench-skilllearn:40af44af00347270",
+      "task_id": "github-repo-analytics-1",
+      "task_ids": [
+        "github-repo-analytics-1",
+        "github-repo-analytics-2",
+        "github-repo-analytics-3",
+        "github-repo-analytics-4",
+        "github-repo-analytics-5"
+      ],
+      "workdir": "/app"
+    },
+    {
+      "context_hash": "4a0ac95b98e5b547f1ad64e2b55576e7b8c2a66bbb235aed53e74481dd58dff8",
+      "image_id": "sha256:c62b02829e20e0d85ff656ed43dd3e2d1c5a811eb367371c8e81996cd68c531f",
+      "image_tag": "rsebench-skilllearn:4a0ac95b98e5b547",
+      "task_id": "offer-letter-generator-1",
+      "task_ids": [
+        "offer-letter-generator-1"
+      ],
+      "workdir": "/root"
+    },
+    {
+      "context_hash": "4fe188bea696067b8dc5f5134d21cd29a5c98006fefba9bee1d0dc8bf767ca28",
+      "image_id": "sha256:60b855e167958c133d698e632c000005f7126af0b23616c2dd8fb1969d531806",
+      "image_tag": "rsebench-skilllearn:4fe188bea696067b",
+      "task_id": "stock-data-visualization-1",
+      "task_ids": [
+        "stock-data-visualization-1",
+        "stock-data-visualization-5"
+      ],
+      "workdir": "/root"
+    },
+    {
+      "context_hash": "69f4ba3d970fd5903f775f3b639d21d39fe5db9080c0b12f00d42d311ecbbb58",
+      "image_id": "sha256:04b7020266ca26bf07bdb446e978081ea353c412b9b1eef852075c2c7a620c8a",
+      "image_tag": "rsebench-skilllearn:69f4ba3d970fd590",
+      "task_id": "financial-analysis-1",
+      "task_ids": [
+        "financial-analysis-1",
+        "financial-analysis-2",
+        "financial-analysis-3",
+        "financial-analysis-4",
+        "financial-analysis-5",
+        "financial-analysis-6"
+      ],
+      "workdir": "/root"
+    },
+    {
+      "context_hash": "85b3ef02d4e7a9120721fe09fac6deff6b794148d50c6b2476e91957b6062b7c",
+      "image_id": "sha256:118afe9e109b0c191ead4772838ec55239b3d5a85b481cc3d4e92eaf97d12ca1",
+      "image_tag": "rsebench-skilllearn:85b3ef02d4e7a912",
+      "task_id": "offer-letter-generator-4",
+      "task_ids": [
+        "offer-letter-generator-4"
+      ],
+      "workdir": "/root"
+    },
+    {
+      "context_hash": "8878175aa94f8c29aab082918a23bbbcbfc49b223dc8720606aa514a3b96bea8",
+      "image_id": "sha256:df546ed9a6f2c3d14853e5a895b594d68e383cd2c2aa5af505f9507642e83e5d",
+      "image_tag": "rsebench-skilllearn:8878175aa94f8c29",
+      "task_id": "enterprise-information-search-3",
+      "task_ids": [
+        "enterprise-information-search-3"
+      ],
+      "workdir": "/root"
+    },
+    {
+      "context_hash": "8a00728afe8d22a50387c431d20e06ea5fb4971faa9471e29abe9447b8a4c6a8",
+      "image_id": "sha256:98e303d21f927706edaf8d598dbb71ddb4f7133aaeb0ad9c4b841d8ecce12035",
+      "image_tag": "rsebench-skilllearn:8a00728afe8d22a5",
+      "task_id": "offer-letter-generator-5",
+      "task_ids": [
+        "offer-letter-generator-5"
+      ],
+      "workdir": "/root"
+    },
+    {
+      "context_hash": "8a2b3fc0fe588c2fc8afee768219b76b80aef5cb1660244cc420bc5c018d8838",
+      "image_id": "sha256:f258711be933075208b52b9faa3e9cbbb5eb36e4458bbb0b9b90042f2e7e1bd0",
+      "image_tag": "rsebench-skilllearn:8a2b3fc0fe588c2f",
+      "task_id": "organize-messy-files-4",
+      "task_ids": [
+        "organize-messy-files-4"
+      ],
+      "workdir": "/root"
+    },
+    {
+      "context_hash": "917ec1879c2039f97fb5995c87b0344634d3da2a8c626b0b21af5a3dfa0c2006",
+      "image_id": "sha256:abb66ec14c8e23354efc51afe5757f6a65deb87021350a3ce5dd89a10e3177be",
+      "image_tag": "rsebench-skilllearn:917ec1879c2039f9",
+      "task_id": "schedule-planning-5",
+      "task_ids": [
+        "schedule-planning-5"
+      ],
+      "workdir": "/root"
+    },
+    {
+      "context_hash": "9c0f241b2ca2985ee051b4ded87a9263e45ec68604f4d322ed920c83e8ede6bd",
+      "image_id": "sha256:be67226e5318a9bee71705295867093791cf54260b6dab6ecb5f14ad480d92a2",
+      "image_tag": "rsebench-skilllearn:9c0f241b2ca2985e",
+      "task_id": "enterprise-information-search-4",
+      "task_ids": [
+        "enterprise-information-search-4"
+      ],
+      "workdir": "/root"
+    },
+    {
+      "context_hash": "a5fdba23a5e617927ae6887ab5984b36f516dd535394e525fbcfd1012c7ae5b7",
+      "image_id": "sha256:0adb6d0dad889f62e2cd68f304be9387487de533b627cebb77ba7dd94d359f6c",
+      "image_tag": "rsebench-skilllearn:a5fdba23a5e61792",
+      "task_id": "stock-data-visualization-3",
+      "task_ids": [
+        "stock-data-visualization-3"
+      ],
+      "workdir": "/root"
+    },
+    {
+      "context_hash": "b69a8918109ff1062c578634fa329523dbd75e2aba49855540b5f7fe693ae60e",
+      "image_id": "sha256:19bba430dbf25ff262c857fd84cf62e59e0e84bfaad259a83d7cde0e9007395f",
+      "image_tag": "rsebench-skilllearn:b69a8918109ff106",
+      "task_id": "offer-letter-generator-2",
+      "task_ids": [
+        "offer-letter-generator-2"
+      ],
+      "workdir": "/root"
+    },
+    {
+      "context_hash": "bd8d9b68a2827c8785d9ba917c0c862456c0011790593f7509c46143386e7d47",
+      "image_id": "sha256:7268dbe301f67a311e5502ce081a2d5c3cc90e238428997b4505241fbe373df7",
+      "image_tag": "rsebench-skilllearn:bd8d9b68a2827c87",
+      "task_id": "schedule-planning-4",
+      "task_ids": [
+        "schedule-planning-4"
+      ],
+      "workdir": "/root"
+    },
+    {
+      "context_hash": "c4db618a53746c8e3b8b3d1f2b90e5f0e0412dd7a118647ccd71042b1e07bd6d",
+      "image_id": "sha256:0a386ae8c43850a7a65fa8da87750dcf2733cbf1c8214fa81fcd16bc5892774e",
+      "image_tag": "rsebench-skilllearn:c4db618a53746c8e",
+      "task_id": "organize-messy-files-1",
+      "task_ids": [
+        "organize-messy-files-1",
+        "organize-messy-files-6"
+      ],
+      "workdir": "/root"
+    },
+    {
+      "context_hash": "d06c38b4f1e61c43c35b248d29b9ca1e447e20e57d06685666bc86da93103d2d",
+      "image_id": "sha256:c123a9b946fe4b0ea838cf54d3543f5d5b3ba0bb93ed148743c44e0c80b3db8c",
+      "image_tag": "rsebench-skilllearn:d06c38b4f1e61c43",
+      "task_id": "dependency-vulnerability-check-1",
+      "task_ids": [
+        "dependency-vulnerability-check-1",
+        "dependency-vulnerability-check-2",
+        "dependency-vulnerability-check-3",
+        "dependency-vulnerability-check-4",
+        "dependency-vulnerability-check-5"
+      ],
+      "workdir": "/root"
+    },
+    {
+      "context_hash": "d2da55e8e6c6171b00b17b765124b800090949f267cbb5265fc2c814a2199ae1",
+      "image_id": "sha256:99f4e5158e5d0bcc372771093142b4ca4e45668cf769c9bf90c8acc623e9443f",
+      "image_tag": "rsebench-skilllearn:d2da55e8e6c6171b",
+      "task_id": "enterprise-information-search-1",
+      "task_ids": [
+        "enterprise-information-search-1"
+      ],
+      "workdir": "/root"
+    },
+    {
+      "context_hash": "dbea365fc67b70e467be5329869985857e2215b82f788fb3a7fe3e503399be6a",
+      "image_id": "sha256:27d29bb97eb28b9362c22a1f31f0e3a2b5b72bd2afbb69b8f7f65b0f0ed083ba",
+      "image_tag": "rsebench-skilllearn:dbea365fc67b70e4",
+      "task_id": "organize-messy-files-5",
+      "task_ids": [
+        "organize-messy-files-5"
+      ],
+      "workdir": "/root"
+    },
+    {
+      "context_hash": "dfce3048aaf6cfc7e443e5aaf71e4a42833741b974b5f5c87642bd6c6c5daf30",
+      "image_id": "sha256:1dc4ebd189b7c07a84bf43eca876a888c5dbb6f995671bb1095299ccf58e434c",
+      "image_tag": "rsebench-skilllearn:dfce3048aaf6cfc7",
+      "task_id": "offer-letter-generator-3",
+      "task_ids": [
+        "offer-letter-generator-3"
+      ],
+      "workdir": "/root"
+    },
+    {
+      "context_hash": "f1bc55ad5fd90d328536e931ae1366e27587e30d47b67b612f9580e5198b736f",
+      "image_id": "sha256:55e203d97811cc14a0ee6b6a0d1ec6b7d09b5a872f05bc6e625b8379f0826575",
+      "image_tag": "rsebench-skilllearn:f1bc55ad5fd90d32",
+      "task_id": "stock-data-visualization-2",
+      "task_ids": [
+        "stock-data-visualization-2"
+      ],
+      "workdir": "/root"
+    }
+  ],
+  "qualification_version": "clean-qualification-v2",
+  "require_existing": true,
+  "schema_version": "rsebench.skilllearn-image-manifest.v1",
+  "task_to_context_hash": {
+    "dependency-vulnerability-check-1": "d06c38b4f1e61c43c35b248d29b9ca1e447e20e57d06685666bc86da93103d2d",
+    "dependency-vulnerability-check-2": "d06c38b4f1e61c43c35b248d29b9ca1e447e20e57d06685666bc86da93103d2d",
+    "dependency-vulnerability-check-3": "d06c38b4f1e61c43c35b248d29b9ca1e447e20e57d06685666bc86da93103d2d",
+    "dependency-vulnerability-check-4": "d06c38b4f1e61c43c35b248d29b9ca1e447e20e57d06685666bc86da93103d2d",
+    "dependency-vulnerability-check-5": "d06c38b4f1e61c43c35b248d29b9ca1e447e20e57d06685666bc86da93103d2d",
+    "enterprise-information-search-1": "d2da55e8e6c6171b00b17b765124b800090949f267cbb5265fc2c814a2199ae1",
+    "enterprise-information-search-2": "034ac551024a06b6494e8724061db0754499199390672f31b1fd7007b249663d",
+    "enterprise-information-search-3": "8878175aa94f8c29aab082918a23bbbcbfc49b223dc8720606aa514a3b96bea8",
+    "enterprise-information-search-4": "9c0f241b2ca2985ee051b4ded87a9263e45ec68604f4d322ed920c83e8ede6bd",
+    "enterprise-information-search-5": "024666c008f83feaf01d24a96404122f1ad0149826282fa17fd48d5424d60d0b",
+    "enterprise-information-search-6": "321dbc3e344076ca79972a67734fbc55438512528ad735b133edf9a2b8c3bb5e",
+    "financial-analysis-1": "69f4ba3d970fd5903f775f3b639d21d39fe5db9080c0b12f00d42d311ecbbb58",
+    "financial-analysis-2": "69f4ba3d970fd5903f775f3b639d21d39fe5db9080c0b12f00d42d311ecbbb58",
+    "financial-analysis-3": "69f4ba3d970fd5903f775f3b639d21d39fe5db9080c0b12f00d42d311ecbbb58",
+    "financial-analysis-4": "69f4ba3d970fd5903f775f3b639d21d39fe5db9080c0b12f00d42d311ecbbb58",
+    "financial-analysis-5": "69f4ba3d970fd5903f775f3b639d21d39fe5db9080c0b12f00d42d311ecbbb58",
+    "financial-analysis-6": "69f4ba3d970fd5903f775f3b639d21d39fe5db9080c0b12f00d42d311ecbbb58",
+    "github-repo-analytics-1": "40af44af0034727092ad945f6e57b6b82e137f2d63317bf0c2657c2552f31995",
+    "github-repo-analytics-2": "40af44af0034727092ad945f6e57b6b82e137f2d63317bf0c2657c2552f31995",
+    "github-repo-analytics-3": "40af44af0034727092ad945f6e57b6b82e137f2d63317bf0c2657c2552f31995",
+    "github-repo-analytics-4": "40af44af0034727092ad945f6e57b6b82e137f2d63317bf0c2657c2552f31995",
+    "github-repo-analytics-5": "40af44af0034727092ad945f6e57b6b82e137f2d63317bf0c2657c2552f31995",
+    "offer-letter-generator-1": "4a0ac95b98e5b547f1ad64e2b55576e7b8c2a66bbb235aed53e74481dd58dff8",
+    "offer-letter-generator-2": "b69a8918109ff1062c578634fa329523dbd75e2aba49855540b5f7fe693ae60e",
+    "offer-letter-generator-3": "dfce3048aaf6cfc7e443e5aaf71e4a42833741b974b5f5c87642bd6c6c5daf30",
+    "offer-letter-generator-4": "85b3ef02d4e7a9120721fe09fac6deff6b794148d50c6b2476e91957b6062b7c",
+    "offer-letter-generator-5": "8a00728afe8d22a50387c431d20e06ea5fb4971faa9471e29abe9447b8a4c6a8",
+    "offer-letter-generator-6": "1c89fc9c52d2ce149e2ae347e322887fb0e62189e7e799f77f1e44f57ddedf33",
+    "organize-messy-files-1": "c4db618a53746c8e3b8b3d1f2b90e5f0e0412dd7a118647ccd71042b1e07bd6d",
+    "organize-messy-files-2": "0ad214d952f89f65cd934095ae51b0accf522bc843913e60be6d513d15b725a4",
+    "organize-messy-files-3": "1021fb2e11cdf6a14609548f92a84b4ea6bbba5c1d2bef3ba29afa9109572d1a",
+    "organize-messy-files-4": "8a2b3fc0fe588c2fc8afee768219b76b80aef5cb1660244cc420bc5c018d8838",
+    "organize-messy-files-5": "dbea365fc67b70e467be5329869985857e2215b82f788fb3a7fe3e503399be6a",
+    "organize-messy-files-6": "c4db618a53746c8e3b8b3d1f2b90e5f0e0412dd7a118647ccd71042b1e07bd6d",
+    "schedule-planning-1": "02c9dad0d781d429bc5f52119ba5c0e1ff90a3382bfff084189240e51aa8a6f4",
+    "schedule-planning-2": "20d480c2bf7317ec7b22a733a8be5123ccba00168705e466435fbabd8ae272df",
+    "schedule-planning-3": "40aaa09048148b6781e5ad0611aedf082d7ea466b2e7e90b488d9b5f191cd962",
+    "schedule-planning-4": "bd8d9b68a2827c8785d9ba917c0c862456c0011790593f7509c46143386e7d47",
+    "schedule-planning-5": "917ec1879c2039f97fb5995c87b0344634d3da2a8c626b0b21af5a3dfa0c2006",
+    "stock-data-visualization-1": "4fe188bea696067b8dc5f5134d21cd29a5c98006fefba9bee1d0dc8bf767ca28",
+    "stock-data-visualization-2": "f1bc55ad5fd90d328536e931ae1366e27587e30d47b67b612f9580e5198b736f",
+    "stock-data-visualization-3": "a5fdba23a5e617927ae6887ab5984b36f516dd535394e525fbcfd1012c7ae5b7",
+    "stock-data-visualization-4": "25aad6c5dcb26c48198481696fd6d891d8256883cf0a160bb14de24842cc3acc",
+    "stock-data-visualization-5": "4fe188bea696067b8dc5f5134d21cd29a5c98006fefba9bee1d0dc8bf767ca28"
+  }
+}

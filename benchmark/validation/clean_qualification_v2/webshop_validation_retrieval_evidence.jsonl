@@ -1,0 +1,10 @@
+{"episode_id":"goal_735","event":"retrieval","lexical_matching":true,"ranked_candidates":[{"score":0.15384615384615385,"skill_id":"webshop_constraint_check"}],"retrieved_skill_ids":["webshop_constraint_check"],"threshold":0.1}
+{"episode_id":"goal_735","event":"prompt_injection","injected_skill_ids":["webshop_constraint_check"]}
+{"episode_id":"goal_994","event":"retrieval","lexical_matching":true,"ranked_candidates":[{"score":0.13157894736842105,"skill_id":"webshop_constraint_check"}],"retrieved_skill_ids":["webshop_constraint_check"],"threshold":0.1}
+{"episode_id":"goal_994","event":"prompt_injection","injected_skill_ids":["webshop_constraint_check"]}
+{"episode_id":"goal_1036","event":"retrieval","lexical_matching":true,"ranked_candidates":[{"score":0.1518987341772152,"skill_id":"webshop_constraint_check"}],"retrieved_skill_ids":["webshop_constraint_check"],"threshold":0.1}
+{"episode_id":"goal_1036","event":"prompt_injection","injected_skill_ids":["webshop_constraint_check"]}
+{"episode_id":"goal_1195","event":"retrieval","lexical_matching":true,"ranked_candidates":[{"score":0.16,"skill_id":"webshop_constraint_check"}],"retrieved_skill_ids":["webshop_constraint_check"],"threshold":0.1}
+{"episode_id":"goal_1195","event":"prompt_injection","injected_skill_ids":["webshop_constraint_check"]}
+{"episode_id":"goal_1362","event":"retrieval","lexical_matching":true,"ranked_candidates":[{"score":0.17721518987341772,"skill_id":"webshop_constraint_check"}],"retrieved_skill_ids":["webshop_constraint_check"],"threshold":0.1}
+{"episode_id":"goal_1362","event":"prompt_injection","injected_skill_ids":["webshop_constraint_check"]}

@@ -14,6 +14,15 @@
         "validation": 12
       },
       "source_hash": "b942f7f8f947daff9d48dfc3bf8206cfb2010afdd3c0a74af2346e123d69cd16"
+    },
+    "spreadsheetbench_verified": {
+      "path": "spreadsheetbench_verified.json",
+      "sizes": {
+        "clean_test": 30,
+        "train": 20,
+        "validation": 10
+      },
+      "source_hash": "4e6d076bbcfa1e2793233361b1782f88a1e955104480117502af88ffa31b1174"
     }
   },
   "schema_version": "rsebench.clean-skillopt-manifest.v1"

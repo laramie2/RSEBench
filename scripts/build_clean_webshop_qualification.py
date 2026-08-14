@@ -19,6 +19,7 @@ from rsebench.evolution.clean_contracts import (  # noqa: E402
     CleanEvolutionSplitManifest,
 )
 from rsebench.experiments.bootstrap import patch_hashes_for_series  # noqa: E402
+from rsebench.hashing import sha256_file  # noqa: E402
 from scripts.build_core1_splits import _webshop_task  # noqa: E402
 
 
@@ -28,6 +29,9 @@ DEFAULT_SELECTION = OUTPUT_ROOT / "webshop_validation_selection.json"
 DEFAULT_OUTPUT = OUTPUT_ROOT / "webshop.json"
 V2_OUTPUT_ROOT = PROJECT_ROOT / "benchmark/validation/clean_qualification_v2"
 V2_OUTPUT = V2_OUTPUT_ROOT / "webshop.json"
+V2_CALIBRATION_EVIDENCE = (
+    V2_OUTPUT_ROOT / "webshop_validation_retrieval_evidence.jsonl"
+)
 PATCH_SERIES = (
     PROJECT_ROOT / "patches/baselines/skilladaptor/series.yaml"
 )
@@ -125,6 +129,11 @@ def build_clean_webshop_split_v2(
                 "rsebench-project://benchmark/validation/clean_qualification_v1/"
                 "webshop_validation_selection.json"
             ),
+            "calibration_evidence_path": (
+                "rsebench-project://benchmark/validation/clean_qualification_v2/"
+                "webshop_validation_retrieval_evidence.jsonl"
+            ),
+            "calibration_evidence_hash": sha256_file(V2_CALIBRATION_EVIDENCE),
             "runtime_baseline": {
                 "name": "skilladaptor",
                 "revision": calibration_baseline["revision"],

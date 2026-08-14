@@ -123,3 +123,8 @@ def test_webshop_v2_preserves_split_and_pins_runtime_repairs() -> None:
     assert v2.metadata["calibration_selection_path"].startswith(
         "rsebench-project://"
     )
+    assert v2.metadata["calibration_evidence_path"] == (
+        "rsebench-project://benchmark/validation/clean_qualification_v2/"
+        "webshop_validation_retrieval_evidence.jsonl"
+    )
+    assert len(v2.metadata["calibration_evidence_hash"]) == 64

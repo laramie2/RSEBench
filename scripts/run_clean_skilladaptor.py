@@ -11,8 +11,10 @@ from typing import Any
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT))
+PROJECT_SRC = PROJECT_ROOT / "src"
+for source in reversed((PROJECT_SRC, PROJECT_ROOT)):
+    if str(source) not in sys.path:
+        sys.path.insert(0, str(source))
 
 from rsebench.evolution.clean_bridge import build_clean_runtime_split  # noqa: E402
 from rsebench.evolution.clean_contracts import (  # noqa: E402
@@ -27,6 +29,7 @@ from rsebench.evolution.skilladaptor_executor import (  # noqa: E402
 )
 from rsebench.experiments.bootstrap import patch_hashes_for_series  # noqa: E402
 from rsebench.hashing import sha256_file  # noqa: E402
+from rsebench.experiments.runtime import load_runtime_identity  # noqa: E402
 from scripts.baselines.common_env import combined_method_env, methods_root  # noqa: E402
 
 
@@ -79,6 +82,17 @@ def _calibration_selection_path(
     return path if path.is_absolute() else PROJECT_ROOT / path
 
 
+def _calibration_evidence_path(split: CleanEvolutionSplitManifest) -> Path | None:
+    locator = str(split.metadata.get("calibration_evidence_path") or "").strip()
+    if not locator:
+        return None
+    prefix = "rsebench-project://"
+    if locator.startswith(prefix):
+        return PROJECT_ROOT / locator.removeprefix(prefix)
+    path = Path(locator)
+    return path if path.is_absolute() else PROJECT_ROOT / path
+
+
 def _calibration_evidence(
     manifest: Path,
     split: CleanEvolutionSplitManifest,
@@ -98,19 +112,37 @@ def _calibration_evidence(
     if selection.get("execution_failures"):
         raise RuntimeError("WebShop validation calibration has execution failures")
 
+    evidence_path = _calibration_evidence_path(split)
     events: list[dict[str, Any]] = []
-    for artifact in selection.get("evaluation_artifacts") or []:
-        result_path = PROJECT_ROOT / str(artifact)
-        audit_path = result_path.parent / "retrieval_audit/calibration_test.jsonl"
-        if not audit_path.is_file():
+    if evidence_path is not None:
+        if not evidence_path.is_file():
             raise FileNotFoundError(
-                f"WebShop calibration retrieval audit is missing: {audit_path}"
+                f"versioned WebShop calibration evidence is missing: {evidence_path}"
             )
-        events.extend(
+        expected_hash = str(split.metadata.get("calibration_evidence_hash") or "")
+        actual_hash = sha256_file(evidence_path)
+        if expected_hash != actual_hash:
+            raise ValueError("WebShop calibration evidence hash differs from manifest")
+        events = [
             json.loads(line)
-            for line in audit_path.read_text(encoding="utf-8").splitlines()
+            for line in evidence_path.read_text(encoding="utf-8").splitlines()
             if line.strip()
-        )
+        ]
+    else:
+        for artifact in selection.get("evaluation_artifacts") or []:
+            result_path = PROJECT_ROOT / str(artifact)
+            audit_path = result_path.parent / "retrieval_audit/calibration_test.jsonl"
+            if not audit_path.is_file():
+                raise FileNotFoundError(
+                    f"WebShop calibration retrieval audit is missing: {audit_path}"
+                )
+            events.extend(
+                json.loads(line)
+                for line in audit_path.read_text(encoding="utf-8").splitlines()
+                if line.strip()
+            )
+    if len(events) != 2 * len(expected_ids):
+        raise RuntimeError("WebShop calibration evidence must contain two events per task")
     per_episode: dict[str, set[str]] = {}
     retrieved: dict[str, list[str]] = {}
     injected: dict[str, list[str]] = {}
@@ -137,6 +169,8 @@ def _calibration_evidence(
         "general_seed_reached_each_prompt": True,
         "uses_evolved_outcomes": selection["uses_evolved_outcomes"],
         "uses_clean_test_outcomes": selection["uses_clean_test_outcomes"],
+        "event_count": len(events),
+        "evidence_hash": sha256_file(evidence_path) if evidence_path else None,
     }
 
 
@@ -172,6 +206,11 @@ def run_manifest(
         raise ValueError(
             f"unsupported WebShop qualification version: {qualification_version}"
         )
+    identity, attempt = load_runtime_identity(
+        required=qualification_version == "clean-qualification-v2" and not dry_run,
+        benchmark=split.benchmark,
+        method_seed=method_seed,
+    )
     seed_skill = seed_skill.resolve()
     if not seed_skill.is_file():
         raise FileNotFoundError(f"SkillAdaptor seed skill is missing: {seed_skill}")
@@ -219,6 +258,7 @@ def run_manifest(
             "provider_calls": 0,
             "token_events": 0,
             "all_ready": True,
+            "identity": identity.model_dump(mode="json") if identity else None,
         }
         _write_json(run_dir / "preflight.json", payload, immutable=True)
         return run_dir
@@ -239,6 +279,8 @@ def run_manifest(
         parameters=parameters,
         output_root=output_root.resolve() / str(method_seed),
         policy=CleanQualificationPolicy(),
+        identity=identity,
+        attempt=attempt,
     )
     return Path(result.run_dir)
 

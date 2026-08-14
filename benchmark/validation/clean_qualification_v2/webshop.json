@@ -2,7 +2,7 @@
   "benchmark": "webshop",
   "domain": "interactive",
   "seed": 20260813,
-  "source_hash": "92f6cc416b77a3b9c651cfe1fae10e9e76f458c4550cb49638a0b2a2b8732a37",
+  "source_hash": "0a2bd44ca5f26d5f8cd28c6b0d883c02b0fc01565173f21f907f2b5200d95f55",
   "train": [
     {
       "task_id": "goal_1554",
@@ -491,6 +491,8 @@
       }
     },
     "calibration_selection_path": "rsebench-project://benchmark/validation/clean_qualification_v1/webshop_validation_selection.json",
+    "calibration_evidence_path": "rsebench-project://benchmark/validation/clean_qualification_v2/webshop_validation_retrieval_evidence.jsonl",
+    "calibration_evidence_hash": "dd747e4402c0790818307fb2449811dd511fc8f15da498ead131421078cc96e7",
     "runtime_baseline": {
       "name": "skilladaptor",
       "revision": "b26d1ab5a798f07e53048b5ff509e8535e9fa228",

@@ -99,6 +99,13 @@ def test_clean_skilladaptor_launcher_locks_budget_parameters_and_policy(
     monkeypatch.setattr(run_clean_skilladaptor, "SkillAdaptorExecutor", FakeExecutor)
     monkeypatch.setattr(run_clean_skilladaptor, "CleanEvolutionRunner", FakeRunner)
     monkeypatch.setattr(run_clean_skilladaptor, "methods_root", lambda: methods)
+    identity = object()
+    attempt = object()
+    monkeypatch.setattr(
+        run_clean_skilladaptor,
+        "load_runtime_identity",
+        lambda **kwargs: (identity, attempt),
+    )
     monkeypatch.setattr(
         run_clean_skilladaptor,
         "combined_method_env",
@@ -126,6 +133,8 @@ def test_clean_skilladaptor_launcher_locks_budget_parameters_and_policy(
         captured["run"]["parameters"]["qualification_version"]
         == "clean-qualification-v2"
     )
+    assert captured["run"]["identity"] is identity
+    assert captured["run"]["attempt"] is attempt
 
 
 @pytest.mark.parametrize(
@@ -241,3 +250,69 @@ def test_webshop_v2_resolves_declared_v1_calibration_selection(
         / "benchmark/validation/clean_qualification_v1/"
         "webshop_validation_selection.json"
     )
+
+
+def test_webshop_v2_calibration_uses_only_versioned_retrieval_evidence(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    manifest = _manifest(tmp_path, qualification_version="clean-qualification-v2")
+    split = CleanEvolutionSplitManifest.model_validate_json(
+        manifest.read_text(encoding="utf-8")
+    )
+    selected_ids = [int(task.task_id.removeprefix("goal_")) for task in split.validation]
+    selection = tmp_path / "selection.json"
+    selection.write_text(
+        json.dumps(
+            {
+                "selected_ids": selected_ids,
+                "candidate_ids": selected_ids,
+                "selected_seed_score": 0.4,
+                "execution_failures": {},
+                "uses_evolved_outcomes": False,
+                "uses_clean_test_outcomes": False,
+            }
+        ),
+        encoding="utf-8",
+    )
+    evidence = tmp_path / "evidence.jsonl"
+    evidence.write_text(
+        "\n".join(
+            json.dumps(event)
+            for task in split.validation
+            for event in (
+                {
+                    "episode_id": task.task_id,
+                    "event": "retrieval",
+                    "retrieved_skill_ids": ["seed"],
+                },
+                {
+                    "episode_id": task.task_id,
+                    "event": "prompt_injection",
+                    "injected_skill_ids": ["seed"],
+                },
+            )
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    split = split.model_copy(
+        update={
+            "metadata": {
+                **split.metadata,
+                "calibration_selection_path": str(selection),
+                "calibration_evidence_path": str(evidence),
+                "calibration_evidence_hash": hashlib.sha256(
+                    evidence.read_bytes()
+                ).hexdigest(),
+            }
+        }
+    )
+    manifest.write_text(split.model_dump_json(indent=2), encoding="utf-8")
+    monkeypatch.setattr(run_clean_skilladaptor, "PROJECT_ROOT", tmp_path)
+
+    audit = run_clean_skilladaptor._calibration_evidence(manifest, split)
+
+    assert audit["event_count"] == 10
+    assert audit["selected_retrieval_audited"] is True
+    assert audit["general_seed_reached_each_prompt"] is True

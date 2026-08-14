@@ -280,6 +280,36 @@ def build_officeqa_clean_split_v2() -> CleanEvolutionSplitManifest:
     )
 
 
+def build_spreadsheet_clean_split_v2() -> CleanEvolutionSplitManifest:
+    """Version the already-valid Spreadsheet split without changing sampling."""
+
+    v1 = build_spreadsheet_clean_split()
+    metadata = json.loads(json.dumps(v1.metadata))
+    metadata.update(
+        {
+            "config_version": "clean-qualification-v2",
+            "qualification_version": "clean-qualification-v2",
+            "qualification_amendment": {
+                "supersedes": "clean-qualification-v1",
+                "sampling_changed": False,
+                "reason": "control_plane_identity_timing_and_isolation",
+            },
+        }
+    )
+    payload = {
+        "benchmark": v1.benchmark,
+        "domain": v1.domain,
+        "seed": v1.seed,
+        "train": [task.model_dump(mode="json") for task in v1.train],
+        "validation": [task.model_dump(mode="json") for task in v1.validation],
+        "clean_test": [task.model_dump(mode="json") for task in v1.clean_test],
+        "metadata": metadata,
+    }
+    return v1.model_copy(
+        update={"source_hash": canonical_hash(payload), "metadata": metadata}
+    )
+
+
 def _serialize(payload: Any) -> bytes:
     if hasattr(payload, "model_dump"):
         payload = payload.model_dump(mode="json")
@@ -343,33 +373,46 @@ def build_clean_skillopt_qualification(
 def build_clean_skillopt_qualification_v2(
     *, output_root: Path = OUTPUT_ROOT_V2
 ) -> dict[str, Path]:
-    """Materialize the OfficeQA-only qualification amendment."""
+    """Materialize both canonical SkillOpt clean-v2 cells."""
 
-    portable = make_clean_split_paths_portable(
-        build_officeqa_clean_split_v2(),
-        project_root=PROJECT_ROOT,
-        data_root=DATA_ROOT,
-        methods_root=METHODS_ROOT,
-    )
-    path = _write_immutable(output_root / "officeqa_full.json", portable)
+    local_splits = {
+        "spreadsheetbench_verified": build_spreadsheet_clean_split_v2(),
+        "officeqa_full": build_officeqa_clean_split_v2(),
+    }
+    portable_splits = {
+        benchmark: make_clean_split_paths_portable(
+            split,
+            project_root=PROJECT_ROOT,
+            data_root=DATA_ROOT,
+            methods_root=METHODS_ROOT,
+        )
+        for benchmark, split in local_splits.items()
+    }
+    outputs = {
+        benchmark: _write_immutable(
+            output_root / f"{benchmark}.json", portable
+        )
+        for benchmark, portable in portable_splits.items()
+    }
     index = {
         "schema_version": "rsebench.clean-skillopt-manifest.v1",
         "config_version": "clean-qualification-v2",
         "method_seeds": list(METHOD_SEEDS),
         "outputs": {
-            "officeqa_full": {
-                "path": path.relative_to(output_root).as_posix(),
+            benchmark: {
+                "path": outputs[benchmark].relative_to(output_root).as_posix(),
                 "sizes": {
-                    "train": len(portable.train),
-                    "validation": len(portable.validation),
-                    "clean_test": len(portable.clean_test),
+                    "train": len(portable_splits[benchmark].train),
+                    "validation": len(portable_splits[benchmark].validation),
+                    "clean_test": len(portable_splits[benchmark].clean_test),
                 },
-                "source_hash": portable.source_hash,
+                "source_hash": portable_splits[benchmark].source_hash,
             }
+            for benchmark in local_splits
         },
     }
     _write_immutable(output_root / "skillopt_manifest.json", index)
-    return {"officeqa_full": path}
+    return outputs
 
 
 def main() -> None:

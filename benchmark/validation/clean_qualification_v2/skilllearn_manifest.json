@@ -1,0 +1,154 @@
+{
+  "families": [
+    "organize-messy-files",
+    "offer-letter-generator",
+    "schedule-planning",
+    "dependency-vulnerability-check",
+    "github-repo-analytics",
+    "financial-analysis",
+    "stock-data-visualization",
+    "enterprise-information-search"
+  ],
+  "method_seeds": [
+    20260813,
+    20260814,
+    20260815
+  ],
+  "outputs": {
+    "dependency-vulnerability-check": {
+      "instance_ids": [
+        "dependency-vulnerability-check-1",
+        "dependency-vulnerability-check-2",
+        "dependency-vulnerability-check-3",
+        "dependency-vulnerability-check-4",
+        "dependency-vulnerability-check-5"
+      ],
+      "path": "skilllearnbench/dependency-vulnerability-check.json",
+      "sizes": {
+        "clean_test": 2,
+        "train": 2,
+        "validation": 1
+      },
+      "source_hash": "202a29e1c697f00aea684744f49aef91abcc27d0e9e0e5613156588544d9829a"
+    },
+    "enterprise-information-search": {
+      "instance_ids": [
+        "enterprise-information-search-1",
+        "enterprise-information-search-2",
+        "enterprise-information-search-3",
+        "enterprise-information-search-4",
+        "enterprise-information-search-5",
+        "enterprise-information-search-6"
+      ],
+      "path": "skilllearnbench/enterprise-information-search.json",
+      "sizes": {
+        "clean_test": 3,
+        "train": 2,
+        "validation": 1
+      },
+      "source_hash": "561b3686181010dbf67054e7208ce5702eebe795c9c3b90809a1890d7f24a45f"
+    },
+    "financial-analysis": {
+      "instance_ids": [
+        "financial-analysis-1",
+        "financial-analysis-2",
+        "financial-analysis-3",
+        "financial-analysis-4",
+        "financial-analysis-5",
+        "financial-analysis-6"
+      ],
+      "path": "skilllearnbench/financial-analysis.json",
+      "sizes": {
+        "clean_test": 3,
+        "train": 2,
+        "validation": 1
+      },
+      "source_hash": "77a89199aeeadae7925d2b4752b185b91924c469a66b3742e0bbc344f68ab07b"
+    },
+    "github-repo-analytics": {
+      "instance_ids": [
+        "github-repo-analytics-1",
+        "github-repo-analytics-2",
+        "github-repo-analytics-3",
+        "github-repo-analytics-4",
+        "github-repo-analytics-5"
+      ],
+      "path": "skilllearnbench/github-repo-analytics.json",
+      "sizes": {
+        "clean_test": 2,
+        "train": 2,
+        "validation": 1
+      },
+      "source_hash": "37bf4488d480f23e77c23c42ff597b1a8ce18ebbd4b2b1389066f296a3e4ee93"
+    },
+    "offer-letter-generator": {
+      "instance_ids": [
+        "offer-letter-generator-1",
+        "offer-letter-generator-2",
+        "offer-letter-generator-3",
+        "offer-letter-generator-4",
+        "offer-letter-generator-5",
+        "offer-letter-generator-6"
+      ],
+      "path": "skilllearnbench/offer-letter-generator.json",
+      "sizes": {
+        "clean_test": 3,
+        "train": 2,
+        "validation": 1
+      },
+      "source_hash": "a91ff881bb7903d3831972bb9a7a745c2afc040721ac515f0a81eecd1ca515d6"
+    },
+    "organize-messy-files": {
+      "instance_ids": [
+        "organize-messy-files-1",
+        "organize-messy-files-2",
+        "organize-messy-files-3",
+        "organize-messy-files-4",
+        "organize-messy-files-5",
+        "organize-messy-files-6"
+      ],
+      "path": "skilllearnbench/organize-messy-files.json",
+      "sizes": {
+        "clean_test": 3,
+        "train": 2,
+        "validation": 1
+      },
+      "source_hash": "0846b08ae5b6d02d1bcf2e6fd0c9ae2b7f014685757f3e82c97bef9780690c7c"
+    },
+    "schedule-planning": {
+      "instance_ids": [
+        "schedule-planning-1",
+        "schedule-planning-2",
+        "schedule-planning-3",
+        "schedule-planning-4",
+        "schedule-planning-5"
+      ],
+      "path": "skilllearnbench/schedule-planning.json",
+      "sizes": {
+        "clean_test": 2,
+        "train": 2,
+        "validation": 1
+      },
+      "source_hash": "f4768bbc5215a5611f07affcd835457119e3c8a047c983b1b38b6efe1f440289"
+    },
+    "stock-data-visualization": {
+      "instance_ids": [
+        "stock-data-visualization-1",
+        "stock-data-visualization-2",
+        "stock-data-visualization-3",
+        "stock-data-visualization-4",
+        "stock-data-visualization-5"
+      ],
+      "path": "skilllearnbench/stock-data-visualization.json",
+      "sizes": {
+        "clean_test": 2,
+        "train": 2,
+        "validation": 1
+      },
+      "source_hash": "18e577a3854e0e95bc15cae433961621e64a09f51ef98a8fe497cc00f9a604f0"
+    }
+  },
+  "qualification_version": "clean-qualification-v2",
+  "schema_version": "rsebench.clean-skilllearn-manifest.v1",
+  "seed_skill_hash": "6ced3f9e76d49834c88d982c743d37d289d2726d95b4e4efaaa17e9c3fa51f9c"
+}

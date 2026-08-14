@@ -6,6 +6,7 @@ from rsebench.evolution.clean_contracts import CleanEvolutionSplitManifest
 from scripts.build_clean_skilllearn_qualification import (
     FAMILIES,
     build_clean_skilllearn_qualification,
+    build_clean_skilllearn_qualification_v2,
 )
 
 
@@ -83,3 +84,23 @@ def test_clean_skilllearn_builder_is_byte_stable(tmp_path: Path) -> None:
     assert index["families"] == list(EXPECTED_FAMILIES)
     assert index["method_seeds"] == [20260813, 20260814, 20260815]
     assert len(index["seed_skill_hash"]) == 64
+
+
+def test_clean_skilllearn_v2_builder_freezes_all_families_without_reselection(
+    tmp_path: Path,
+) -> None:
+    outputs = build_clean_skilllearn_qualification_v2(output_root=tmp_path)
+
+    assert tuple(outputs) == EXPECTED_FAMILIES
+    for family, path in outputs.items():
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        assert payload["metadata"]["qualification_version"] == (
+            "clean-qualification-v2"
+        )
+        amendment = payload["metadata"]["qualification_amendment"]
+        assert amendment["sampling_changed"] is False
+        assert amendment["selection_uses_v1_final_test"] is False
+        assert payload["metadata"]["task_family"] == family
+    index = json.loads((tmp_path / "skilllearn_manifest.json").read_text())
+    assert index["qualification_version"] == "clean-qualification-v2"
+    assert index["families"] == list(EXPECTED_FAMILIES)

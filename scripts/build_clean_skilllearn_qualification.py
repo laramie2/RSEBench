@@ -18,6 +18,7 @@ SHARED_ROOT = (
 )
 METHODS_ROOT = SHARED_ROOT / "methods/external"
 OUTPUT_ROOT = PROJECT_ROOT / "benchmark/validation/clean_qualification_v1"
+OUTPUT_ROOT_V2 = PROJECT_ROOT / "benchmark/validation/clean_qualification_v2"
 METHOD_SEEDS = (20260813, 20260814, 20260815)
 FAMILIES = (
     "organize-messy-files",
@@ -42,7 +43,11 @@ from rsebench.hashing import sha256_file  # noqa: E402
 from scripts.build_core1_splits import _skilllearn_task  # noqa: E402
 
 
-def _family_split(family: str) -> CleanEvolutionSplitManifest:
+def _family_split(
+    family: str,
+    *,
+    qualification_version: str = "clean-qualification-v1",
+) -> CleanEvolutionSplitManifest:
     family_root = METHODS_ROOT / "skilllearnbench/tasks" / family
     instances = sorted(
         (path for path in family_root.iterdir() if path.is_dir()),
@@ -52,7 +57,7 @@ def _family_split(family: str) -> CleanEvolutionSplitManifest:
         raise ValueError(f"SkillLearn family {family} requires five or six instances")
     tasks = [_skilllearn_task(instance) for instance in instances]
     metadata: dict[str, Any] = {
-        "qualification_version": "clean-qualification-v1",
+        "qualification_version": qualification_version,
         "baseline": "skilllearn_self_feedback",
         "task_family": family,
         "feedback_mode": "self",
@@ -63,6 +68,13 @@ def _family_split(family: str) -> CleanEvolutionSplitManifest:
             "require_prebuilt_images": True,
         },
     }
+    if qualification_version == "clean-qualification-v2":
+        metadata["qualification_amendment"] = {
+            "supersedes": "clean-qualification-v1",
+            "sampling_changed": False,
+            "selection_uses_v1_final_test": False,
+            "reason": "control_plane_identity_timing_and_container_isolation",
+        }
     payload = {
         "benchmark": "skilllearnbench",
         "domain": "skill_learning",
@@ -152,11 +164,71 @@ def build_clean_skilllearn_qualification(
     return outputs
 
 
+def build_clean_skilllearn_qualification_v2(
+    *,
+    output_root: Path = OUTPUT_ROOT_V2,
+) -> dict[str, Path]:
+    """Freeze v2 metadata while preserving every preregistered family split."""
+
+    portable_splits: dict[str, CleanEvolutionSplitManifest] = {}
+    outputs: dict[str, Path] = {}
+    family_root = output_root / "skilllearnbench"
+    for family in FAMILIES:
+        portable = make_clean_split_paths_portable(
+            _family_split(family, qualification_version="clean-qualification-v2"),
+            project_root=PROJECT_ROOT,
+            data_root=SHARED_ROOT / "data",
+            methods_root=METHODS_ROOT,
+        )
+        portable_splits[family] = portable
+        outputs[family] = _write_immutable(family_root / f"{family}.json", portable)
+    seed_skill = PROJECT_ROOT / "benchmark/core1/seeds/skilllearn.md"
+    index = {
+        "schema_version": "rsebench.clean-skilllearn-manifest.v1",
+        "qualification_version": "clean-qualification-v2",
+        "families": list(FAMILIES),
+        "method_seeds": list(METHOD_SEEDS),
+        "seed_skill_hash": sha256_file(seed_skill),
+        "outputs": {
+            family: {
+                "path": outputs[family].relative_to(output_root).as_posix(),
+                "sizes": {
+                    "train": len(portable_splits[family].train),
+                    "validation": len(portable_splits[family].validation),
+                    "clean_test": len(portable_splits[family].clean_test),
+                },
+                "source_hash": portable_splits[family].source_hash,
+                "instance_ids": [
+                    task.task_id
+                    for task in (
+                        portable_splits[family].train
+                        + portable_splits[family].validation
+                        + portable_splits[family].clean_test
+                    )
+                ],
+            }
+            for family in FAMILIES
+        },
+    }
+    _write_immutable(output_root / "skilllearn_manifest.json", index)
+    return outputs
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--output-root", type=Path, default=OUTPUT_ROOT)
+    parser.add_argument(
+        "--qualification-version", choices=("v1", "v2"), default="v1"
+    )
+    parser.add_argument("--output-root", type=Path)
     args = parser.parse_args()
-    outputs = build_clean_skilllearn_qualification(output_root=args.output_root)
+    if args.qualification_version == "v2":
+        outputs = build_clean_skilllearn_qualification_v2(
+            output_root=args.output_root or OUTPUT_ROOT_V2
+        )
+    else:
+        outputs = build_clean_skilllearn_qualification(
+            output_root=args.output_root or OUTPUT_ROOT
+        )
     print(json.dumps({family: str(path) for family, path in outputs.items()}, indent=2))
 
 

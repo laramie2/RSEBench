@@ -60,12 +60,12 @@ cells:
     adapter_max_parallel: 1
     mutable_resource_keys: []
 
-  - key: skilllearn-organize
+  - key: skilllearn-offer-letter
     benchmark: skilllearnbench
     baseline: skilllearn_self_feedback
-    family: organize-messy-files
+    family: offer-letter-generator
     launcher: scripts/run_clean_skilllearn.py
-    manifest: benchmark/validation/clean_qualification_v2/skilllearnbench/organize-messy-files.json
+    manifest: benchmark/validation/clean_qualification_v2/skilllearnbench/offer-letter-generator.json
     seed_skill: benchmark/core1/seeds/skilllearn.md
     image_manifest: benchmark/validation/clean_qualification_v2/skilllearn_image_manifest.json
     task_counts: {train: 2, validation: 1, clean_test: 3}
@@ -77,4 +77,4 @@ cells:
     adapter_key: skilllearn
     adapter_max_parallel: 3
     mutable_resource_keys:
-      - docker:skilllearn:organize-messy-files:{method_seed}
+      - docker:skilllearn:offer-letter-generator:{method_seed}

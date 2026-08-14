@@ -17,10 +17,14 @@ from pathlib import Path
 from typing import Any, Callable, Sequence
 from uuid import uuid4
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 
 from rsebench.contracts import StrictModel
 from rsebench.evidence import canonical_hash
+from rsebench.experiments.contracts import (
+    ExperimentIdentity,
+    build_attempt_identity,
+)
 from rsebench.hashing import sha256_file
 
 
@@ -37,6 +41,7 @@ class UnitState(str, Enum):
 class ScheduledUnit(StrictModel):
     key: str = Field(min_length=1)
     experiment_id: str = Field(pattern=r"^[0-9a-f]{64}$")
+    identity: ExperimentIdentity | None = None
     command: list[str] = Field(min_length=1)
     output_dir: str = Field(min_length=1)
     mutable_resource_keys: list[str] = Field(default_factory=list)
@@ -51,6 +56,12 @@ class ScheduledUnit(StrictModel):
         if len(value) != len(set(value)):
             raise ValueError("mutable resource keys must be unique")
         return value
+
+    @model_validator(mode="after")
+    def validate_identity(self) -> "ScheduledUnit":
+        if self.identity is not None and self.identity.experiment_id != self.experiment_id:
+            raise ValueError("scheduled identity differs from experiment_id")
+        return self
 
 
 CommandRunner = Callable[..., Any]
@@ -248,7 +259,13 @@ class ExperimentScheduler:
             isolated.extend(["--output-root", str(output_root)])
         return isolated
 
-    def _environment(self, attempt_dir: Path, attempt_id: str) -> dict[str, str]:
+    def _environment(
+        self,
+        attempt_dir: Path,
+        attempt_id: str,
+        attempt_number: int,
+        unit: ScheduledUnit,
+    ) -> dict[str, str]:
         environment = dict(os.environ)
         paths = {
             "TMPDIR": attempt_dir / "tmp",
@@ -262,7 +279,29 @@ class ExperimentScheduler:
         environment.update({name: str(path) for name, path in paths.items()})
         environment["PYTHONPATH"] = str(self.project_root / "src")
         environment["RSEBENCH_ATTEMPT_ID"] = attempt_id
+        environment["RSEBENCH_EXPERIMENT_ID"] = unit.experiment_id
         environment["RSEBENCH_CONTAINER_PREFIX"] = f"rsebench-{attempt_id}"
+        if unit.identity is not None:
+            attempt = build_attempt_identity(
+                unit.identity,
+                attempt_number=attempt_number,
+                attempt_id=attempt_id,
+            )
+            identity_path = attempt_dir / "runtime_identity.json"
+            identity_path.write_text(
+                json.dumps(
+                    {
+                        "identity": unit.identity.model_dump(mode="json"),
+                        "attempt": attempt.model_dump(mode="json"),
+                    },
+                    ensure_ascii=False,
+                    indent=2,
+                    sort_keys=True,
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            environment["RSEBENCH_IDENTITY_PATH"] = str(identity_path)
         return environment
 
     def _default_run(
@@ -331,7 +370,12 @@ class ExperimentScheduler:
             )
             runner_root = attempt_dir / "runner"
             command = self._isolated_command(unit.command, runner_root)
-            environment = self._environment(attempt_dir, attempt_id)
+            environment = self._environment(
+                attempt_dir,
+                attempt_id,
+                int(attempt["attempt_number"]),
+                unit,
+            )
             try:
                 if self._command_runner is None:
                     completed = self._default_run(

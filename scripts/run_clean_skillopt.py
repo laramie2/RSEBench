@@ -10,8 +10,10 @@ from pathlib import Path
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT))
+PROJECT_SRC = PROJECT_ROOT / "src"
+for source in reversed((PROJECT_SRC, PROJECT_ROOT)):
+    if str(source) not in sys.path:
+        sys.path.insert(0, str(source))
 
 from rsebench.core1.dataset import resolve_clean_split_paths  # noqa: E402
 from rsebench.evolution.clean_bridge import build_clean_runtime_split  # noqa: E402
@@ -26,6 +28,7 @@ from rsebench.evolution.skillopt_executor import (  # noqa: E402
     SkillOptExecutor,
 )
 from rsebench.hashing import sha256_file  # noqa: E402
+from rsebench.experiments.runtime import load_runtime_identity  # noqa: E402
 from scripts.baselines.common_env import combined_method_env, methods_root  # noqa: E402
 
 
@@ -183,6 +186,21 @@ def run_manifest(
         raise ValueError(
             f"{split.benchmark} runtime metadata differs from formal settings"
         )
+    qualification_version = str(
+        split.metadata.get("qualification_version") or "clean-qualification-v1"
+    )
+    if qualification_version not in {
+        "clean-qualification-v1",
+        "clean-qualification-v2",
+    }:
+        raise ValueError(
+            f"unsupported SkillOpt qualification version: {qualification_version}"
+        )
+    identity, attempt = load_runtime_identity(
+        required=qualification_version == "clean-qualification-v2" and not dry_run,
+        benchmark=split.benchmark,
+        method_seed=method_seed,
+    )
 
     environment = combined_method_env("skillopt")
     external_methods = methods_root()
@@ -204,7 +222,7 @@ def run_manifest(
         budget=budget,
     )
     parameters = {
-        "qualification_version": "clean-qualification-v1",
+        "qualification_version": qualification_version,
         "model": "deepseek-v4-flash",
         "thinking": "disabled",
         "temperature": 0,
@@ -249,6 +267,7 @@ def run_manifest(
             "native_command": prepared.command,
             "parameters": parameters,
             "provider_calls": 0,
+            "identity": identity.model_dump(mode="json") if identity else None,
         }
         _write_json(run_dir / "dry_run.json", payload, immutable=True)
         _write_preflight_audit(
@@ -266,6 +285,8 @@ def run_manifest(
         parameters=parameters,
         output_root=Path(output_root) / split.benchmark / str(method_seed),
         policy=_policy(split.benchmark),
+        identity=identity,
+        attempt=attempt,
     )
     return Path(result.run_dir)
 
