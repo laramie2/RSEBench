@@ -10,7 +10,7 @@ import subprocess
 import tarfile
 import tempfile
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal, Sequence
 
 import yaml
 from pydantic import Field
@@ -41,6 +41,12 @@ class BaselineFingerprint(StrictModel):
     patchset_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
     python_version: str = Field(min_length=1)
     fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
+_CHECKOUT_NAMES = {
+    "skilllearn_self_feedback": "skilllearnbench",
+    "skilllearn_teacher_feedback": "skilllearnbench",
+}
 
 
 def _series_patch_paths(series_path: Path, series: PatchSeries) -> list[Path]:
@@ -325,13 +331,151 @@ def verify_baseline(
     )
 
 
+def _registered_methods(project_root: Path) -> dict[str, dict[str, Any]]:
+    registry_path = project_root / "benchmark/registry/methods.yaml"
+    payload = yaml.safe_load(registry_path.read_text(encoding="utf-8"))
+    methods = payload.get("methods") if isinstance(payload, dict) else None
+    if not isinstance(methods, dict):
+        raise ValueError(f"invalid method registry: {registry_path}")
+    return {
+        str(name): dict(specification)
+        for name, specification in methods.items()
+        if specification.get("active") and specification.get("patch_series")
+    }
+
+
+def _selected_registered_methods(
+    project_root: Path,
+    names: Sequence[str] | None,
+) -> dict[str, dict[str, Any]]:
+    methods = _registered_methods(project_root)
+    if names is None:
+        return methods
+    selected: dict[str, dict[str, Any]] = {}
+    for name in names:
+        if name not in methods:
+            raise ValueError(f"unknown active patched baseline: {name}")
+        selected[name] = methods[name]
+    return selected
+
+
+def verify_registered_baselines(
+    *,
+    project_root: Path | str,
+    methods_root: Path | str | None = None,
+    names: Sequence[str] | None = None,
+) -> dict[str, BaselineFingerprint]:
+    """Verify all selected pinned baseline checkouts without changing them."""
+
+    root = Path(project_root).resolve()
+    external = Path(methods_root or root / "methods/external").resolve()
+    fingerprints: dict[str, BaselineFingerprint] = {}
+    for name, specification in _selected_registered_methods(root, names).items():
+        series_path = (root / str(specification["patch_series"])).resolve()
+        series = load_patch_series(series_path)
+        checkout = external / _CHECKOUT_NAMES.get(name, name)
+        fingerprints[name] = verify_baseline(
+            checkout,
+            series,
+            series_path=series_path,
+            repository=str(specification["repository"]),
+            revision=str(specification["commit"]),
+        )
+    return fingerprints
+
+
+def _run_git(*arguments: str, cwd: Path | None = None) -> None:
+    completed = subprocess.run(
+        ["git", *arguments],
+        cwd=cwd,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if completed.returncode:
+        detail = (completed.stderr or completed.stdout).strip()
+        raise RuntimeError(f"git {' '.join(arguments)} failed: {detail}")
+
+
+def bootstrap_registered_baselines(
+    *,
+    project_root: Path | str,
+    methods_root: Path | str | None = None,
+    names: Sequence[str] | None = None,
+) -> dict[str, BaselineFingerprint]:
+    """Clone or patch selected baselines, refusing to overwrite unknown changes."""
+
+    root = Path(project_root).resolve()
+    external = Path(methods_root or root / "methods/external").resolve()
+    external.mkdir(parents=True, exist_ok=True)
+    methods = _selected_registered_methods(root, names)
+    completed_checkouts: set[Path] = set()
+    for name, specification in methods.items():
+        checkout = external / _CHECKOUT_NAMES.get(name, name)
+        if checkout in completed_checkouts:
+            continue
+        repository = str(specification["repository"])
+        revision = str(specification["commit"])
+        series_path = (root / str(specification["patch_series"])).resolve()
+        series = load_patch_series(series_path)
+        if checkout.exists() and not (checkout / ".git").is_dir():
+            raise RuntimeError(
+                f"refusing to overwrite a non-Git baseline target: {checkout}"
+            )
+        if not checkout.exists():
+            _run_git("clone", "--filter=blob:none", repository, str(checkout))
+        origin = _git(checkout, "remote", "get-url", "origin")
+        if origin != repository:
+            raise RuntimeError(
+                f"baseline origin mismatch: expected {repository}, got {origin}"
+            )
+        head = _git(checkout, "rev-parse", "HEAD")
+        if head != revision:
+            if _git(checkout, "status", "--porcelain"):
+                raise RuntimeError(
+                    f"refusing to change dirty baseline checkout: {checkout}"
+                )
+            _run_git("-C", str(checkout), "fetch", "--depth", "1", "origin", revision)
+            _run_git("-C", str(checkout), "checkout", "--detach", revision)
+        try:
+            verify_baseline(
+                checkout,
+                series,
+                series_path=series_path,
+                repository=repository,
+                revision=revision,
+            )
+        except RuntimeError as exc:
+            if _git(checkout, "status", "--porcelain"):
+                raise RuntimeError(
+                    f"refusing to replace unregistered baseline changes: {checkout}"
+                ) from exc
+            for patch in patch_paths_for_series(series_path, series):
+                _run_git(
+                    "-C",
+                    str(checkout),
+                    "apply",
+                    "--ignore-space-change",
+                    "--ignore-whitespace",
+                    str(patch),
+                )
+        completed_checkouts.add(checkout)
+    return verify_registered_baselines(
+        project_root=root,
+        methods_root=external,
+        names=list(methods),
+    )
+
+
 __all__ = [
     "BaselineFingerprint",
     "PatchEntry",
     "PatchSeries",
+    "bootstrap_registered_baselines",
     "build_baseline_fingerprint",
     "load_patch_series",
     "patch_hashes_for_series",
     "patch_paths_for_series",
     "verify_baseline",
+    "verify_registered_baselines",
 ]

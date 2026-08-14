@@ -7,8 +7,10 @@ import pytest
 import yaml
 
 from rsebench.experiments.bootstrap import (
+    bootstrap_registered_baselines,
     build_baseline_fingerprint,
     load_patch_series,
+    verify_registered_baselines,
     verify_baseline,
 )
 
@@ -146,3 +148,53 @@ def test_load_patch_series_rejects_stale_hash(tmp_path: Path) -> None:
 
     with pytest.raises(ValueError, match="patch hash mismatch"):
         load_patch_series(series_path)
+
+
+def test_registered_bootstrap_applies_patches_then_verifies(tmp_path: Path) -> None:
+    fixture_root = tmp_path / "fixture"
+    fixture_root.mkdir()
+    checkout, revision, series_path = _fixture_checkout(fixture_root)
+    project = tmp_path / "project"
+    methods_root = project / "methods/external"
+    methods_root.mkdir(parents=True)
+    checkout.rename(methods_root / "fixture")
+    pinned_series = project / "patches/baselines/fixture"
+    pinned_series.parent.mkdir(parents=True)
+    series_path.parent.rename(pinned_series)
+    series_path = pinned_series / "series.yaml"
+    registry = project / "benchmark/registry"
+    registry.mkdir(parents=True)
+    (registry / "methods.yaml").write_text(
+        yaml.safe_dump(
+            {
+                "version": 1,
+                "methods": {
+                    "fixture": {
+                        "active": True,
+                        "repository": "https://example.com/method.git",
+                        "commit": revision,
+                        "git_lfs": False,
+                        "native_domains": ["document"],
+                        "code_status": "runnable",
+                        "patch_series": "patches/baselines/fixture/series.yaml",
+                    }
+                },
+            },
+            sort_keys=False,
+        ),
+        encoding="utf-8",
+    )
+    patch = pinned_series / "provider.patch"
+    _git(methods_root / "fixture", "apply", "--reverse", str(patch))
+
+    bootstrapped = bootstrap_registered_baselines(
+        project_root=project,
+        methods_root=methods_root,
+    )
+    verified = verify_registered_baselines(
+        project_root=project,
+        methods_root=methods_root,
+    )
+
+    assert bootstrapped["fixture"].fingerprint == verified["fixture"].fingerprint
+    assert (methods_root / "fixture/value.txt").read_text() == "patched\n"

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 
 import typer
@@ -20,13 +21,27 @@ from rsebench.adapters.contracts import SmokeLevel
 from rsebench.adapters.registry import load_adapter_registry
 from rsebench.adapters.smoke import run_smoke
 from rsebench.experiments import run_math_execution_pilot
+from rsebench.experiments.bootstrap import (
+    bootstrap_registered_baselines,
+    verify_registered_baselines,
+)
+from rsebench.experiments.preflight import (
+    load_experiment_matrix,
+    preflight_matrix,
+)
+from rsebench.experiments.scheduler import ExperimentScheduler
 from rsebench.generation import generate_from_profile
 from rsebench.providers.deepseek import DeepSeekClient
 from rsebench.registry import validate_registries
 
 
 app = typer.Typer(no_args_is_help=True)
+baselines_app = typer.Typer(no_args_is_help=True)
+experiment_app = typer.Typer(no_args_is_help=True)
+app.add_typer(baselines_app, name="baselines")
+app.add_typer(experiment_app, name="experiment")
 ROOT = Path(__file__).resolve().parents[2]
+DEFAULT_EXPERIMENT_MATRIX = ROOT / "configs/experiments/clean-v2.yaml"
 
 
 @app.command("export-schemas")
@@ -129,6 +144,156 @@ def baseline_smoke(
     typer.echo(
         f"status={summary.status} method={summary.method} run={summary.run_dir}"
     )
+
+
+def _configured_methods_root() -> Path:
+    configured = os.environ.get("RSEBENCH_METHODS_ROOT")
+    return Path(configured).resolve() if configured else ROOT / "methods/external"
+
+
+@baselines_app.command("verify")
+def baselines_verify() -> None:
+    """Verify pinned baseline revisions and ordered patch fingerprints."""
+
+    fingerprints = verify_registered_baselines(
+        project_root=ROOT,
+        methods_root=_configured_methods_root(),
+    )
+    for name, fingerprint in sorted(fingerprints.items()):
+        typer.echo(f"{name} {fingerprint.fingerprint}")
+    typer.echo(f"verified={len(fingerprints)}")
+
+
+@baselines_app.command("bootstrap")
+def baselines_bootstrap() -> None:
+    """Clone missing pinned baselines and replay only registered patches."""
+
+    fingerprints = bootstrap_registered_baselines(
+        project_root=ROOT,
+        methods_root=_configured_methods_root(),
+    )
+    for name, fingerprint in sorted(fingerprints.items()):
+        typer.echo(f"{name} {fingerprint.fingerprint}")
+    typer.echo(f"bootstrapped={len(fingerprints)}")
+
+
+@experiment_app.command("preflight")
+def experiment_preflight(
+    matrix: Path = typer.Option(
+        DEFAULT_EXPERIMENT_MATRIX,
+        "--matrix",
+        exists=True,
+        dir_okay=False,
+        readable=True,
+    ),
+) -> None:
+    """Validate and expand a matrix without making provider calls."""
+
+    report = preflight_matrix(matrix)
+    for unit in report.units:
+        typer.echo(f"{unit.key} {unit.identity.experiment_id}")
+    typer.echo(
+        f"units={len(report.units)} provider_calls={report.provider_calls} "
+        f"all_ready={str(report.all_ready).lower()}"
+    )
+
+
+@experiment_app.command("run")
+def experiment_run(
+    matrix: Path = typer.Option(
+        DEFAULT_EXPERIMENT_MATRIX,
+        "--matrix",
+        exists=True,
+        dir_okay=False,
+        readable=True,
+    ),
+    max_parallel: int = typer.Option(4, "--max-parallel", min=1),
+    confirm_provider_cost: bool = typer.Option(False, "--confirm-provider-cost"),
+    max_new_units: int | None = typer.Option(None, "--max-new-units", min=1),
+) -> None:
+    """Run a provider-backed matrix only after explicit cost confirmation."""
+
+    if not confirm_provider_cost:
+        typer.echo("refusing provider-backed run without --confirm-provider-cost")
+        raise typer.Exit(code=2)
+    report = preflight_matrix(matrix)
+    scheduler = ExperimentScheduler(
+        run_root=Path(report.output_root),
+        project_root=ROOT,
+        max_parallel=max_parallel,
+        status_metadata={
+            "matrix_path": report.matrix_path,
+            "matrix_hash": report.matrix_hash,
+            "git_head": report.repository_commit,
+            "expected_units": len(report.units),
+        },
+    )
+    rows = scheduler.run(
+        [unit.scheduled for unit in report.units],
+        max_new_units=max_new_units,
+    )
+    counts: dict[str, int] = {}
+    for row in rows:
+        state = str(row["state"])
+        counts[state] = counts.get(state, 0) + 1
+    typer.echo(f"run_root={report.output_root} states={json.dumps(counts, sort_keys=True)}")
+
+
+def _matrix_output_root(matrix_path: Path) -> Path:
+    matrix = load_experiment_matrix(matrix_path)
+    output = Path(matrix.output_root)
+    return output.resolve() if output.is_absolute() else (ROOT / output).resolve()
+
+
+@experiment_app.command("status")
+def experiment_status(
+    matrix: Path = typer.Option(
+        DEFAULT_EXPERIMENT_MATRIX,
+        "--matrix",
+        exists=True,
+        dir_okay=False,
+        readable=True,
+    ),
+) -> None:
+    """Summarize scheduler state without changing it."""
+
+    status_path = _matrix_output_root(matrix) / "matrix_status.json"
+    if not status_path.is_file():
+        typer.echo(f"status_missing={status_path}")
+        raise typer.Exit(code=1)
+    payload = json.loads(status_path.read_text(encoding="utf-8"))
+    counts: dict[str, int] = {}
+    for row in payload.get("units", {}).values():
+        state = str(row.get("state", "unknown"))
+        counts[state] = counts.get(state, 0) + 1
+    expected = payload.get("metadata", {}).get("expected_units", 0)
+    typer.echo(f"expected_units={expected} states={json.dumps(counts, sort_keys=True)}")
+
+
+@experiment_app.command("aggregate")
+def experiment_aggregate(
+    matrix: Path = typer.Option(
+        DEFAULT_EXPERIMENT_MATRIX,
+        "--matrix",
+        exists=True,
+        dir_okay=False,
+        readable=True,
+    ),
+    output: Path | None = typer.Option(None, "--output", dir_okay=False),
+) -> None:
+    """Aggregate the fixed-denominator clean results under a matrix run root."""
+
+    from scripts.aggregate_clean_qualification import build_aggregate
+
+    run_root = _matrix_output_root(matrix)
+    target = output or run_root / "aggregate.json"
+    payload = build_aggregate(run_root)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    typer.echo(target)
 
 
 if __name__ == "__main__":
