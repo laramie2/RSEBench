@@ -1,12 +1,20 @@
 --- a/skillopt/envs/officeqa/rollout.py
 +++ b/skillopt/envs/officeqa/rollout.py
-@@ -681,15 +681,16 @@ def process_one(
-             messages: list[dict] = [
+@@ -682,14 +682,24 @@ def process_one(
                  {"role": "system", "content": system},
                  {"role": "user", "content": user},
              ]
 +            force_answer_without_tools = False
              for turn in range(1, max_tool_turns + 1):
++                if turn == max_tool_turns and not force_answer_without_tools:
++                    final_round_prompt = _officeqa_recovery_prompt(turn=2)
++                    messages.append({"role": "user", "content": final_round_prompt})
++                    conversation.append({
++                        "type": "recovery_prompt",
++                        "turn": turn,
++                        "content": final_round_prompt,
++                    })
++                answer_only_round = force_answer_without_tools or turn == max_tool_turns
                  message, _ = chat_target_messages(
                      messages=messages,
                      max_completion_tokens=max_completion_tokens,
@@ -14,12 +22,65 @@
                      stage="rollout",
 -                    tools=_TOOL_SCHEMAS,
 -                    tool_choice="auto",
-+                    tools=None if force_answer_without_tools else _TOOL_SCHEMAS,
-+                    tool_choice=None if force_answer_without_tools else "auto",
++                    tools=None if answer_only_round else _TOOL_SCHEMAS,
++                    tool_choice=None if answer_only_round else "auto",
                      return_message=True,
                  )
                  response = message.content or ""
-@@ -718,6 +719,7 @@ def process_one(
+@@ -700,9 +710,28 @@ def process_one(
+                 messages.append(assistant_message)
+                 conversation.append({"type": "message", "content": response})
+                 if getattr(message, "tool_calls", None):
++                    malformed_tool_call = False
+                     for tool_call in message.tool_calls:
+                         tool_name = tool_call.function.name
+-                        arguments = _parse_tool_arguments(tool_call.function.arguments)
++                        try:
++                            arguments = _parse_tool_arguments(tool_call.function.arguments)
++                        except (json.JSONDecodeError, ValueError) as error:
++                            malformed_tool_call = True
++                            obs = (
++                                "The tool call arguments were invalid and the tool was not run: "
++                                f"{type(error).__name__}: {error}"
++                            )
++                            conversation.append({
++                                "type": "tool_error",
++                                "cmd": f"{tool_name}(invalid_arguments)",
++                                "obs": obs,
++                            })
++                            messages.append({
++                                "role": "tool",
++                                "tool_call_id": tool_call.id,
++                                "content": obs,
++                            })
++                            continue
+                         cmd, obs = run_tool(tool_name, arguments, allowed_roots=docs_roots, allowed_files=allowed_files)
+                         conversation.append({"type": "tool_call", "cmd": cmd, "obs": obs})
+                         messages.append({
+@@ -710,14 +739,30 @@ def process_one(
+                             "tool_call_id": tool_call.id,
+                             "content": obs,
+                         })
++                    if malformed_tool_call and turn < max_tool_turns:
++                        recovery_prompt = _officeqa_recovery_prompt(turn=2)
++                        force_answer_without_tools = True
++                        messages.append({"role": "user", "content": recovery_prompt})
++                        conversation.append({
++                            "type": "recovery_prompt",
++                            "turn": turn,
++                            "content": recovery_prompt,
++                        })
+                     continue
+                 if "<answer>" in response.lower():
+                     final_answer = _extract_answer(response)
+                     break
++                if answer_only_round and response.strip():
++                    # The official scorer still enforces a short direct answer.
++                    # Accept the final non-empty line when an OpenAI-compatible
++                    # model follows the answer-only instruction but omits tags.
++                    final_answer = _extract_answer(response)
++                    break
+                 if turn == max_tool_turns:
                      fail_reason = f"Exceeded tool-turn budget ({max_tool_turns})"
                  else:
                      recovery_prompt = _officeqa_recovery_prompt(turn=turn)

@@ -135,3 +135,169 @@ def test_officeqa_strict_recovery_round_withholds_tool_schema(
     assert calls[0]["tools"]
     assert calls[1]["tools"]
     assert not calls[2].get("tools")
+
+
+def test_officeqa_malformed_tool_arguments_recover_to_bounded_answer(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class MalformedToolCall:
+        id = "call-bad-json"
+        function = SimpleNamespace(
+            name="grep",
+            arguments='{"pattern":',
+        )
+
+        def model_dump(self, *, mode: str) -> dict:
+            assert mode == "json"
+            return {
+                "id": self.id,
+                "type": "function",
+                "function": {
+                    "name": self.function.name,
+                    "arguments": self.function.arguments,
+                },
+            }
+
+    responses = iter(
+        [
+            SimpleNamespace(
+                content="The evidence suggests 42.",
+                tool_calls=[MalformedToolCall()],
+                metadata={},
+            ),
+            SimpleNamespace(content="<answer>42</answer>", tool_calls=[], metadata={}),
+        ]
+    )
+    calls: list[dict] = []
+
+    def fake_chat_target_messages(**kwargs):
+        calls.append(kwargs)
+        return next(responses), {}
+
+    monkeypatch.setattr(
+        officeqa_rollout,
+        "chat_target_messages",
+        fake_chat_target_messages,
+    )
+    monkeypatch.setattr(officeqa_rollout, "is_target_exec_backend", lambda: False)
+    monkeypatch.setattr(
+        officeqa_rollout,
+        "resolve_docs_roots",
+        lambda _: [str(tmp_path)],
+    )
+    monkeypatch.setattr(
+        officeqa_rollout,
+        "resolve_candidate_files",
+        lambda *_: [],
+    )
+    monkeypatch.setattr(
+        officeqa_rollout,
+        "build_oracle_parsed_pages_context",
+        lambda *_args, **_kwargs: "oracle evidence",
+    )
+
+    result = officeqa_rollout.process_one(
+        {
+            "id": "q-malformed",
+            "question": "What is the value?",
+            "ground_truth": "42",
+            "source_files": ["report.txt"],
+            "source_docs": ["https://example.test?page=1"],
+        },
+        str(tmp_path / "out-malformed"),
+        "Return an answer.",
+        max_tool_turns=3,
+        data_dirs=[str(tmp_path)],
+    )
+
+    assert result["hard"] == 1
+    assert result["agent_ok"] is True
+    assert len(calls) == 2
+    assert calls[0]["tools"]
+    assert not calls[1].get("tools")
+
+
+def test_officeqa_final_budget_round_withholds_tool_schema(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FakeToolCall:
+        id = "call-1"
+        function = SimpleNamespace(
+            name="grep",
+            arguments='{"pattern":"value","path":"report.txt"}',
+        )
+
+        def model_dump(self, *, mode: str) -> dict:
+            assert mode == "json"
+            return {
+                "id": self.id,
+                "type": "function",
+                "function": {
+                    "name": self.function.name,
+                    "arguments": self.function.arguments,
+                },
+            }
+
+    responses = iter(
+        [
+            SimpleNamespace(content="", tool_calls=[FakeToolCall()], metadata={}),
+            SimpleNamespace(
+                content="Rounded final result: **42**",
+                tool_calls=[],
+                metadata={},
+            ),
+        ]
+    )
+    calls: list[dict] = []
+
+    def fake_chat_target_messages(**kwargs):
+        calls.append(kwargs)
+        return next(responses), {}
+
+    monkeypatch.setattr(
+        officeqa_rollout,
+        "chat_target_messages",
+        fake_chat_target_messages,
+    )
+    monkeypatch.setattr(officeqa_rollout, "is_target_exec_backend", lambda: False)
+    monkeypatch.setattr(
+        officeqa_rollout,
+        "resolve_docs_roots",
+        lambda _: [str(tmp_path)],
+    )
+    monkeypatch.setattr(
+        officeqa_rollout,
+        "resolve_candidate_files",
+        lambda *_: [],
+    )
+    monkeypatch.setattr(
+        officeqa_rollout,
+        "build_oracle_parsed_pages_context",
+        lambda *_args, **_kwargs: "oracle evidence",
+    )
+    monkeypatch.setattr(
+        officeqa_rollout,
+        "run_tool",
+        lambda *_args, **_kwargs: ("grep(value, report.txt)", "42"),
+    )
+
+    result = officeqa_rollout.process_one(
+        {
+            "id": "q-final-round",
+            "question": "What is the value?",
+            "ground_truth": "42",
+            "source_files": ["report.txt"],
+            "source_docs": ["https://example.test?page=1"],
+        },
+        str(tmp_path / "out-final-round"),
+        "Return an answer.",
+        max_tool_turns=2,
+        data_dirs=[str(tmp_path)],
+    )
+
+    assert result["hard"] == 1
+    assert len(calls) == 2
+    assert calls[0]["tools"]
+    assert not calls[1].get("tools")
