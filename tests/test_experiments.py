@@ -4,6 +4,7 @@ from pathlib import Path
 import pandas as pd
 
 import rsebench.experiments as experiments
+import rsebench.providers.deepseek as deepseek_provider
 from rsebench.providers.deepseek import ModelResponse
 
 
@@ -22,6 +23,7 @@ def _prepare_project(tmp_path: Path, monkeypatch) -> tuple[Path, Path]:
         encoding="utf-8",
     )
     monkeypatch.setattr(experiments, "PROJECT_ROOT", project)
+    monkeypatch.setattr(deepseek_provider, "PROJECT_ROOT", project)
     monkeypatch.setenv("RSEBENCH_DATA_ROOT", str(data))
     monkeypatch.setenv("RSEBENCH_OUTPUT_ROOT", str(outputs))
     return data, outputs

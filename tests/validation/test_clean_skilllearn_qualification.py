@@ -10,7 +10,9 @@ from scripts.build_clean_skilllearn_qualification import (
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-SHARED_ROOT = PROJECT_ROOT.parents[1]
+SHARED_ROOT = (
+    PROJECT_ROOT.parents[1] if ".worktrees" in PROJECT_ROOT.parts else PROJECT_ROOT
+)
 METHODS_ROOT = SHARED_ROOT / "methods/external"
 EXPECTED_FAMILIES = (
     "organize-messy-files",

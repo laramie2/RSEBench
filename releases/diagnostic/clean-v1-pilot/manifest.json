@@ -1,0 +1,23 @@
+{
+  "formal_qualification": false,
+  "git_head": "6fb608c14fb601cdf1c8a34421b6f114110740f6",
+  "matrix": {
+    "completed_units": 12,
+    "failed_units": 1,
+    "interrupted_skilllearn_units": 1
+  },
+  "qualification_version": "clean-qualification-v1",
+  "run_locator": "rsebench-output://runs/clean-qualification-20260813",
+  "run_root_hash": "4417c9eda68dbd86759d78f01a873deb528aa2cffbb9553666d936638f3eee26",
+  "schema_version": "rsebench.diagnostic-release.v1",
+  "token_usage": {
+    "attempted_calls": 17355,
+    "billed_tokens": {
+      "completion_tokens": 3257418,
+      "prompt_tokens": 36966696,
+      "total_tokens": 40224114
+    },
+    "observed_coverage": 1.0
+  },
+  "track": "diagnostic"
+}

@@ -92,7 +92,14 @@ def _portable_reference(value: Any, roots: dict[str, Path]) -> Any:
     if not isinstance(value, str) or not Path(value).is_absolute():
         return value
     path = Path(value).resolve()
-    for scheme, root in roots.items():
+    # Roots may be nested in a canonical checkout (for example ``data`` and
+    # ``methods/external`` live below the project root). Prefer the most
+    # specific declared root so portable manifests keep their semantic
+    # locator instead of collapsing everything to ``rsebench-project``.
+    ordered_roots = sorted(
+        roots.items(), key=lambda item: len(item[1].parts), reverse=True
+    )
+    for scheme, root in ordered_roots:
         try:
             relative = path.relative_to(root)
         except ValueError:

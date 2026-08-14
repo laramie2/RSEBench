@@ -10,7 +10,10 @@ from scripts.build_clean_skillopt_qualification import (
 )
 
 
-SHARED_ROOT = Path(__file__).resolve().parents[4]
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+SHARED_ROOT = (
+    PROJECT_ROOT.parents[1] if ".worktrees" in PROJECT_ROOT.parts else PROJECT_ROOT
+)
 DATA_ROOT = SHARED_ROOT / "data"
 
 

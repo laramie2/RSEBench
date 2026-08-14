@@ -16,6 +16,9 @@ EXPECTED_SIZES = {
     "officeqa_full": (8, 4, 20),
     "webshop": (5, 3, 10),
 }
+SHARED_ROOT = (
+    PROJECT_ROOT.parents[1] if ".worktrees" in PROJECT_ROOT.parts else PROJECT_ROOT
+)
 
 
 def test_expanded_builder_direct_cli_entrypoint_is_importable():
@@ -82,8 +85,8 @@ def test_expanded_manifests_are_portable_and_resolvable():
         resolved = resolve_split_paths(
             split,
             project_root=PROJECT_ROOT,
-            data_root=PROJECT_ROOT.parents[1] / "data",
-            methods_root=PROJECT_ROOT.parents[1] / "methods/external",
+            data_root=SHARED_ROOT / "data",
+            methods_root=SHARED_ROOT / "methods/external",
         )
         for pair in [*resolved.train, *resolved.validation]:
             for task in (pair.clean, pair.noisy):

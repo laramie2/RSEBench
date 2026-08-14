@@ -40,5 +40,5 @@ def test_structured_math_generation_uses_non_thinking_flash_profile():
 
 
 def test_math_execution_pilot_uses_non_thinking_flash_profile():
-    source = (ROOT / "src/rsebench/experiments.py").read_text()
+    source = (ROOT / "src/rsebench/experiments/legacy.py").read_text()
     assert "deepseek-v4-flash-generation.yaml" in source

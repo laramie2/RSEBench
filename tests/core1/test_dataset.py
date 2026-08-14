@@ -186,6 +186,44 @@ def test_clean_split_paths_round_trip_across_all_declared_roots(
     assert resolved.source_hash == portable.source_hash
 
 
+def test_portable_paths_prefer_specific_roots_nested_under_project(
+    tmp_path: Path,
+) -> None:
+    project_root = tmp_path / "project"
+    data_root = project_root / "data"
+    methods_root = project_root / "methods/external"
+    artifact = methods_root / "fixture/task.json"
+    artifact.parent.mkdir(parents=True)
+    artifact.write_text("{}", encoding="utf-8")
+    task = TaskManifest(
+        task_id="nested-root",
+        benchmark="fixture",
+        domain="document",
+        prompt="clean",
+        gold_answers=["x"],
+        source_hash="1" * 64,
+        artifact_path=str(artifact),
+    )
+    split = CleanEvolutionSplitManifest(
+        benchmark="fixture",
+        domain="document",
+        seed=7,
+        source_hash="a" * 64,
+        train=[task],
+        validation=[task.model_copy(update={"task_id": "nested-validation"})],
+        clean_test=[task.model_copy(update={"task_id": "nested-test"})],
+    )
+
+    portable = make_clean_split_paths_portable(
+        split,
+        project_root=project_root,
+        data_root=data_root,
+        methods_root=methods_root,
+    )
+
+    assert portable.train[0].artifact_path.startswith("rsebench-methods://")
+
+
 def test_task_hash_does_not_depend_on_local_artifact_locator() -> None:
     first = TaskManifest(
         task_id="portable",
