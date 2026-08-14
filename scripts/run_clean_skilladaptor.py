@@ -25,6 +25,7 @@ from rsebench.evolution.skilladaptor_executor import (  # noqa: E402
     SkillAdaptorBudget,
     SkillAdaptorExecutor,
 )
+from rsebench.experiments.bootstrap import patch_hashes_for_series  # noqa: E402
 from rsebench.hashing import sha256_file  # noqa: E402
 from scripts.baselines.common_env import combined_method_env, methods_root  # noqa: E402
 
@@ -36,13 +37,8 @@ RUNTIME = {
     "max_episode_steps": 15,
     "min_sample_size": 5,
 }
-PATCH_NAMES = (
-    "skilladaptor-deepseek-runtime.patch",
-    "skilladaptor-evidence-hook.patch",
-    "skilladaptor-webshop-static-overlay.patch",
-    "skilladaptor-core1-calibration.patch",
-    "skilladaptor-lexical-fault-dedup.patch",
-    "skilladaptor-clean-qualification.patch",
+PATCH_SERIES = (
+    PROJECT_ROOT / "patches/baselines/skilladaptor/series.yaml"
 )
 
 
@@ -57,8 +53,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def _patch_hashes() -> dict[str, str]:
-    root = PROJECT_ROOT / "patches/baselines"
-    return {name: sha256_file(root / name) for name in PATCH_NAMES}
+    return patch_hashes_for_series(PATCH_SERIES)
 
 
 def _write_json(path: Path, payload: dict[str, Any], *, immutable: bool) -> None:

@@ -1,0 +1,148 @@
+from __future__ import annotations
+
+import subprocess
+from pathlib import Path
+
+import pytest
+import yaml
+
+from rsebench.experiments.bootstrap import (
+    build_baseline_fingerprint,
+    load_patch_series,
+    verify_baseline,
+)
+
+
+def _git(root: Path, *args: str) -> str:
+    return subprocess.run(
+        ["git", "-C", str(root), *args],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+
+
+def _fixture_checkout(tmp_path: Path) -> tuple[Path, str, Path]:
+    checkout = tmp_path / "method"
+    checkout.mkdir()
+    _git(checkout, "init", "-q")
+    _git(checkout, "config", "user.email", "tests@example.com")
+    _git(checkout, "config", "user.name", "RSEBench Tests")
+    (checkout / "value.txt").write_text("upstream\n", encoding="utf-8")
+    _git(checkout, "add", "value.txt")
+    _git(checkout, "commit", "-q", "-m", "upstream")
+    revision = _git(checkout, "rev-parse", "HEAD")
+    _git(checkout, "remote", "add", "origin", "https://example.com/method.git")
+
+    series_root = tmp_path / "series"
+    series_root.mkdir()
+    patch = series_root / "provider.patch"
+    patch.write_text(
+        """diff --git a/value.txt b/value.txt
+index 8ca3f8d..893adcd 100644
+--- a/value.txt
++++ b/value.txt
+@@ -1 +1 @@
+-upstream
++patched
+""",
+        encoding="utf-8",
+    )
+    _git(checkout, "apply", str(patch))
+    series_path = series_root / "series.yaml"
+    fingerprint = build_baseline_fingerprint(
+        name="fixture",
+        repository="https://example.com/method.git",
+        revision=revision,
+        patch_paths=[patch],
+        python_version="3.13.5",
+    )
+    series_path.write_text(
+        yaml.safe_dump(
+            {
+                "baseline": "fixture",
+                "upstream_revision": revision,
+                "patches": [
+                    {
+                        "path": patch.name,
+                        "sha256": fingerprint.patch_hashes[0],
+                        "purpose": "provider",
+                    }
+                ],
+            },
+            sort_keys=False,
+        ),
+        encoding="utf-8",
+    )
+    return checkout, revision, series_path
+
+
+def test_patch_order_and_bytes_change_fingerprint(tmp_path: Path) -> None:
+    first_patch = tmp_path / "first.patch"
+    second_patch = tmp_path / "second.patch"
+    first_patch.write_bytes(b"first\n")
+    second_patch.write_bytes(b"second\n")
+    common = {
+        "name": "skillopt",
+        "repository": "https://github.com/microsoft/SkillOpt.git",
+        "revision": "4" * 40,
+        "python_version": "3.13.5",
+    }
+
+    first = build_baseline_fingerprint(
+        **common, patch_paths=[first_patch, second_patch]
+    )
+    reordered = build_baseline_fingerprint(
+        **common, patch_paths=[second_patch, first_patch]
+    )
+    second_patch.write_bytes(b"changed\n")
+    changed = build_baseline_fingerprint(
+        **common, patch_paths=[first_patch, second_patch]
+    )
+
+    assert first.patchset_hash != reordered.patchset_hash
+    assert first.fingerprint != reordered.fingerprint
+    assert first.patchset_hash != changed.patchset_hash
+    assert first.fingerprint != changed.fingerprint
+
+
+def test_verify_baseline_accepts_exact_replay_and_rejects_extra_diff(
+    tmp_path: Path,
+) -> None:
+    checkout, revision, series_path = _fixture_checkout(tmp_path)
+    series = load_patch_series(series_path)
+
+    verified = verify_baseline(
+        checkout,
+        series,
+        series_path=series_path,
+        repository="https://example.com/method.git",
+        revision=revision,
+        python_version="3.13.5",
+    )
+
+    assert verified.baseline == "fixture"
+    assert verified.upstream_revision == revision
+    assert len(verified.fingerprint) == 64
+    (checkout / "value.txt").write_text("patched\nunregistered\n", encoding="utf-8")
+    with pytest.raises(RuntimeError, match="unregistered baseline changes"):
+        verify_baseline(
+            checkout,
+            series,
+            series_path=series_path,
+            repository="https://example.com/method.git",
+            revision=revision,
+            python_version="3.13.5",
+        )
+
+
+def test_load_patch_series_rejects_stale_hash(tmp_path: Path) -> None:
+    _, _, series_path = _fixture_checkout(tmp_path)
+    payload = yaml.safe_load(series_path.read_text(encoding="utf-8"))
+    payload["patches"][0]["sha256"] = "0" * 64
+    series_path.write_text(
+        yaml.safe_dump(payload, sort_keys=False), encoding="utf-8"
+    )
+
+    with pytest.raises(ValueError, match="patch hash mismatch"):
+        load_patch_series(series_path)

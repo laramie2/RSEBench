@@ -18,7 +18,7 @@ from rsebench.evidence import canonical_hash  # noqa: E402
 from rsebench.evolution.clean_contracts import (  # noqa: E402
     CleanEvolutionSplitManifest,
 )
-from rsebench.hashing import sha256_file  # noqa: E402
+from rsebench.experiments.bootstrap import patch_hashes_for_series  # noqa: E402
 from scripts.build_core1_splits import _webshop_task  # noqa: E402
 
 
@@ -28,13 +28,8 @@ DEFAULT_SELECTION = OUTPUT_ROOT / "webshop_validation_selection.json"
 DEFAULT_OUTPUT = OUTPUT_ROOT / "webshop.json"
 V2_OUTPUT_ROOT = PROJECT_ROOT / "benchmark/validation/clean_qualification_v2"
 V2_OUTPUT = V2_OUTPUT_ROOT / "webshop.json"
-_PATCH_NAMES = (
-    "skilladaptor-deepseek-runtime.patch",
-    "skilladaptor-evidence-hook.patch",
-    "skilladaptor-webshop-static-overlay.patch",
-    "skilladaptor-core1-calibration.patch",
-    "skilladaptor-lexical-fault-dedup.patch",
-    "skilladaptor-clean-qualification.patch",
+PATCH_SERIES = (
+    PROJECT_ROOT / "patches/baselines/skilladaptor/series.yaml"
 )
 
 
@@ -121,7 +116,6 @@ def build_clean_webshop_split_v2(
         selection_path=selection_path,
     )
     metadata = json.loads(json.dumps(v1.metadata))
-    patch_root = PROJECT_ROOT / "patches/baselines"
     calibration_baseline = metadata["validation_selection"]["baseline"]
     metadata.update(
         {
@@ -135,9 +129,7 @@ def build_clean_webshop_split_v2(
                 "name": "skilladaptor",
                 "revision": calibration_baseline["revision"],
                 "seed_skill_hash": calibration_baseline["seed_skill_hash"],
-                "patch_hashes": {
-                    name: sha256_file(patch_root / name) for name in _PATCH_NAMES
-                },
+                "patch_hashes": patch_hashes_for_series(PATCH_SERIES),
             },
             "qualification_amendment": {
                 "supersedes": "clean-qualification-v1",

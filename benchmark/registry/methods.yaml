@@ -14,6 +14,7 @@ methods:
     git_lfs: false
     native_domains: [spreadsheet, document, math]
     code_status: runnable
+    patch_series: patches/baselines/skillopt/series.yaml
   skillgrad:
     active: false
     repository: https://github.com/wwwhy725/SkillGrad.git
@@ -70,6 +71,7 @@ methods:
     git_lfs: false
     native_domains: [skill_learning]
     code_status: runnable_with_deepseek_adapter
+    patch_series: patches/baselines/skilllearn_self_feedback/series.yaml
   skilllearn_teacher_feedback:
     active: true
     repository: https://github.com/cxcscmu/SkillLearnBench.git
@@ -77,6 +79,7 @@ methods:
     git_lfs: false
     native_domains: [skill_learning]
     code_status: runnable_with_deepseek_adapter
+    patch_series: patches/baselines/skilllearn_self_feedback/series.yaml
   skilladaptor:
     active: true
     repository: https://github.com/zjunlp/SkillAdaptor.git
@@ -84,6 +87,7 @@ methods:
     git_lfs: false
     native_domains: [interactive]
     code_status: runnable
+    patch_series: patches/baselines/skilladaptor/series.yaml
   rethinkskill:
     active: false
     repository: https://github.com/HKUST-KnowComp/rethinkskill.git

@@ -1,0 +1,21 @@
+baseline: skilladaptor
+upstream_revision: b26d1ab5a798f07e53048b5ff509e8535e9fa228
+patches:
+  - path: skilladaptor-deepseek-runtime.patch
+    sha256: f4480b18a554f1e00c851c2c07766f784ad5a78b6e3f78df8696b083a38504d0
+    purpose: provider
+  - path: skilladaptor-evidence-hook.patch
+    sha256: b3468abe3422ff4ab65412b12c994b588aa7d51ef9ed82f2876527523e33ab89
+    purpose: evidence
+  - path: skilladaptor-webshop-static-overlay.patch
+    sha256: 6dd9f00d8f5ac5f01c0e990488021535ace9b6f2cf2b1bb830b6d0f64f5a268c
+    purpose: compatibility
+  - path: skilladaptor-core1-calibration.patch
+    sha256: 28f62cebd9658a9cf491c26009fc6cda5188bce5777d39ef4265a21178730209
+    purpose: compatibility
+  - path: skilladaptor-lexical-fault-dedup.patch
+    sha256: 9af83645d0ddf943cb3c142d9d800e5fd816297085d6ea08a33f00cda8ddf1e7
+    purpose: robustness
+  - path: skilladaptor-clean-qualification.patch
+    sha256: 5500639b87f85b5669b3a360aa1698a107778a04df01e2e64c73a92f251d21b8
+    purpose: robustness

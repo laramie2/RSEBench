@@ -1,0 +1,6 @@
+baseline: skilllearn_self_feedback
+upstream_revision: a0da045a8bf64b8a8ff20730c4d6ef10dc4e2c5b
+patches:
+  - path: skilllearn-deepseek-evidence.patch
+    sha256: efc26159e5c96c0ff21c3d5ffea0523fea5e093a6de9d51516a7ff388e725f7b
+    purpose: provider

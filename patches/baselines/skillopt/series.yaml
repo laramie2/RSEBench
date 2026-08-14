@@ -1,0 +1,15 @@
+baseline: skillopt
+upstream_revision: 47fe269d75d3def79ffd90236261d26d84868ae5
+patches:
+  - path: skillopt-deepseek-thinking.patch
+    sha256: dd9c52023cc638bfcec6ea26908be048e501fcb3de1e59b2f305cfcf65e616d6
+    purpose: provider
+  - path: skillopt-evidence-hook.patch
+    sha256: ac08c66263075bb4175af2fca807d756bc02cf64757430dea09692aa8be8256e
+    purpose: evidence
+  - path: skillopt-officeqa-tool-json-repair.patch
+    sha256: 77509e316d8d3d5e826a51ebee841a5d385b4dbda8c9bc0674071464a4e39485
+    purpose: compatibility
+  - path: skillopt-officeqa-bounded-recovery.patch
+    sha256: 258c2e7d36925fe9e0f254056ca029294c78c6c6ceda84532f2661bde46b4ab3
+    purpose: robustness

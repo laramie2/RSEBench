@@ -6,10 +6,10 @@ patches are incremental and therefore follow the provider/evidence patches.
 ## SkillOpt
 
 ```bash
-git apply "$RSEBENCH_ROOT/patches/baselines/skillopt-deepseek-thinking.patch"
-git apply "$RSEBENCH_ROOT/patches/baselines/skillopt-evidence-hook.patch"
-git apply "$RSEBENCH_ROOT/patches/baselines/skillopt-officeqa-tool-json-repair.patch"
-git apply "$RSEBENCH_ROOT/patches/baselines/skillopt-officeqa-bounded-recovery.patch"
+git apply "$RSEBENCH_ROOT/patches/baselines/skillopt/skillopt-deepseek-thinking.patch"
+git apply "$RSEBENCH_ROOT/patches/baselines/skillopt/skillopt-evidence-hook.patch"
+git apply "$RSEBENCH_ROOT/patches/baselines/skillopt/skillopt-officeqa-tool-json-repair.patch"
+git apply "$RSEBENCH_ROOT/patches/baselines/skillopt/skillopt-officeqa-bounded-recovery.patch"
 ```
 
 The tool-JSON patch accepts literal JSON control characters emitted inside
@@ -20,12 +20,12 @@ consuming the entire tool-turn budget while preserving one normal repair turn.
 ## SkillAdaptor
 
 ```bash
-git apply "$RSEBENCH_ROOT/patches/baselines/skilladaptor-deepseek-runtime.patch"
-git apply "$RSEBENCH_ROOT/patches/baselines/skilladaptor-evidence-hook.patch"
-git apply "$RSEBENCH_ROOT/patches/baselines/skilladaptor-webshop-static-overlay.patch"
-git apply "$RSEBENCH_ROOT/patches/baselines/skilladaptor-core1-calibration.patch"
-git apply "$RSEBENCH_ROOT/patches/baselines/skilladaptor-lexical-fault-dedup.patch"
-git apply "$RSEBENCH_ROOT/patches/baselines/skilladaptor-clean-qualification.patch"
+git apply "$RSEBENCH_ROOT/patches/baselines/skilladaptor/skilladaptor-deepseek-runtime.patch"
+git apply "$RSEBENCH_ROOT/patches/baselines/skilladaptor/skilladaptor-evidence-hook.patch"
+git apply "$RSEBENCH_ROOT/patches/baselines/skilladaptor/skilladaptor-webshop-static-overlay.patch"
+git apply "$RSEBENCH_ROOT/patches/baselines/skilladaptor/skilladaptor-core1-calibration.patch"
+git apply "$RSEBENCH_ROOT/patches/baselines/skilladaptor/skilladaptor-lexical-fault-dedup.patch"
+git apply "$RSEBENCH_ROOT/patches/baselines/skilladaptor/skilladaptor-clean-qualification.patch"
 ```
 
 The calibration patch fixes the eight-step WebShop smoke runtime, optional
@@ -43,3 +43,12 @@ threshold, and a single deterministic action-format repair request.
 
 API credentials are read only from the untracked project `.env`; patches and
 manifests contain no keys.
+
+## SkillLearn self feedback
+
+```bash
+git apply "$RSEBENCH_ROOT/patches/baselines/skilllearn_self_feedback/skilllearn-deepseek-evidence.patch"
+```
+
+Each baseline directory contains a `series.yaml`. The YAML order is canonical;
+its pinned hashes are verified before a checkout is accepted for an experiment.
