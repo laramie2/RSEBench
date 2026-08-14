@@ -4,6 +4,7 @@ from pathlib import Path
 import pytest
 
 from rsebench.evidence import canonical_hash
+from rsebench.experiments.preflight import load_experiment_matrix
 from scripts.aggregate_clean_qualification import build_aggregate
 
 
@@ -179,3 +180,152 @@ def test_duplicate_completed_result_for_one_seed_is_rejected(tmp_path: Path) -> 
 
     with pytest.raises(ValueError, match="duplicate completed clean qualification"):
         build_aggregate(tmp_path)
+
+
+def _write_scheduled_result(
+    run_root: Path,
+    *,
+    unit_key: str,
+    benchmark: str,
+    method_seed: int,
+    experiment_id: str | None = None,
+    state: str = "completed",
+    family: str | None = None,
+) -> Path:
+    identity_inputs = {
+        "benchmark": benchmark,
+        "family": family,
+        "config_hash": "b" * 64,
+        "method_seed": method_seed,
+    }
+    actual_experiment_id = experiment_id or canonical_hash(identity_inputs)
+    attempt_dir = run_root / "attempts" / unit_key.replace(":", "-") / "0001-attempt"
+    result_path = attempt_dir / "runner" / "native" / "result.json"
+    result_path.parent.mkdir(parents=True)
+    result_path.write_text(
+        json.dumps(
+            {
+                "identity": {
+                    "experiment_id": actual_experiment_id,
+                    "inputs": identity_inputs,
+                },
+                "benchmark": benchmark,
+                "family": family,
+                "method_seed": method_seed,
+                "qualification": {
+                    "passed": True,
+                    "accepted_update_count": 1,
+                    "seed_score": 0.25,
+                    "evolved_score": 0.5,
+                    "clean_gain": 0.25,
+                    "failure_reasons": [],
+                },
+                "metadata": {"config_version": "clean-qualification-v2"},
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    status_path = run_root / "matrix_status.json"
+    status = (
+        json.loads(status_path.read_text(encoding="utf-8"))
+        if status_path.is_file()
+        else {
+            "schema_version": "rsebench.scheduler-status.v1",
+            "metadata": {"expected_units": 12},
+            "units": {},
+        }
+    )
+    status["units"][unit_key] = {
+        "key": unit_key,
+        "experiment_id": actual_experiment_id,
+        "state": state,
+        "attempts": [
+            {
+                "attempt_id": "attempt",
+                "attempt_number": 1,
+                "attempt_dir": str(attempt_dir),
+                "state": state,
+                "result_path": str(result_path),
+            }
+        ],
+    }
+    status_path.write_text(json.dumps(status) + "\n", encoding="utf-8")
+    return result_path
+
+
+def test_matrix_aggregate_reads_scheduler_attempts_and_only_configured_cells(
+    tmp_path: Path,
+) -> None:
+    matrix = load_experiment_matrix(
+        Path("configs/experiments/clean-v2.yaml")
+    )
+    _write_scheduled_result(
+        tmp_path,
+        unit_key="spreadsheet-skillopt:20260813",
+        benchmark="spreadsheetbench_verified",
+        method_seed=20260813,
+    )
+    _write_scheduled_result(
+        tmp_path,
+        unit_key="skilllearn-offer-letter:20260813",
+        benchmark="skilllearnbench",
+        family="offer-letter-generator",
+        method_seed=20260813,
+    )
+
+    payload = build_aggregate(tmp_path, matrix=matrix)
+
+    assert set(payload["cells"]) == {
+        "spreadsheet-skillopt",
+        "officeqa-skillopt",
+        "webshop-skilladaptor",
+        "skilllearn-offer-letter",
+    }
+    spreadsheet = payload["cells"]["spreadsheet-skillopt"]
+    assert spreadsheet["seed_results"][0]["status"] == "completed"
+    assert spreadsheet["seed_results"][0]["path"].startswith("attempts/")
+    assert spreadsheet["seed_results"][1]["status"] == "missing"
+    assert payload["cells"]["skilllearn-offer-letter"]["seed_results"][0][
+        "status"
+    ] == "completed"
+
+
+def test_matrix_aggregate_preserves_failed_scheduler_seed(tmp_path: Path) -> None:
+    matrix = load_experiment_matrix(
+        Path("configs/experiments/clean-v2.yaml")
+    )
+    result_path = _write_scheduled_result(
+        tmp_path,
+        unit_key="webshop-skilladaptor:20260815",
+        benchmark="webshop",
+        method_seed=20260815,
+        state="failed",
+    )
+    result_path.unlink()
+
+    payload = build_aggregate(tmp_path, matrix=matrix)
+
+    seed = payload["cells"]["webshop-skilladaptor"]["seed_results"][2]
+    assert seed["status"] == "failed"
+    assert seed["failure_reasons"] == ["scheduler_failed"]
+
+
+def test_matrix_aggregate_rejects_result_identity_different_from_status(
+    tmp_path: Path,
+) -> None:
+    matrix = load_experiment_matrix(
+        Path("configs/experiments/clean-v2.yaml")
+    )
+    result_path = _write_scheduled_result(
+        tmp_path,
+        unit_key="officeqa-skillopt:20260813",
+        benchmark="officeqa_full",
+        method_seed=20260813,
+    )
+    result = json.loads(result_path.read_text(encoding="utf-8"))
+    result["identity"]["experiment_id"] = "f" * 64
+    result_path.write_text(json.dumps(result) + "\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="scheduler/result experiment identity mismatch"):
+        build_aggregate(tmp_path, matrix=matrix)

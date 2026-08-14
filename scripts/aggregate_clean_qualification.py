@@ -20,6 +20,8 @@ from rsebench.experiments.qualification import (  # noqa: E402
     SeedReadiness,
     aggregate_cell_readiness,
 )
+from rsebench.experiments.preflight import ExperimentMatrix  # noqa: E402
+from rsebench.hashing import sha256_file  # noqa: E402
 from rsebench.usage import aggregate_token_usage_tree  # noqa: E402
 
 
@@ -158,6 +160,25 @@ def _collect_seed(
         )
 
     result_path, result = loaded[0]
+    return _completed_seed(
+        result_path=result_path,
+        result=result,
+        benchmark=benchmark,
+        family=family,
+        method_seed=method_seed,
+        run_root=run_root,
+    )
+
+
+def _completed_seed(
+    *,
+    result_path: Path,
+    result: dict[str, Any],
+    benchmark: str,
+    family: str | None,
+    method_seed: int,
+    run_root: Path,
+) -> dict[str, Any]:
     _validate_identity(
         result_path=result_path,
         result=result,
@@ -191,15 +212,19 @@ def _collect_seed(
     ).model_dump(mode="json")
 
 
-def _summarize_runs(runs: list[dict[str, Any]]) -> dict[str, Any]:
+def _summarize_runs(
+    runs: list[dict[str, Any]],
+    *,
+    expected_seeds: tuple[int, ...] = METHOD_SEEDS,
+) -> dict[str, Any]:
     statuses = Counter(str(run["status"]) for run in runs)
     readiness = aggregate_cell_readiness(
         [SeedReadiness.model_validate(run) for run in runs],
-        expected_seeds=METHOD_SEEDS,
+        expected_seeds=expected_seeds,
     ).model_dump(mode="json")
     return {
         **readiness,
-        "total_runs": len(METHOD_SEEDS),
+        "total_runs": len(expected_seeds),
         "required_engineering_valid_runs": 2,
         "required_positive_gain_runs": 2,
         "passed_runs": len(readiness["engineering_valid_seeds"]),
@@ -213,10 +238,160 @@ def _summarize_runs(runs: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
-def build_aggregate(run_root: Path) -> dict[str, Any]:
+def _scheduler_status(run_root: Path) -> dict[str, Any]:
+    path = run_root / "matrix_status.json"
+    if not path.is_file():
+        return {"metadata": {}, "units": {}}
+    payload = _read_json(path)
+    if not isinstance(payload.get("units"), dict):
+        raise ValueError(f"scheduler status has malformed units: {path}")
+    return payload
+
+
+def _scheduler_result_path(
+    run_root: Path,
+    *,
+    unit_key: str,
+    row: dict[str, Any],
+) -> tuple[Path, dict[str, Any]]:
+    attempts = row.get("attempts")
+    if not isinstance(attempts, list) or not attempts:
+        raise ValueError(f"completed scheduler unit has no attempts: {unit_key}")
+    attempt = attempts[-1]
+    if not isinstance(attempt, dict):
+        raise ValueError(f"scheduler attempt is malformed: {unit_key}")
+    locator = attempt.get("result_path")
+    if not isinstance(locator, str) or not locator.strip():
+        raise ValueError(f"completed scheduler unit has no result path: {unit_key}")
+    candidate = Path(locator)
+    if not candidate.is_absolute():
+        candidate = run_root / candidate
+    resolved = candidate.resolve()
+    try:
+        resolved.relative_to(run_root.resolve())
+    except ValueError as exc:
+        raise ValueError(f"scheduler result escapes run root: {unit_key}") from exc
+    if not resolved.is_file():
+        raise FileNotFoundError(f"scheduler result is missing: {resolved}")
+    expected_hash = attempt.get("result_hash")
+    if expected_hash is not None and sha256_file(resolved) != expected_hash:
+        raise ValueError(f"scheduler result hash mismatch: {unit_key}")
+    return resolved, attempt
+
+
+def _collect_scheduled_seed(
+    run_root: Path,
+    *,
+    status: dict[str, Any],
+    unit_key: str,
+    benchmark: str,
+    family: str | None,
+    method_seed: int,
+) -> dict[str, Any]:
+    row = status["units"].get(unit_key)
+    if not isinstance(row, dict):
+        return SeedReadiness(
+            method_seed=method_seed,
+            status="missing",
+            failure_reasons=["missing_seed"],
+        ).model_dump(mode="json")
+    state = str(row.get("state") or "invalid")
+    if state != "completed":
+        mapped_state = state if state in {"failed", "interrupted", "invalid"} else "invalid"
+        return SeedReadiness(
+            method_seed=method_seed,
+            status=mapped_state,
+            failure_reasons=[f"scheduler_{state}"],
+        ).model_dump(mode="json")
+    result_path, attempt = _scheduler_result_path(
+        run_root,
+        unit_key=unit_key,
+        row=row,
+    )
+    result = _read_json(result_path)
+    result_identity = result.get("identity")
+    result_experiment_id = (
+        result_identity.get("experiment_id")
+        if isinstance(result_identity, dict)
+        else None
+    )
+    if result_experiment_id != row.get("experiment_id"):
+        raise ValueError(
+            f"scheduler/result experiment identity mismatch: {unit_key}"
+        )
+    seed = _completed_seed(
+        result_path=result_path,
+        result=result,
+        benchmark=benchmark,
+        family=family,
+        method_seed=method_seed,
+        run_root=run_root,
+    )
+    seed["run_id"] = str(attempt.get("attempt_id") or result_path.parent.name)
+    seed["path"] = result_path.relative_to(run_root.resolve()).as_posix()
+    return seed
+
+
+def _build_matrix_aggregate(
+    run_root: Path,
+    matrix: ExperimentMatrix,
+) -> dict[str, Any]:
+    status = _scheduler_status(run_root)
+    expected_seeds = tuple(matrix.method_seeds)
+    expected_unit_count = len(matrix.cells) * len(expected_seeds)
+    declared_count = status.get("metadata", {}).get("expected_units")
+    if declared_count is not None and int(declared_count) != expected_unit_count:
+        raise ValueError("scheduler expected unit count differs from matrix")
+    cells: dict[str, Any] = {}
+    for cell in matrix.cells:
+        runs = [
+            _collect_scheduled_seed(
+                run_root,
+                status=status,
+                unit_key=f"{cell.key}:{method_seed}",
+                benchmark=cell.benchmark,
+                family=cell.family,
+                method_seed=method_seed,
+            )
+            for method_seed in expected_seeds
+        ]
+        cells[cell.key] = _summarize_runs(
+            runs,
+            expected_seeds=expected_seeds,
+        )
+    all_engineering_ready = all(
+        bool(cell["engineering_ready"]) for cell in cells.values()
+    )
+    all_efficacy_ready = all(bool(cell["efficacy_ready"]) for cell in cells.values())
+    return {
+        "schema_version": SCHEMA_VERSION,
+        "run_root": str(run_root),
+        "method_seeds": list(expected_seeds),
+        "cells": cells,
+        "all_cells_engineering_ready": all_engineering_ready,
+        "all_cells_efficacy_ready": all_efficacy_ready,
+        "all_benchmarks_engineering_ready": all_engineering_ready,
+        "all_benchmarks_efficacy_ready": all_efficacy_ready,
+        "all_benchmarks_qualified": all_efficacy_ready,
+        "deprecated_fields": {
+            "all_benchmarks_qualified": (
+                "deprecated alias of all_cells_efficacy_ready"
+            )
+        },
+        "token_usage": aggregate_token_usage_tree(run_root),
+    }
+
+
+def build_aggregate(
+    run_root: Path,
+    *,
+    matrix: ExperimentMatrix | None = None,
+) -> dict[str, Any]:
     """Build the sole formal barrier decision for starting N1 experiments."""
 
     run_root = Path(run_root)
+    if matrix is not None:
+        return _build_matrix_aggregate(run_root, matrix)
     benchmarks: dict[str, Any] = {}
     for benchmark in BENCHMARKS:
         runs = [

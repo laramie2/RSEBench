@@ -293,7 +293,7 @@ def experiment_aggregate(
 
     run_root = _matrix_output_root(matrix)
     target = output or run_root / "aggregate.json"
-    payload = build_aggregate(run_root)
+    payload = build_aggregate(run_root, matrix=load_experiment_matrix(matrix))
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(
         json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n",

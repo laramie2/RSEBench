@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -65,3 +66,34 @@ def test_unified_subapps_expose_expected_commands() -> None:
     release_help = runner.invoke(cli.app, ["release", "--help"])
     assert release_help.exit_code == 0
     assert "freeze" in release_help.stdout.split()
+
+
+def test_experiment_aggregate_passes_matrix_contract_to_scheduler_aggregate(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    matrix_path = tmp_path / "matrix.yaml"
+    matrix_path.write_text("fixture: true\n", encoding="utf-8")
+    run_root = tmp_path / "run"
+    matrix_contract = SimpleNamespace(output_root=str(run_root))
+    seen = {}
+
+    monkeypatch.setattr(cli, "load_experiment_matrix", lambda path: matrix_contract)
+
+    def fake_build_aggregate(root, *, matrix):
+        seen.update(root=Path(root), matrix=matrix)
+        return {"cells": {}}
+
+    monkeypatch.setattr(
+        "scripts.aggregate_clean_qualification.build_aggregate",
+        fake_build_aggregate,
+    )
+
+    result = runner.invoke(
+        cli.app,
+        ["experiment", "aggregate", "--matrix", str(matrix_path)],
+    )
+
+    assert result.exit_code == 0
+    assert seen == {"root": run_root, "matrix": matrix_contract}
+    assert json.loads((run_root / "aggregate.json").read_text()) == {"cells": {}}
