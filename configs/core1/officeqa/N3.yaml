@@ -1,0 +1,22 @@
+version: 1
+benchmark: officeqa_full
+domain: document
+primary_method: skillopt
+stage: N3
+operator: officeqa_n3_omit_oracle_source
+form: runtime
+mode: rule
+severity: L2
+seed: 20260813
+sizes: {evolution: 6, validation: 3, clean_test: 10}
+selector: oracle_resource_open
+selector_parameters:
+  event_tags: [source_open, source_read]
+budget: 1
+protected_fields: [reward, success, question, retrieved_documents, final_answer]
+failure_policy: record_inapplicable
+operator_version: v1
+token_cap: 4096
+source_revision: hf-main-officeqa-full-20260813
+model: deepseek-v4-flash
+thinking: false

@@ -1,0 +1,1 @@
+{"benchmark":"officeqa_full","budget":1,"domain":"document","failure_policy":"record_inapplicable","operator":"officeqa_n3_omit_oracle_source","protected_fields":["reward","success","question","retrieved_documents","final_answer"],"seed":20260813,"selector":"oracle_resource_open","selector_parameters":{"event_tags":["source_open","source_read"]},"stage":"N3","version":"v1"}

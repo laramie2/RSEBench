@@ -1,0 +1,82 @@
+version: 1
+splits:
+  spreadsheetbench_verified:
+    active: true
+    benchmark: spreadsheetbench_verified
+    total: 400
+    group_key: id
+    evolution: 200
+    pilot_evolve: 30
+    pilot_eval: 10
+    validation: 20
+    test: 180
+  officeqa_full:
+    active: true
+    benchmark: officeqa_full
+    total: 246
+    group_key: source_files
+    evolution: 50
+    pilot_evolve: 12
+    pilot_eval: 8
+    validation: 24
+    test: 172
+  docvqa_10pct:
+    active: false
+    benchmark: docvqa_10pct
+    total: 534
+    group_key: docId
+    evolution: 107
+    pilot_evolve: 20
+    pilot_eval: 10
+    validation: 53
+    test: 374
+  searchqa_skillopt:
+    active: false
+    benchmark: searchqa_skillopt
+    total: 2000
+    group_key: id
+    evolution: 400
+    pilot_evolve: 20
+    pilot_eval: 10
+    validation: 200
+    test: 1400
+  dapo_fixed_1000:
+    active: false
+    benchmark: dapo_fixed_1000
+    total: 1000
+    group_key: normalized_problem_hash
+    evolution: 400
+    pilot_evolve: 30
+    pilot_eval: 20
+    validation: 100
+    test: 500
+  livemathematicianbench:
+    active: false
+    benchmark: livemathematicianbench
+    total: 608
+    group_key: paper_link
+    evolution: 200
+    pilot_evolve: 20
+    pilot_eval: 10
+    validation: 60
+    test: 348
+  skilllearnbench:
+    active: true
+    benchmark: skilllearnbench
+    total: 100
+    group_key: task_family
+    evolution: 20
+    pilot_evolve: 1
+    pilot_eval: 0
+    validation: 0
+    test: 80
+  webshop:
+    active: true
+    benchmark: webshop
+    total: 1000
+    group_key: goal_idx
+    evolution: 100
+    pilot_evolve: 5
+    pilot_eval: 3
+    validation: 100
+    test: 800

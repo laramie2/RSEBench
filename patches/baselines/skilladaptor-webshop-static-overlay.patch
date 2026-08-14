@@ -1,0 +1,151 @@
+diff --git a/skill-adaptor/adapters/webshop_adapter/env_wrapper.py b/skill-adaptor/adapters/webshop_adapter/env_wrapper.py
+index 08cc7da..ff83875 100644
+--- a/skill-adaptor/adapters/webshop_adapter/env_wrapper.py
++++ b/skill-adaptor/adapters/webshop_adapter/env_wrapper.py
+@@ -1,18 +1,73 @@
+ """WebShop Environment Wrapper"""
+ 
+ from __future__ import annotations
++import json
++import os
+ from pathlib import Path
+ from typing import Any, Dict, List, Optional, Tuple
+ 
++
++def apply_goal_context(observation: str, overlay: Dict[str, Any]) -> str:
++    """Append only the frozen N1 context; never alter the official goal."""
++    if overlay.get('stage') != 'N1':
++        return observation
++    clean_goal = str(overlay.get('clean_goal') or '')
++    noisy_goal = str(overlay.get('noisy_goal') or '')
++    suffix = noisy_goal[len(clean_goal):] if clean_goal and noisy_goal.startswith(clean_goal) else noisy_goal
++    return observation + suffix if suffix.strip() else observation
++
++
++def apply_product_overlay(
++    products: List[Dict[str, Any]],
++    product_item_dict: Dict[str, Dict[str, Any]],
++    overlay: Dict[str, Any],
++) -> List[Dict[str, Any]]:
++    """Return a ranked view from frozen product IDs without mutating catalog."""
++    if overlay.get('stage') != 'N2':
++        return list(products)
++    desired = [str(value) for value in overlay.get('output_product_ids') or []]
++    ordered: List[Dict[str, Any]] = []
++    seen: set[str] = set()
++    for product_id in desired:
++        product = product_item_dict.get(product_id)
++        if product is not None and product_id not in seen:
++            ordered.append(product)
++            seen.add(product_id)
++    for product in products:
++        product_id = str(product.get('asin') or '')
++        if product_id not in seen:
++            ordered.append(product)
++            seen.add(product_id)
++    return ordered[:max(len(products), len(desired))]
++
+ class WebShopEnvWrapper:
+ 
+     def __init__(self, num_products: int=1000, observation_mode: str='text', webshop_path: Optional[Path | str]=None):
+         self.num_products = num_products
+         self.observation_mode = observation_mode
+         self.webshop_path = Path(webshop_path) if webshop_path else None
++        self._goal_idx: Optional[int] = None
++        self._static_noise = self._load_static_noise()
+         self.env = None
+         self._setup_environment()
+ 
++    @staticmethod
++    def _load_static_noise() -> Dict[str, Any]:
++        path = os.environ.get('RSEBENCH_WEBSHOP_STATIC_NOISE', '').strip()
++        if not path:
++            return {}
++        return json.loads(Path(path).read_text(encoding='utf-8'))
++
++    def _goal_overlay(self) -> Dict[str, Any]:
++        if self._goal_idx is None or not self._static_noise:
++            return {}
++        goals = self._static_noise.get('goals')
++        if isinstance(goals, dict):
++            row = dict(goals.get(str(self._goal_idx)) or {})
++            row.setdefault('stage', self._static_noise.get('stage'))
++            return row
++        return dict(self._static_noise)
++
+     def _setup_environment(self) -> None:
+         try:
+             import gym
+@@ -28,13 +83,31 @@ class WebShopEnvWrapper:
+     def reset(self, goal_idx: int=0) -> Tuple[str, Dict]:
+         if self.env is None:
+             raise RuntimeError('Environment not initialized')
++        self._goal_idx = goal_idx
+         obs, info = self.env.reset(session=goal_idx)
+-        return (obs, info)
++        return (apply_goal_context(obs, self._goal_overlay()), info)
+ 
+     def step(self, action: str) -> Tuple[str, float, bool, Dict]:
+         if self.env is None:
+             raise RuntimeError('Environment not initialized')
+-        return self.env.step(action)
++        overlay = self._goal_overlay()
++        if overlay.get('stage') != 'N2' or not action.casefold().startswith('search['):
++            return self.env.step(action)
++        import web_agent_site.envs.web_agent_text_env as native_module
++
++        original = native_module.get_top_n_product_from_keywords
++
++        def ranked(*args, **kwargs):
++            products = original(*args, **kwargs)
++            return apply_product_overlay(
++                products, self.env.server.product_item_dict, overlay,
++            )
++
++        native_module.get_top_n_product_from_keywords = ranked
++        try:
++            return self.env.step(action)
++        finally:
++            native_module.get_top_n_product_from_keywords = original
+ 
+     def get_available_actions(self) -> Dict[str, Any]:
+         if self.env is None:
+diff --git a/skill-adaptor/run_skill_adaptor.py b/skill-adaptor/run_skill_adaptor.py
+index 65b46ad..ec28852 100644
+--- a/skill-adaptor/run_skill_adaptor.py
++++ b/skill-adaptor/run_skill_adaptor.py
+@@ -30,6 +30,7 @@ def parse_args():
+     parser.add_argument('--skill-template', choices=['standard', 'enhanced', 'concise'], default='enhanced', help='Skill format profile (standard=verbose, enhanced=balanced, concise=minimal)')
+     parser.add_argument('--test', action='store_true', help='Run in test mode (fewer iterations)')
+     parser.add_argument('--task-manifest', type=str, default=None, help='JSON manifest with input_tasks / validation_tasks / test_tasks lists')
++    parser.add_argument('--max-episode-steps', type=int, default=50, help='Maximum WebShop actions per episode')
+     return parser.parse_args()
+ 
+ def load_task_manifest(path: str | Path) -> dict:
+@@ -632,7 +633,7 @@ def run_webshop(args, config):
+     evaluator = WebShopEvaluator(env, llm_config, config.results_dir, embedding_api_key=config.embedding_api_key, embedding_base_url=config.embedding_base_url)
+ 
+     def eval_skill_bank(skill_bank):
+-        return evaluator.evaluate(goal_indices=eval_subset, skill_bank=skill_bank, verbose=False)
++        return evaluator.evaluate(goal_indices=eval_subset, skill_bank=skill_bank, max_steps=args.max_episode_steps, verbose=False)
+     initial_bank = None
+     if args.skills:
+         print(f'[Setup] Loading skills from {args.skills}')
+@@ -649,7 +650,7 @@ def run_webshop(args, config):
+         policy = SkillAugmentedLLMPolicy(llm_config, skill_bank=current_bank, top_k_skills=3, embedding_api_key=config.embedding_api_key, embedding_base_url=config.embedding_base_url)
+         trajectories = []
+         for goal_idx in goal_indices:
+-            episode = env.run_episode(goal_idx=goal_idx, policy=policy, max_steps=50, verbose=False)
++            episode = env.run_episode(goal_idx=goal_idx, policy=policy, max_steps=args.max_episode_steps, verbose=False)
+             first_obs = ''
+             if episode.get('steps'):
+                 first_obs = str(episode['steps'][0].get('observation', '')).strip()
+@@ -670,7 +671,7 @@ def run_webshop(args, config):
+     print('\n[Save] Saving results...')
+     orchestrator.save_skill_bank()
+     final_bank = {s.id: s for s in orchestrator.skill_bank.list_skills()}
+-    held_out_metrics = evaluator.evaluate(goal_indices=test_goals, skill_bank=final_bank, verbose=False)
++    held_out_metrics = evaluator.evaluate(goal_indices=test_goals, skill_bank=final_bank, max_steps=args.max_episode_steps, verbose=False)
+     result['held_out_test'] = held_out_metrics
+     print(f"[Test] Held-out test metrics: success_rate={held_out_metrics.get('success_rate', 0.0):.3f}, avg_score={held_out_metrics.get('avg_score', 0.0):.3f}, sample_size={held_out_metrics.get('sample_size', 0)}")
+     print('\n' + '=' * 60)

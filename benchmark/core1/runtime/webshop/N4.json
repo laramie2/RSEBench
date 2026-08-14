@@ -1,0 +1,1 @@
+{"benchmark":"webshop","budget":1,"domain":"interactive","failure_policy":"record_inapplicable","operator":"webshop_n4_replace_fault_step","protected_fields":["trajectory","scalar_reward","reward","success","goal","catalog"],"seed":20260813,"selector":"same_kind_decoy_event","selector_parameters":{"attribution_axis":"first_actionable_fault"},"stage":"N4","version":"v1"}

@@ -1,0 +1,93 @@
+version: 1
+methods:
+  trace2skill:
+    active: false
+    repository: https://github.com/Qwen-Applications/Trace2Skill.git
+    commit: 3d0b52a140f002a512930252b613c49048f7d5ac
+    git_lfs: false
+    native_domains: [spreadsheet]
+    code_status: runnable
+  skillopt:
+    active: true
+    repository: https://github.com/microsoft/SkillOpt.git
+    commit: 47fe269d75d3def79ffd90236261d26d84868ae5
+    git_lfs: false
+    native_domains: [spreadsheet, document, math]
+    code_status: runnable
+  skillgrad:
+    active: false
+    repository: https://github.com/wwwhy725/SkillGrad.git
+    commit: 9ecd0a633833a1cf21f6f94d8df42bcffaa66554
+    git_lfs: false
+    native_domains: [spreadsheet]
+    code_status: runnable
+  evoskill:
+    active: false
+    repository: https://github.com/sentient-agi/EvoSkill.git
+    commit: 36f6f04952293d7054145550c2b9f0b0411bff1c
+    git_lfs: false
+    native_domains: [document]
+    code_status: runnable
+  skills_coach:
+    active: false
+    repository: https://github.com/T1aNS1R/Skills-Coach.git
+    commit: 77dc5492d85e01cdaf145c0c04bd554d900266e5
+    git_lfs: false
+    native_domains: [skill_native]
+    code_status: runnable_with_generated_verifiers
+  coevoskills:
+    active: false
+    repository: https://github.com/Zhang-Henry/CoEvoSkills.git
+    commit: 3171de28cc8d3c3bbbec0ef5445e59faca46815b
+    git_lfs: false
+    native_domains: [skill_native]
+    code_status: paper_only
+  federatedskill:
+    active: false
+    repository: https://github.com/UCSB-NLP-Chang/FederatedSkill.git
+    commit: ddefb76a70e58659ba1869162f3d68b8cd6bdb1c
+    git_lfs: false
+    native_domains: [skill_native]
+    code_status: runnable
+  skillsbench:
+    active: false
+    repository: https://github.com/benchflow-ai/skillsbench.git
+    commit: 9a1f4dd5f7659f75707435da3ce854b6e48321d1
+    git_lfs: false
+    native_domains: [skill_native]
+    code_status: benchmark
+  skillflow:
+    active: false
+    repository: https://github.com/ZhangZi-a/SkillFlow.git
+    commit: 7b49ff5a7e26cd7706e959bfa0dba4746d18440d
+    git_lfs: false
+    native_domains: [skill_native]
+    code_status: benchmark
+  skilllearn_self_feedback:
+    active: true
+    repository: https://github.com/cxcscmu/SkillLearnBench.git
+    commit: a0da045a8bf64b8a8ff20730c4d6ef10dc4e2c5b
+    git_lfs: false
+    native_domains: [skill_learning]
+    code_status: runnable_with_deepseek_adapter
+  skilllearn_teacher_feedback:
+    active: true
+    repository: https://github.com/cxcscmu/SkillLearnBench.git
+    commit: a0da045a8bf64b8a8ff20730c4d6ef10dc4e2c5b
+    git_lfs: false
+    native_domains: [skill_learning]
+    code_status: runnable_with_deepseek_adapter
+  skilladaptor:
+    active: true
+    repository: https://github.com/zjunlp/SkillAdaptor.git
+    commit: b26d1ab5a798f07e53048b5ff509e8535e9fa228
+    git_lfs: false
+    native_domains: [interactive]
+    code_status: runnable
+  rethinkskill:
+    active: false
+    repository: https://github.com/HKUST-KnowComp/rethinkskill.git
+    commit: 4138419afc00a1fa3ff0885c0bb1618e18258354
+    git_lfs: false
+    native_domains: [interactive]
+    code_status: runnable_secondary

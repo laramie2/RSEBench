@@ -1,0 +1,23 @@
+diff --git a/skill-adaptor/core/orchestrator.py b/skill-adaptor/core/orchestrator.py
+--- a/skill-adaptor/core/orchestrator.py
++++ b/skill-adaptor/core/orchestrator.py
+@@ -415,16 +415,9 @@ class SkillAdaptorOrchestrator:
+     EMBEDDING_SIMILARITY_THRESHOLD = 0.85
+-
++
+     def _compute_fault_similarity(self, fault1: LocalizedFault, fault2: LocalizedFault) -> float:
+-        import numpy as np
+         text1 = f'{fault1.fault_type.value}: {fault1.observation[:150]} {fault1.wrong_action}'
+         text2 = f'{fault2.fault_type.value}: {fault2.observation[:150]} {fault2.wrong_action}'
+-        emb1 = self._fault_matcher.encode([text1])
+-        emb2 = self._fault_matcher.encode([text2])
+-        n1 = float(np.linalg.norm(emb1))
+-        n2 = float(np.linalg.norm(emb2))
+-        if n1 == 0.0 or n2 == 0.0:
+-            return 0.0
+-        return float(np.dot(emb1.flatten(), emb2.flatten()) / (n1 * n2))
++        return float(self._fault_matcher.compute_similarity([text1], [text2])[0, 0])
+-
++
+     def _get_fault_pattern_key(self, fault: LocalizedFault) -> str:
+         action_verb = 'unknown'

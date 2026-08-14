@@ -1,0 +1,22 @@
+diff --git a/skillopt/gradient/reflect.py b/skillopt/gradient/reflect.py
+index 8078f85..dd7b14a 100644
+--- a/skillopt/gradient/reflect.py
++++ b/skillopt/gradient/reflect.py
+@@ -146,7 +146,16 @@ def fmt_minibatch_trajectories(
+         if not conversation:
+             continue
+ 
+-        traj_text = fmt_trajectory(conversation)
++        # Optional RSEBench hook. With no environment spec this is an exact
++        # identity path; configured N3/N4 mutations affect only the evidence
++        # shown to the analyst, never the canonical rollout/result files.
++        from rsebench.evolution.skillopt_evidence import (
++            apply_skillopt_evidence_from_env,
++        )
++
++        conversation, item = apply_skillopt_evidence_from_env(conversation, item)
++
++        traj_text = fmt_trajectory(conversation)
+         header = (
+             f"### Trajectory {idx} (id={tid})\n"
+             f"Task: {item.get('task_description', item.get('instruction', ''))}\n"

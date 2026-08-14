@@ -1,0 +1,1 @@
+{"benchmark":"webshop","budget":1,"domain":"interactive","failure_policy":"record_inapplicable","operator":"webshop_n3_omit_constraint_event","protected_fields":["reward","success","goal","catalog","valid_actions","reward_function"],"seed":20260813,"selector":"tag_priority","selector_parameters":{"tags":["required_option","query_refinement"]},"stage":"N3","version":"v1"}

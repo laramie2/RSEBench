@@ -1,0 +1,126 @@
+diff --git a/web_agent_site/engine/engine.py b/web_agent_site/engine/engine.py
+index 2e5eee3..0521c86 100644
+--- a/web_agent_site/engine/engine.py
++++ b/web_agent_site/engine/engine.py
+@@ -13,7 +13,10 @@ from tqdm import tqdm
+ from rank_bm25 import BM25Okapi
+ from flask import render_template_string
+ from rich import print
+-from pyserini.search.lucene import LuceneSearcher
++try:
++    from pyserini.search.lucene import LuceneSearcher
++except ImportError:
++    LuceneSearcher = None
+
+ from web_agent_site.utils import (
+     BASE_DIR,
+@@ -192,7 +195,49 @@ def generate_product_prices(all_products):
+     return product_prices
+
+
+-def init_search_engine(num_products=None):
++class _LexicalHit:
++    def __init__(self, docid):
++        self.docid = docid
++
++
++class _LexicalDoc:
++    def __init__(self, product):
++        self.product = product
++
++    def raw(self):
++        return json.dumps({'id': self.product['asin']})
++
++
++class _LexicalSearcher:
++    """Deterministic BM25 fallback over the exact official product subset."""
++    def __init__(self, products):
++        self.products = list(products)
++        corpus = [self._tokens(self._text(product)) for product in self.products]
++        self.index = BM25Okapi(corpus)
++
++    @staticmethod
++    def _tokens(text):
++        return re.findall(r'[a-z0-9]+', str(text).casefold())
++
++    @staticmethod
++    def _text(product):
++        values = [
++            product.get('name', ''), product.get('query', ''),
++            product.get('category', ''), product.get('product_category', ''),
++            ' '.join(product.get('Attributes') or []),
++        ]
++        return ' '.join(map(str, values))
++
++    def search(self, query, k=50):
++        scores = self.index.get_scores(self._tokens(query))
++        ranked = sorted(range(len(scores)), key=lambda idx: (-float(scores[idx]), idx))
++        return [_LexicalHit(str(idx)) for idx in ranked[:k]]
++
++    def doc(self, docid):
++        return _LexicalDoc(self.products[int(docid)])
++
++
++def init_search_engine(num_products=None, products=None):
+     if num_products == 100:
+         indexes = 'indexes_100'
+     elif num_products == 1000:
+@@ -203,7 +248,13 @@ def init_search_engine(num_products=None):
+         indexes = 'indexes'
+     else:
+         raise NotImplementedError(f'num_products being {num_products} is not supported yet.')
+-    search_engine = LuceneSearcher(os.path.join(BASE_DIR, f'../search_engine/{indexes}'))
++    index_path = os.path.join(BASE_DIR, f'../search_engine/{indexes}')
++    if LuceneSearcher is None or not os.path.isdir(index_path):
++        if products is None:
++            raise RuntimeError('Lexical WebShop search requires loaded products')
++        print('[Search] Lucene index unavailable; using deterministic BM25 over official products.')
++        return _LexicalSearcher(products)
++    search_engine = LuceneSearcher(index_path)
+     return search_engine
+
+
+diff --git a/web_agent_site/envs/web_agent_text_env.py b/web_agent_site/envs/web_agent_text_env.py
+index 9c8d27b..ab93211 100644
+--- a/web_agent_site/envs/web_agent_text_env.py
++++ b/web_agent_site/envs/web_agent_text_env.py
+@@ -3,7 +3,10 @@ import json
+ import random
+ import string
+ import time
+-import torch
++try:
++    import torch
++except ImportError:  # text-only benchmark runs do not require image tensors
++    torch = None
+
+ import numpy as np
+
+@@ -74,6 +77,8 @@ class WebAgentTextEnv(gym.Env):
+         self.session = self.kwargs.get('session')
+         self.session_prefix = self.kwargs.get('session_prefix')
+         if self.kwargs.get('get_image', 0):
++            if torch is None:
++                raise RuntimeError('get_image requires torch')
+             self.feats = torch.load(FEAT_CONV)
+             self.ids = torch.load(FEAT_IDS)
+             self.ids = {url: idx for idx, url in enumerate(self.ids)}
+@@ -149,6 +154,8 @@ class WebAgentTextEnv(gym.Env):
+
+     def get_image(self):
+         """Scrape image from page HTML and return as a list of pixel values"""
++        if torch is None:
++            raise RuntimeError('get_image requires torch')
+         html_obj = self._parse_html(self.browser.page_source)
+         image_url = html_obj.find(id='product-image')
+         if image_url is not None:
+@@ -298,7 +305,9 @@ class SimServer:
+         self.base_url = base_url
+         self.all_products, self.product_item_dict, self.product_prices, _ = \
+             load_products(filepath=file_path, num_products=num_products, human_goals=human_goals)
+-        self.search_engine = init_search_engine(num_products=num_products)
++        self.search_engine = init_search_engine(
++            num_products=num_products, products=self.all_products,
++        )
+         self.goals = get_goals(self.all_products, self.product_prices, human_goals)
+         self.show_attrs = show_attrs

@@ -1,0 +1,164 @@
+diff --git a/skill-adaptor/adapters/webshop_adapter/llm_policy.py b/skill-adaptor/adapters/webshop_adapter/llm_policy.py
+index b6351bf..e6fe224 100644
+--- a/skill-adaptor/adapters/webshop_adapter/llm_policy.py
++++ b/skill-adaptor/adapters/webshop_adapter/llm_policy.py
+@@ -5,6 +5,7 @@ import re
+ from typing import Any, Dict, List, Optional
+ from core.types import Skill
+ from core.skill_matcher import SemanticSkillMatcher
++from core.llm_factory import record_rsebench_chat_usage
+ from runtime.skill_inject import format_skills_for_llm_prompt
+ 
+ class SkillAugmentedLLMPolicy:
+@@ -107,7 +108,22 @@ class SkillAugmentedLLMPolicy:
+         max_retries = int(self.config.get('max_retries', 5))
+ 
+         def _invoke():
+-            response = self.client.chat.completions.create(model=self.config.get('model', ''), messages=[{'role': 'user', 'content': prompt}], max_tokens=256, temperature=0.3)
++            model = self.config.get('model', '')
++            try:
++                response = self.client.chat.completions.create(model=model, messages=[{'role': 'user', 'content': prompt}], max_tokens=256, temperature=0.3, extra_body={'thinking': {'type': 'disabled'}})
++            except Exception as exc:
++                record_rsebench_chat_usage(
++                    response=None,
++                    model=str(model),
++                    source='skilladaptor.webshop_policy',
++                    error=exc,
++                )
++                raise
++            record_rsebench_chat_usage(
++                response=response,
++                model=str(model),
++                source='skilladaptor.webshop_policy',
++            )
+             content = response.choices[0].message.content
+             if not content:
+                 raise RuntimeError('WebShop LLM returned empty response')
+diff --git a/skill-adaptor/core/llm_factory.py b/skill-adaptor/core/llm_factory.py
+index b2ca531..2b24498 100644
+--- a/skill-adaptor/core/llm_factory.py
++++ b/skill-adaptor/core/llm_factory.py
+@@ -1,11 +1,53 @@
+ """Build OpenAI-compatible client for orchestrator LLM stages."""
+ 
+ from __future__ import annotations
++import os
+ from types import SimpleNamespace
+ from typing import Any
+ from .config import SkillAdaptorConfig
+ from .llm_retry import call_with_retries
+ 
++
++def _usage_dict(response: Any) -> dict[str, int] | None:
++    usage = getattr(response, 'usage', None)
++    if usage is None:
++        return None
++    if hasattr(usage, 'model_dump'):
++        payload = usage.model_dump()
++    elif isinstance(usage, dict):
++        payload = usage
++    else:
++        payload = {
++            'prompt_tokens': getattr(usage, 'prompt_tokens', 0),
++            'completion_tokens': getattr(usage, 'completion_tokens', 0),
++            'total_tokens': getattr(usage, 'total_tokens', 0),
++        }
++    return {
++        'prompt_tokens': int(payload.get('prompt_tokens') or 0),
++        'completion_tokens': int(payload.get('completion_tokens') or 0),
++        'total_tokens': int(payload.get('total_tokens') or 0),
++    }
++
++
++def record_rsebench_chat_usage(
++    *, response: Any | None, model: str, source: str, error: Exception | None = None,
++) -> None:
++    """Record one actual provider request when launched by RSEBench."""
++    if not os.environ.get('RSEBENCH_TOKEN_LEDGER_DIR', '').strip():
++        return
++    from rsebench.usage import record_token_event
++
++    record_token_event(
++        usage=_usage_dict(response) if error is None else None,
++        cache_hit=False,
++        billed=True,
++        status='success' if error is None else 'error',
++        source=source,
++        provider='deepseek' if 'deepseek' in model.casefold() else 'openai_compatible',
++        model=model or 'unknown',
++        error_type=type(error).__name__ if error is not None else None,
++    )
++
+ class _RetryingChatCompletions:
+ 
+     def __init__(self, inner: Any, max_retries: int) -> None:
+@@ -13,7 +55,32 @@ class _RetryingChatCompletions:
+         self._max_retries = max_retries
+ 
+     def create(self, **kwargs: Any) -> Any:
+-        return call_with_retries(lambda: self._inner.create(**kwargs), max_retries=self._max_retries, context='LLM chat.completions')
++        model = str(kwargs.get('model') or 'unknown')
++        request_kwargs = dict(kwargs)
++        if 'deepseek' in model.casefold():
++            extra_body = dict(request_kwargs.get('extra_body') or {})
++            extra_body.setdefault('thinking', {'type': 'disabled'})
++            request_kwargs['extra_body'] = extra_body
++
++        def invoke() -> Any:
++            try:
++                response = self._inner.create(**request_kwargs)
++            except Exception as exc:
++                record_rsebench_chat_usage(
++                    response=None,
++                    model=model,
++                    source='skilladaptor.orchestrator',
++                    error=exc,
++                )
++                raise
++            record_rsebench_chat_usage(
++                response=response,
++                model=model,
++                source='skilladaptor.orchestrator',
++            )
++            return response
++
++        return call_with_retries(invoke, max_retries=self._max_retries, context='LLM chat.completions')
+ 
+ class _RetryingChat:
+ 
+diff --git a/skill-adaptor/core/skill_matcher.py b/skill-adaptor/core/skill_matcher.py
+index 0bb077b..2c63011 100644
+--- a/skill-adaptor/core/skill_matcher.py
++++ b/skill-adaptor/core/skill_matcher.py
+@@ -3,6 +3,7 @@
+ from __future__ import annotations
+ import json
+ import os
++import re
+ import urllib.request
+ from pathlib import Path
+ from typing import Any, Dict, List, Optional, Tuple
+@@ -66,6 +67,23 @@ class SemanticSkillMatcher:
+ 
+     def compute_similarity(self, skill_texts: List[str], task_texts: List[str]):
+         import numpy as np
++        if os.environ.get('SkillAdaptor_LEXICAL_MATCHING', '').strip().lower() in ('1', 'true', 'yes', 'on'):
++            def tokens(text: str) -> set[str]:
++                return set(re.findall(r'[a-z0-9]+', text.casefold()))
++
++            matrix = []
++            for skill_text in skill_texts:
++                skill_tokens = tokens(skill_text)
++                row = []
++                for task_text in task_texts:
++                    task_tokens = tokens(task_text)
++                    denominator = len(skill_tokens) + len(task_tokens)
++                    row.append(
++                        (2.0 * len(skill_tokens & task_tokens) / denominator)
++                        if denominator else 0.0
++                    )
++                matrix.append(row)
++            return np.array(matrix, dtype=float)
+         skill_embeddings = self.encode(skill_texts)
+         task_embeddings = self.encode(task_texts)
+         skill_norms = np.linalg.norm(skill_embeddings, axis=1, keepdims=True)

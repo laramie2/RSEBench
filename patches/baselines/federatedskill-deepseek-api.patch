@@ -1,0 +1,205 @@
+diff --git a/skillfl/skillflow_adapter/cli.py b/skillfl/skillflow_adapter/cli.py
+index 065d70f7..6e84bdf3 100644
+--- a/skillfl/skillflow_adapter/cli.py
++++ b/skillfl/skillflow_adapter/cli.py
+@@ -223,7 +223,11 @@ def build_merger(
+         max_turns = int(skill_cfg.get("max_turns", 30))
+         wall_clock_sec = int(skill_cfg.get("wall_clock_sec", 600))
+         runner_kind = str(skill_cfg.get("agent_runner", "host"))
+-        if runner_kind in ("podman", "podman_codex"):
++        if runner_kind == "deepseek_api":
++            from rsebench.adapters.harbor_agent import DeepSeekSandboxRunner
++
++            agent_runner = DeepSeekSandboxRunner()
++        elif runner_kind in ("podman", "podman_codex"):
+             image = skill_cfg.get("podman_image")
+             if not image:
+                 raise ValueError(
+@@ -250,7 +254,7 @@ def build_merger(
+         else:
+             raise ValueError(
+                 f"unknown merger_skill.agent_runner: {runner_kind!r} "
+-                f"(want 'host', 'podman', or 'podman_codex')"
++                f"(want 'deepseek_api', 'host', 'podman', or 'podman_codex')"
+             )
+         if runs_root is not None and job_name and family_name:
+             default_sandbox_root = (
+@@ -304,6 +308,7 @@ def _expand_env(val: str | None) -> str | None:
+ 
+ # Known agent class → canonical CLI name. Add entries when new harnesses ship.
+ _CLI_NAME_BY_CLASS = {
++    "DeepSeekAPIAgent":     "deepseek-api",
+     "NoInstallClaudeCode": "claude-code",
+     "ClaudeCode":          "claude-code",
+     "NoInstallQwenCode":   "qwen-code",
+diff --git a/skillfl/skillflow_adapter/patcher_bridge.py b/skillfl/skillflow_adapter/patcher_bridge.py
+index 0e4e4b8f..f4880a30 100644
+--- a/skillfl/skillflow_adapter/patcher_bridge.py
++++ b/skillfl/skillflow_adapter/patcher_bridge.py
+@@ -181,6 +181,11 @@ class PatcherBridge(PatcherBridgeBase):
+                 temperature=temp,
+                 max_tokens=cfg.get("max_tokens", 8192),
+                 extra_headers=hdrs,
++                extra_body=(
++                    {"thinking": {"type": "disabled"}}
++                    if norm.endswith("deepseek-v4-flash")
++                    else None
++                ),
+             )
+ 
+     def _evolver_for(self, worker_id: str):
+diff --git a/skillfl/skillflow_adapter/deepseek_api.py b/skillfl/skillflow_adapter/deepseek_api.py
+new file mode 100644
+index 00000000..917cba68
+--- /dev/null
++++ b/skillfl/skillflow_adapter/deepseek_api.py
+@@ -0,0 +1,81 @@
++"""Harbor BaseAgent backed by the RSEBench DeepSeek API action loop."""
++
++from __future__ import annotations
++
++import json
++from pathlib import Path
++
++from harbor.agents.base import BaseAgent
++from harbor.environments.base import BaseEnvironment
++from harbor.models.agent.context import AgentContext
++
++from rsebench.adapters.harbor_agent import DeepSeekHarborAgent, HarborAgentConfig
++from rsebench.providers.deepseek import DeepSeekClient, DeepSeekConfig
++
++
++class DeepSeekAPIAgent(BaseAgent):
++    SUPPORTS_ATIF = True
++
++    def __init__(self, logs_dir: Path, model_name: str | None = None, *args, **kwargs):
++        resolved_model = model_name or "deepseek-v4-flash"
++        if resolved_model != "deepseek-v4-flash":
++            raise ValueError("DeepSeekAPIAgent requires deepseek-v4-flash")
++        self.role = str(kwargs.pop("role", "worker"))
++        self.max_turns = int(kwargs.pop("max_turns", 30))
++        super().__init__(logs_dir, model_name=resolved_model, *args, **kwargs)
++
++    @staticmethod
++    def name() -> str:
++        return "deepseek-api"
++
++    def version(self) -> str:
++        return "rsebench-v1"
++
++    async def setup(self, environment: BaseEnvironment) -> None:
++        del environment
++        self.logs_dir.mkdir(parents=True, exist_ok=True)
++
++    async def run(
++        self,
++        instruction: str,
++        environment: BaseEnvironment,
++        context: AgentContext,
++    ) -> None:
++        client = DeepSeekClient(
++            DeepSeekConfig(
++                model="deepseek-v4-flash",
++                thinking="disabled",
++                temperature=0,
++                max_tokens=2048,
++            ),
++            cache_dir=self.logs_dir / "deepseek-cache",
++        )
++        result = await DeepSeekHarborAgent(
++            client,
++            HarborAgentConfig(role=self.role, max_turns=self.max_turns),
++        ).run(
++            instruction,
++            environment,
++            system=(
++                "You are solving an isolated Harbor task. Inspect files and run "
++                "commands inside the task container. Use mounted reusable skills "
++                "when relevant, create the requested artifact, and validate it."
++            ),
++        )
++        (self.logs_dir / "trajectory.json").write_text(
++            json.dumps(result.trajectory, ensure_ascii=False, indent=2),
++            encoding="utf-8",
++        )
++        (self.logs_dir / "final.txt").write_text(result.final_text, encoding="utf-8")
++        context.n_input_tokens = result.input_tokens
++        context.n_output_tokens = result.output_tokens
++        context.n_cache_tokens = 0
++        context.cost_usd = 0.0
++        context.metadata = {
++            "model": "deepseek-v4-flash",
++            "thinking": "disabled",
++            "role": self.role,
++            "turns": result.turns,
++            "tool_calls": result.tool_calls,
++            "errors": result.errors,
++        }
+diff --git a/tests/test_deepseek_api.py b/tests/test_deepseek_api.py
+new file mode 100644
+index 00000000..5cc244d1
+--- /dev/null
++++ b/tests/test_deepseek_api.py
+@@ -0,0 +1,61 @@
++from pathlib import Path
++
++import pytest
++
++from skillfl.harbor_runner import UserSpec
++from skillfl.skillflow_adapter.cli import _cli_name_from_user_spec
++from skillfl.skillflow_adapter.deepseek_api import DeepSeekAPIAgent
++
++
++def test_deepseek_worker_locks_model_and_cli_name(tmp_path: Path):
++    agent = DeepSeekAPIAgent(logs_dir=tmp_path, model_name="deepseek-v4-flash")
++    spec = UserSpec(
++        id="u0",
++        agent_name="deepseek-api",
++        agent_import_path=(
++            "skillfl.skillflow_adapter.deepseek_api:DeepSeekAPIAgent"
++        ),
++        agent_model="deepseek-v4-flash",
++        agent_kwargs={},
++    )
++
++    assert agent.name() == "deepseek-api"
++    assert agent.version() == "rsebench-v1"
++    assert _cli_name_from_user_spec(spec) == "deepseek-api"
++
++    with pytest.raises(ValueError, match="deepseek-v4-flash"):
++        DeepSeekAPIAgent(logs_dir=tmp_path, model_name="other-model")
++
++
++def test_cloud_merger_accepts_deepseek_api_runner(monkeypatch, tmp_path: Path):
++    from rsebench.adapters import harbor_agent
++    from skillfl.skillflow_adapter.cli import build_merger
++
++    sentinel = object()
++    monkeypatch.setattr(harbor_agent, "DeepSeekSandboxRunner", lambda: sentinel)
++    worker = UserSpec(
++        id="u0",
++        agent_name="deepseek-api",
++        agent_import_path=(
++            "skillfl.skillflow_adapter.deepseek_api:DeepSeekAPIAgent"
++        ),
++        agent_model="deepseek-v4-flash",
++        agent_kwargs={},
++    )
++
++    merger = build_merger(
++        "cloud_skill_merge",
++        {},
++        workers=[worker],
++        skill_cfg={
++            "agent_runner": "deepseek_api",
++            "merger_model": "deepseek-v4-flash",
++            "task_update_skill_dir": "none",
++        },
++        runs_root=tmp_path,
++        job_name="job",
++        family_name="family",
++    )
++
++    assert merger.agent_runner is sentinel
++    assert merger.merger_model == "deepseek-v4-flash"
+

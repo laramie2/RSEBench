@@ -1,0 +1,121 @@
+--- a/skill-adaptor/adapters/webshop_adapter/env_wrapper.py
++++ b/skill-adaptor/adapters/webshop_adapter/env_wrapper.py
+@@ -146,16 +146,21 @@
+         total_reward = 0.0
+         done = False
+         recent_actions = []
++        error_type = None
+         for step in range(max_steps):
+             available = self.get_available_actions()
+             valid_actions = None
+             if use_strict_valid and hasattr(policy, 'forward_from_valid'):
+                 valid_actions = self._build_valid_actions_list(available)
+-            if valid_actions and hasattr(policy, 'forward_from_valid'):
+-                action = policy.forward_from_valid(obs, available, valid_actions, recent_actions=recent_actions)
+-            else:
+-                action = policy.forward(obs, available, recent_actions=recent_actions)
+-            obs, reward, done, info = self.step(action)
++            try:
++                if valid_actions and hasattr(policy, 'forward_from_valid'):
++                    action = policy.forward_from_valid(obs, available, valid_actions, recent_actions=recent_actions)
++                else:
++                    action = policy.forward(obs, available, recent_actions=recent_actions)
++                obs, reward, done, info = self.step(action)
++            except Exception as exc:
++                error_type = type(exc).__name__
++                break
+             step_data = {'step': step, 'action': action, 'observation': obs[:500], 'reward': reward, 'done': done}
+             steps.append(step_data)
+             recent_actions = (recent_actions + [action])[-10:]
+@@ -164,4 +169,7 @@
+                 print(f'  Step {step + 1}: {action} -> r={reward:.3f}')
+             if done:
+                 break
+-        return {'goal_idx': goal_idx, 'steps': steps, 'total_reward': total_reward, 'success': total_reward > 0, 'num_steps': len(steps)}
++        result = {'goal_idx': goal_idx, 'steps': steps, 'total_reward': total_reward, 'success': total_reward > 0, 'num_steps': len(steps)}
++        if error_type is not None:
++            result['error_type'] = error_type
++        return result
+--- a/skill-adaptor/adapters/webshop_adapter/llm_policy.py
++++ b/skill-adaptor/adapters/webshop_adapter/llm_policy.py
+@@ -110,7 +110,7 @@
+         def _invoke():
+             model = self.config.get('model', '')
+             try:
+-                response = self.client.chat.completions.create(model=model, messages=[{'role': 'user', 'content': prompt}], max_tokens=256, temperature=0.3, extra_body={'thinking': {'type': 'disabled'}})
++                response = self.client.chat.completions.create(model=model, messages=[{'role': 'user', 'content': prompt}], max_tokens=512, temperature=0, extra_body={'thinking': {'type': 'disabled'}})
+             except Exception as exc:
+                 record_rsebench_chat_usage(
+                     response=None,
+--- a/skill-adaptor/core/orchestrator.py
++++ b/skill-adaptor/core/orchestrator.py
+@@ -727,6 +727,8 @@
+         tr = task_results.get(tid) if tid else {}
+         if not tr and task_results:
+             tid, tr = next(iter(task_results.items()))
++        if not isinstance(tr, dict):
++            tr = {}
+         tail = str(tr.get('action_tail') or '').strip()
+         score = tr.get('score', 0)
+         ok = tr.get('success', False)
+--- a/skill-adaptor/core/task_context.py
++++ b/skill-adaptor/core/task_context.py
+@@ -71,4 +71,8 @@
+
+
+ def load_task_context_for_inference(task_id: str) -> str:
+-    return truncate_task_markdown_for_inference(load_task_markdown(task_id, required=True))
++    # Interactive benchmarks such as WebShop carry their task statement in the
++    # trajectory rather than in a file-backed task corpus.  Callers already
++    # combine this optional context with trajectory.task_description, so an
++    # absent Markdown file is a valid empty context rather than a hard error.
++    return truncate_task_markdown_for_inference(load_task_markdown(task_id, required=False))
+--- a/skill-adaptor/run_skill_adaptor.py
++++ b/skill-adaptor/run_skill_adaptor.py
+@@ -31,6 +31,7 @@
+     parser.add_argument('--test', action='store_true', help='Run in test mode (fewer iterations)')
+     parser.add_argument('--task-manifest', type=str, default=None, help='JSON manifest with input_tasks / validation_tasks / test_tasks lists')
+     parser.add_argument('--max-episode-steps', type=int, default=50, help='Maximum WebShop actions per episode')
++    parser.add_argument('--skip-held-out-test', action='store_true', help='Skip native held-out evaluation when an external paired harness owns clean testing')
+     return parser.parse_args()
+
+ def load_task_manifest(path: str | Path) -> dict:
+@@ -610,19 +611,22 @@
+             raise ValueError('WebShop task manifest must include non-empty input_tasks (goal indices)')
+         if not validation_goals:
+             validation_goals = build_webshop_splits(goal_count, args.validation_size, args.validation_size)[1]
+-        if not test_goals:
++        if not test_goals and not args.skip_held_out_test:
+             test_goals = build_webshop_test_split(goal_count)
+         print(f'[Setup] Task manifest: {args.task_manifest}')
+     else:
+         training_goals, validation_goals = build_webshop_splits(goal_count=goal_count, training_size=args.training_size, validation_size=args.validation_size)
+-        test_goals = build_webshop_test_split(goal_count)
++        test_goals = [] if args.skip_held_out_test else build_webshop_test_split(goal_count)
+     if not training_goals or not validation_goals:
+         raise ValueError('WebShop split unavailable: check goal_count and training/validation sizes.')
+     print(f'[Setup] Training on {len(training_goals)} goals')
+     print(f'[Setup] Validating on {len(validation_goals)} goals')
+-    if not test_goals:
++    if not test_goals and not args.skip_held_out_test:
+         raise ValueError('WebShop test split unavailable: check goal_count or manifest test_tasks.')
+-    print(f'[Setup] Held-out test goals: {len(test_goals)}')
++    if args.skip_held_out_test:
++        print('[Setup] Native held-out test disabled; external harness owns evaluation')
++    else:
++        print(f'[Setup] Held-out test goals: {len(test_goals)}')
+     eval_rng = random.Random(42)
+     if args.task_manifest and len(validation_goals) <= 50:
+         eval_subset = sorted(validation_goals)
+@@ -671,7 +675,10 @@
+     print('\n[Save] Saving results...')
+     orchestrator.save_skill_bank()
+     final_bank = {s.id: s for s in orchestrator.skill_bank.list_skills()}
+-    held_out_metrics = evaluator.evaluate(goal_indices=test_goals, skill_bank=final_bank, max_steps=args.max_episode_steps, verbose=False)
++    if args.skip_held_out_test:
++        held_out_metrics = {'success_rate': 0.0, 'avg_score': 0.0, 'sample_size': 0, 'skipped': True}
++    else:
++        held_out_metrics = evaluator.evaluate(goal_indices=test_goals, skill_bank=final_bank, max_steps=args.max_episode_steps, verbose=False)
+     result['held_out_test'] = held_out_metrics
+     print(f"[Test] Held-out test metrics: success_rate={held_out_metrics.get('success_rate', 0.0):.3f}, avg_score={held_out_metrics.get('avg_score', 0.0):.3f}, sample_size={held_out_metrics.get('sample_size', 0)}")
+     print('\n' + '=' * 60)

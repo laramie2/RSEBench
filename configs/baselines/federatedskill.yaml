@@ -1,0 +1,12 @@
+method: federatedskill
+model: deepseek-v4-flash
+base_url: https://api.deepseek.com
+thinking: disabled
+max_tokens: 2048
+worker_agent_import_path: skillfl.skillflow_adapter.deepseek_api:DeepSeekAPIAgent
+patcher_role: patcher
+merger_role: merger
+merger_agent_runner: deepseek_api
+native_benchmark: skillflow_task
+n_workers: 2
+rounds: 1

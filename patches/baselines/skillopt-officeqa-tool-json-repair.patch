@@ -1,0 +1,35 @@
+--- a/skillopt/envs/officeqa/rollout.py
++++ b/skillopt/envs/officeqa/rollout.py
+@@ -234,6 +234,23 @@ def _parse_search_queries(raw: str, max_queries: int) -> list[str]:
+         seen.add(normalized)
+         deduped.append(normalized)
+     return deduped
++
++
++def _parse_tool_arguments(raw: str) -> dict:
++    """Parse OpenAI-compatible tool arguments with bounded DeepSeek repair."""
++    text = raw or "{}"
++    try:
++        parsed = json.loads(text)
++    except json.JSONDecodeError:
++        # DeepSeek occasionally emits literal newlines or tabs inside a JSON
++        # string. Python's non-strict decoder repairs only those control
++        # characters; structural JSON errors still raise.
++        parsed = json.loads(text, strict=False)
++    if not isinstance(parsed, dict):
++        raise ValueError("tool arguments must be a JSON object")
++    return parsed
++
++
+ def _docs_link_targets(docs_roots: list[str]) -> list[tuple[str, str]]:
+     return [(root, os.path.join("docs", f"root_{idx}")) for idx, root in enumerate(docs_roots, start=1)]
+ def _workspace_doc_path(path: str, docs_roots: list[str]) -> str:
+@@ -666,7 +683,7 @@ def process_one(
+                 if getattr(message, "tool_calls", None):
+                     for tool_call in message.tool_calls:
+                         tool_name = tool_call.function.name
+-                        arguments = json.loads(tool_call.function.arguments) if tool_call.function.arguments else {}
++                        arguments = _parse_tool_arguments(tool_call.function.arguments)
+                         cmd, obs = run_tool(tool_name, arguments, allowed_roots=docs_roots, allowed_files=allowed_files)
+                         conversation.append({"type": "tool_call", "cmd": cmd, "obs": obs})
+                         messages.append({

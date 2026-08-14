@@ -1,0 +1,82 @@
+version: 1
+adapters:
+  trace2skill:
+    active: false
+    upstream_commit: 3d0b52a140f002a512930252b613c49048f7d5ac
+    method_path: trace2skill
+    launcher: scripts/baselines/smoke_trace2skill.py
+    model: deepseek-v4-flash
+    roles: [executor, analysis, optimizer]
+    native_domains: [spreadsheet]
+  skillopt:
+    active: true
+    upstream_commit: 47fe269d75d3def79ffd90236261d26d84868ae5
+    method_path: skillopt
+    launcher: scripts/baselines/smoke_skillopt.py
+    model: deepseek-v4-flash
+    roles: [target, optimizer]
+    native_domains: [spreadsheet, document, math]
+  skillgrad:
+    active: false
+    upstream_commit: 9ecd0a633833a1cf21f6f94d8df42bcffaa66554
+    method_path: skillgrad
+    launcher: scripts/baselines/smoke_skillgrad.py
+    model: deepseek-v4-flash
+    roles: [executor, diagnoser, momentum, patcher]
+    native_domains: [spreadsheet]
+  evoskill:
+    active: false
+    upstream_commit: 36f6f04952293d7054145550c2b9f0b0411bff1c
+    method_path: evoskill
+    launcher: scripts/baselines/smoke_evoskill.py
+    model: deepseek-v4-flash
+    roles: [executor, proposer, evaluator]
+    native_domains: [document, math]
+  skills_coach:
+    active: false
+    upstream_commit: 77dc5492d85e01cdaf145c0c04bd554d900266e5
+    method_path: skills_coach
+    launcher: scripts/baselines/smoke_skills_coach.py
+    model: deepseek-v4-flash
+    roles: [generator, optimizer, executor, judge]
+    native_domains: [skill_native]
+  skillflow:
+    active: false
+    upstream_commit: 7b49ff5a7e26cd7706e959bfa0dba4746d18440d
+    method_path: skillflow
+    launcher: scripts/baselines/smoke_skillflow.py
+    model: deepseek-v4-flash
+    roles: [worker, patcher]
+    native_domains: [skill_native]
+  federatedskill:
+    active: false
+    upstream_commit: ddefb76a70e58659ba1869162f3d68b8cd6bdb1c
+    method_path: federatedskill
+    launcher: scripts/baselines/smoke_federatedskill.py
+    model: deepseek-v4-flash
+    roles: [worker, patcher, merger]
+    native_domains: [skill_native]
+  skilllearn_self_feedback:
+    active: true
+    upstream_commit: a0da045a8bf64b8a8ff20730c4d6ef10dc4e2c5b
+    method_path: skilllearnbench
+    launcher: scripts/baselines/smoke_skilllearn.py
+    model: deepseek-v4-flash
+    roles: [executor, self_reflector, skill_reviser]
+    native_domains: [skill_learning]
+  skilllearn_teacher_feedback:
+    active: true
+    upstream_commit: a0da045a8bf64b8a8ff20730c4d6ef10dc4e2c5b
+    method_path: skilllearnbench
+    launcher: scripts/baselines/smoke_skilllearn.py
+    model: deepseek-v4-flash
+    roles: [executor, teacher, skill_reviser]
+    native_domains: [skill_learning]
+  skilladaptor:
+    active: true
+    upstream_commit: b26d1ab5a798f07e53048b5ff509e8535e9fa228
+    method_path: skilladaptor
+    launcher: scripts/baselines/smoke_skilladaptor.py
+    model: deepseek-v4-flash
+    roles: [executor, localizer, linker, reviser]
+    native_domains: [interactive]

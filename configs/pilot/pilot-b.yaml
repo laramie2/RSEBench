@@ -1,0 +1,14 @@
+version: 1
+name: rsebench-pilot-b
+purpose: representative baseline mini-evolution after Pilot-A operator acceptance
+model: deepseek-v4-flash
+methods:
+  spreadsheet: [skillopt, trace2skill]
+  officeqa: [skillopt, evoskill]
+  docvqa: [skillopt]
+  math: []
+preconditions:
+  - DEEPSEEK_API_KEY is available
+  - selected Pilot-A operator passes hard gates
+  - native baseline command succeeds on clean pilot data
+  - OfficeQA corpus access is granted for OfficeQA runs

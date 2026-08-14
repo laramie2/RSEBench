@@ -1,0 +1,281 @@
+{
+  "all_ready": true,
+  "arm_manifest": {
+    "arm": "clean",
+    "benchmark": "webshop",
+    "clean_test": [
+      {
+        "noise_id": null,
+        "pair_id": "clean-test-goal_3",
+        "payload_hash": "1a03757c43ebff49d619f82184f7891469fec3405be4044a4fb5fd5d7413b0c2",
+        "task_id": "goal_3"
+      },
+      {
+        "noise_id": null,
+        "pair_id": "clean-test-goal_100",
+        "payload_hash": "3c139d314db074397a656199ad14e6a11f1b78663315a3577244add325f0e4f3",
+        "task_id": "goal_100"
+      },
+      {
+        "noise_id": null,
+        "pair_id": "clean-test-goal_132",
+        "payload_hash": "fb17eec708ccae015802525c126a02828a188ce62c14765c865e7366d7a563e6",
+        "task_id": "goal_132"
+      },
+      {
+        "noise_id": null,
+        "pair_id": "clean-test-goal_446",
+        "payload_hash": "b685e9bcedb8b8add5df541f8e3bf8994b9b5b27f86d46cd7ae777a1b4b859fc",
+        "task_id": "goal_446"
+      },
+      {
+        "noise_id": null,
+        "pair_id": "clean-test-goal_71",
+        "payload_hash": "bab71c3d4fb441df9e1babc5bb052d5286535de88e97b4b7831cbf0c212704e7",
+        "task_id": "goal_71"
+      },
+      {
+        "noise_id": null,
+        "pair_id": "clean-test-goal_331",
+        "payload_hash": "3f936ed9718bfabb42f22cdf3d26f3ec4fb2bbcaf4ffbbf8956652120cef2c9a",
+        "task_id": "goal_331"
+      },
+      {
+        "noise_id": null,
+        "pair_id": "clean-test-goal_333",
+        "payload_hash": "b3c497141a30d4c0aee12958aa400dbe620d37abb34dfd72ad221d3369badd23",
+        "task_id": "goal_333"
+      },
+      {
+        "noise_id": null,
+        "pair_id": "clean-test-goal_399",
+        "payload_hash": "01845eef3e8d869fe1e2cb86f40798a2a493852c7ee7de88732adfa404bad260",
+        "task_id": "goal_399"
+      },
+      {
+        "noise_id": null,
+        "pair_id": "clean-test-goal_350",
+        "payload_hash": "886f29bbfc172d15b1be12e95acf71ea297a9f0afc8aa6d85ecf891285682503",
+        "task_id": "goal_350"
+      },
+      {
+        "noise_id": null,
+        "pair_id": "clean-test-goal_252",
+        "payload_hash": "ee9e3e6cedaa2d7307cabaf670364d11d1ac8786b80fd4abc930892e3b61369a",
+        "task_id": "goal_252"
+      },
+      {
+        "noise_id": null,
+        "pair_id": "clean-test-goal_87",
+        "payload_hash": "e4598c27908f4772ca51ad66090d28362939d8e1a9bb1101b6df120d20c5d90f",
+        "task_id": "goal_87"
+      },
+      {
+        "noise_id": null,
+        "pair_id": "clean-test-goal_444",
+        "payload_hash": "a37461f592a5a3cc142a5bf6732d2a96826fc29ef599a8ab2007601f9efd7b51",
+        "task_id": "goal_444"
+      },
+      {
+        "noise_id": null,
+        "pair_id": "clean-test-goal_484",
+        "payload_hash": "346cc5a3038327af255f6b1bb4f30fce2a57a9d7d6e3b25578246f989b1d0a1e",
+        "task_id": "goal_484"
+      },
+      {
+        "noise_id": null,
+        "pair_id": "clean-test-goal_433",
+        "payload_hash": "9ba039908b580c1fa89d65928908348e570559d58463cdde9ec5946c194b300f",
+        "task_id": "goal_433"
+      },
+      {
+        "noise_id": null,
+        "pair_id": "clean-test-goal_32",
+        "payload_hash": "b0e8043159626dc03be0f55b3c9866d9a34cd5bb6fd20dbb87b2cfddd9638834",
+        "task_id": "goal_32"
+      },
+      {
+        "noise_id": null,
+        "pair_id": "clean-test-goal_234",
+        "payload_hash": "1459d3c755014942099bbeec8d1d5687c7ab14e3e8159373e3351a946d407d60",
+        "task_id": "goal_234"
+      },
+      {
+        "noise_id": null,
+        "pair_id": "clean-test-goal_352",
+        "payload_hash": "3947554798edf4a9293a8cd9bf40329234f87de42bea106eea8c2cc4b31dd69f",
+        "task_id": "goal_352"
+      },
+      {
+        "noise_id": null,
+        "pair_id": "clean-test-goal_392",
+        "payload_hash": "86603abf0dcf713596f22c6f49f977155acfe22f01f3c3e2423be2b635bed620",
+        "task_id": "goal_392"
+      },
+      {
+        "noise_id": null,
+        "pair_id": "clean-test-goal_277",
+        "payload_hash": "11e3478b87dc12bcc25923dde441ff0d3da3c5647ceb452bd5d5c49695cd7f58",
+        "task_id": "goal_277"
+      },
+      {
+        "noise_id": null,
+        "pair_id": "clean-test-goal_206",
+        "payload_hash": "16ce569e8650236744bffa7a6198db33aecdafc4791f667e61d60f336c622a6e",
+        "task_id": "goal_206"
+      }
+    ],
+    "domain": "interactive",
+    "method": "skilladaptor",
+    "method_seed": 20260813,
+    "parameters": {
+      "clean_test_tasks": 20,
+      "model": "deepseek-v4-flash",
+      "patch_hashes": {
+        "skilladaptor-clean-qualification.patch": "9e97f8a52f4970006f3f01e960dc33a49ca0f0a8a3cef9d4ed4ef9120e4bdb1f",
+        "skilladaptor-core1-calibration.patch": "28f62cebd9658a9cf491c26009fc6cda5188bce5777d39ef4265a21178730209",
+        "skilladaptor-deepseek-runtime.patch": "f4480b18a554f1e00c851c2c07766f784ad5a78b6e3f78df8696b083a38504d0",
+        "skilladaptor-evidence-hook.patch": "b3468abe3422ff4ab65412b12c994b588aa7d51ef9ed82f2876527523e33ab89",
+        "skilladaptor-lexical-fault-dedup.patch": "9af83645d0ddf943cb3c142d9d800e5fd816297085d6ea08a33f00cda8ddf1e7",
+        "skilladaptor-webshop-static-overlay.patch": "6dd9f00d8f5ac5f01c0e990488021535ace9b6f2cf2b1bb830b6d0f64f5a268c"
+      },
+      "qualification_version": "clean-qualification-v1",
+      "retrieval_mode": "lexical",
+      "retrieval_threshold": 0.1,
+      "runtime": {
+        "max_episode_steps": 15,
+        "max_iterations": 3,
+        "min_sample_size": 5
+      },
+      "temperature": 0,
+      "thinking": "disabled",
+      "train_tasks": 5,
+      "validation_tasks": 5
+    },
+    "seed_skill_hash": "b8babe420a6c8c6a7cf103a4db6e444f8e9911f0efdfbc5f15b394cfca0a0f3e",
+    "split_seed": 20260813,
+    "split_source_hash": "50d5009764abf1f931d0d617f843b9a884ad3d6730794b83a8951762a700d4c4",
+    "train": [
+      {
+        "noise_id": null,
+        "pair_id": "clean-qualification:webshop:goal_1554",
+        "payload_hash": "bf90d3b04b6979a523f6d3b299a5c86ff6fcde9975919e8925fece4fe4109b82",
+        "task_id": "goal_1554"
+      },
+      {
+        "noise_id": null,
+        "pair_id": "clean-qualification:webshop:goal_1665",
+        "payload_hash": "b9cd0b7d4fd3f234f11c3b2f71529d90a87d997366c991f25a035c0186f5b493",
+        "task_id": "goal_1665"
+      },
+      {
+        "noise_id": null,
+        "pair_id": "clean-qualification:webshop:goal_2446",
+        "payload_hash": "da1752a6bbef68d0d5b69134558ad7711518d9c94ba212d18cda19eb6b63fe17",
+        "task_id": "goal_2446"
+      },
+      {
+        "noise_id": null,
+        "pair_id": "clean-qualification:webshop:goal_2826",
+        "payload_hash": "c0c821ff9d9f02d5080fec9a7c35546711a3f303403214b5448038a7f534b1e0",
+        "task_id": "goal_2826"
+      },
+      {
+        "noise_id": null,
+        "pair_id": "clean-qualification:webshop:goal_6018",
+        "payload_hash": "21e2541e042bee1e419dadac14a69ba880ecd42179bbf356127fd7176072979c",
+        "task_id": "goal_6018"
+      }
+    ],
+    "validation": [
+      {
+        "noise_id": null,
+        "pair_id": "clean-qualification:webshop:goal_1195",
+        "payload_hash": "701d71b6330e8711875c8c771e41e73a8f90b079d2d7afa440ef020586f201a5",
+        "task_id": "goal_1195"
+      },
+      {
+        "noise_id": null,
+        "pair_id": "clean-qualification:webshop:goal_1362",
+        "payload_hash": "66aa0f9d9347efdd404a560ba188e083f6c3862444c529d7d5423da8358bf2bd",
+        "task_id": "goal_1362"
+      },
+      {
+        "noise_id": null,
+        "pair_id": "clean-qualification:webshop:goal_735",
+        "payload_hash": "d23de5d45bae0b2119098c256e2b59e9fe18a3dca3958691a9e123c3e4eb4b1f",
+        "task_id": "goal_735"
+      },
+      {
+        "noise_id": null,
+        "pair_id": "clean-qualification:webshop:goal_994",
+        "payload_hash": "f860d414c540e3911f2c356ef707d5b27a2881c053fe861c6b2d859badd5b93c",
+        "task_id": "goal_994"
+      },
+      {
+        "noise_id": null,
+        "pair_id": "clean-qualification:webshop:goal_1036",
+        "payload_hash": "71756d6f3700420f1b917dd442a26e287a38e4916b076b3fd13e3b0226e72aba",
+        "task_id": "goal_1036"
+      }
+    ]
+  },
+  "benchmark": "webshop",
+  "calibration_evidence": {
+    "available": true,
+    "candidate_count": 24,
+    "execution_failures": {},
+    "general_seed_reached_each_prompt": true,
+    "selected_ids": [
+      "goal_1195",
+      "goal_1362",
+      "goal_735",
+      "goal_994",
+      "goal_1036"
+    ],
+    "selected_retrieval_audited": true,
+    "selected_seed_score": 0.4,
+    "uses_clean_test_outcomes": false,
+    "uses_evolved_outcomes": false
+  },
+  "method_seed": 20260813,
+  "parameters": {
+    "clean_test_tasks": 20,
+    "model": "deepseek-v4-flash",
+    "patch_hashes": {
+      "skilladaptor-clean-qualification.patch": "9e97f8a52f4970006f3f01e960dc33a49ca0f0a8a3cef9d4ed4ef9120e4bdb1f",
+      "skilladaptor-core1-calibration.patch": "28f62cebd9658a9cf491c26009fc6cda5188bce5777d39ef4265a21178730209",
+      "skilladaptor-deepseek-runtime.patch": "f4480b18a554f1e00c851c2c07766f784ad5a78b6e3f78df8696b083a38504d0",
+      "skilladaptor-evidence-hook.patch": "b3468abe3422ff4ab65412b12c994b588aa7d51ef9ed82f2876527523e33ab89",
+      "skilladaptor-lexical-fault-dedup.patch": "9af83645d0ddf943cb3c142d9d800e5fd816297085d6ea08a33f00cda8ddf1e7",
+      "skilladaptor-webshop-static-overlay.patch": "6dd9f00d8f5ac5f01c0e990488021535ace9b6f2cf2b1bb830b6d0f64f5a268c"
+    },
+    "qualification_version": "clean-qualification-v1",
+    "retrieval_mode": "lexical",
+    "retrieval_threshold": 0.1,
+    "runtime": {
+      "max_episode_steps": 15,
+      "max_iterations": 3,
+      "min_sample_size": 5
+    },
+    "temperature": 0,
+    "thinking": "disabled",
+    "train_tasks": 5,
+    "validation_tasks": 5
+  },
+  "provider_calls": 0,
+  "runtime": {
+    "max_episode_steps": 15,
+    "max_iterations": 3,
+    "min_sample_size": 5
+  },
+  "schema_version": "rsebench.clean-skilladaptor-preflight.v1",
+  "seed_skill_hash": "b8babe420a6c8c6a7cf103a4db6e444f8e9911f0efdfbc5f15b394cfca0a0f3e",
+  "split_source_hash": "50d5009764abf1f931d0d617f843b9a884ad3d6730794b83a8951762a700d4c4",
+  "task_counts": {
+    "clean_test": 20,
+    "train": 5,
+    "validation": 5
+  },
+  "token_events": 0
+}

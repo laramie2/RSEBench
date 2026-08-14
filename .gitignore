@@ -1,1 +1,12 @@
 .worktrees/
+.env
+.venv/
+__pycache__/
+.pytest_cache/
+.coverage
+htmlcov/
+*.egg-info/
+data/
+outputs/
+methods/external/
+cache/

@@ -1,0 +1,144 @@
+{
+  "$defs": {
+    "TraceEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "action": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Action"
+        },
+        "event_id": {
+          "minLength": 1,
+          "title": "Event Id",
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/$defs/TraceKind"
+        },
+        "metadata": {
+          "additionalProperties": true,
+          "title": "Metadata",
+          "type": "object"
+        },
+        "observation": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Observation"
+        },
+        "resource_refs": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Resource Refs",
+          "type": "array"
+        },
+        "step_index": {
+          "minimum": 0,
+          "title": "Step Index",
+          "type": "integer"
+        },
+        "tags": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Tags",
+          "type": "array"
+        }
+      },
+      "required": [
+        "event_id",
+        "step_index",
+        "kind"
+      ],
+      "title": "TraceEvent",
+      "type": "object"
+    },
+    "TraceKind": {
+      "enum": [
+        "action",
+        "observation",
+        "tool",
+        "message"
+      ],
+      "title": "TraceKind",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "benchmark": {
+      "minLength": 1,
+      "title": "Benchmark",
+      "type": "string"
+    },
+    "events": {
+      "items": {
+        "$ref": "#/$defs/TraceEvent"
+      },
+      "title": "Events",
+      "type": "array"
+    },
+    "metadata": {
+      "additionalProperties": true,
+      "title": "Metadata",
+      "type": "object"
+    },
+    "record_type": {
+      "const": "trajectory",
+      "default": "trajectory",
+      "title": "Record Type",
+      "type": "string"
+    },
+    "reward": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Reward"
+    },
+    "success": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Success"
+    },
+    "task_id": {
+      "minLength": 1,
+      "title": "Task Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "task_id",
+    "benchmark",
+    "events"
+  ],
+  "title": "TrajectoryRecord",
+  "type": "object"
+}

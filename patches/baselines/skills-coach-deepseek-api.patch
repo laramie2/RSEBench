@@ -1,0 +1,425 @@
+diff --git a/skills-coach/api_checker.py b/skills-coach/api_checker.py
+index 630d068..82010c0 100644
+--- a/skills-coach/api_checker.py
++++ b/skills-coach/api_checker.py
+@@ -8,6 +8,8 @@ import os
+ import sys
+ from pathlib import Path
+ 
++from rsebench.adapters.skills_coach import DeepSeekAnthropicCompat
++
+ 
+ def check_anthropic_api() -> tuple[bool, str]:
+     """
+@@ -17,33 +19,10 @@ def check_anthropic_api() -> tuple[bool, str]:
+         (is_available, message) tuple
+     """
+     try:
+-        import anthropic
+-    except ImportError:
+-        return False, "Anthropic SDK not installed. Install with: pip install anthropic"
+-
+-    # Check for API key or auth token
+-    api_key = os.environ.get("ANTHROPIC_API_KEY")
+-    auth_token = os.environ.get("ANTHROPIC_AUTH_TOKEN")
+-    base_url = os.environ.get("ANTHROPIC_BASE_URL")
+-
+-    if not api_key and not auth_token:
+-        return False, "ANTHROPIC_API_KEY or ANTHROPIC_AUTH_TOKEN environment variable not set"
+-
+-    # Try to create client
+-    try:
+-        if auth_token:
+-            # Use auth token with custom base URL
+-            client = anthropic.Anthropic(
+-                api_key=auth_token,
+-                base_url=base_url if base_url else None
+-            )
+-            return True, f"Anthropic API configured successfully (using AUTH_TOKEN{' with custom base URL' if base_url else ''})"
+-        else:
+-            # Use standard API key
+-            client = anthropic.Anthropic(api_key=api_key)
+-            return True, "Anthropic API configured successfully"
++        DeepSeekAnthropicCompat()
++        return True, "DeepSeek API configured successfully"
+     except Exception as e:
+-        return False, f"Failed to initialize Anthropic client: {e}"
++        return False, f"Failed to initialize DeepSeek client: {e}"
+ 
+ 
+ def prompt_user_for_api_key() -> str:
+@@ -56,11 +35,11 @@ def prompt_user_for_api_key() -> str:
+     print("\n" + "="*60)
+     print("API Configuration Required")
+     print("="*60)
+-    print("\nSkills-Coach requires access to Claude API for optimization.")
++    print("\nSkills-Coach requires access to DeepSeek API for optimization.")
+     print("\nOptions:")
+-    print("1. Provide your Anthropic API key")
++    print("1. Provide your DeepSeek API key")
+     print("2. Skip optimization (will fail)")
+-    print("\nTo get an API key, visit: https://console.anthropic.com/")
++    print("\nProvide a key for https://api.deepseek.com.")
+ 
+     choice = input("\nEnter choice (1 or 2): ").strip()
+ 
+@@ -102,15 +81,14 @@ def ensure_api_available() -> bool:
+         return False
+ 
+     # Set the API key in environment
+-    os.environ["ANTHROPIC_API_KEY"] = api_key
++    os.environ["DEEPSEEK_API_KEY"] = api_key
+ 
+     # Verify it works
+     is_available, message = check_anthropic_api()
+ 
+     if is_available:
+         print(f"\n✓ {message}")
+-        print("\nNote: To avoid this prompt in the future, set ANTHROPIC_API_KEY in your environment:")
+-        print(f"  export ANTHROPIC_API_KEY='{api_key}'")
++        print("\nNote: To avoid this prompt in the future, set DEEPSEEK_API_KEY in your environment.")
+         return True
+     else:
+         print(f"\n✗ {message}")
+diff --git a/skills-coach/subskills/evaluate-agent/evaluator.py b/skills-coach/subskills/evaluate-agent/evaluator.py
+index f397716..fba672f 100644
+--- a/skills-coach/subskills/evaluate-agent/evaluator.py
++++ b/skills-coach/subskills/evaluate-agent/evaluator.py
+@@ -9,11 +9,14 @@ import os
+ import json
+ import shutil
+ import subprocess
++import sys
+ from pathlib import Path
+ from typing import Dict, List, Tuple, Optional
+ from dataclasses import dataclass, asdict
+ from datetime import datetime
+ 
++from rsebench.adapters.skills_coach import DeepSeekAnthropicCompat
++
+ 
+ @dataclass
+ class CriterionResult:
+@@ -68,6 +71,10 @@ class SkillEvaluator:
+         exec_results_dir: str = "exec_results",
+         output_dir: str = "."
+     ):
++        try:
++            self.llm_client = DeepSeekAnthropicCompat()
++        except RuntimeError:
++            self.llm_client = None
+         self.target_skill_path = Path(target_skill_path)
+         self.output_dir = Path(output_dir)
+ 
+@@ -185,54 +192,24 @@ Be STRICT. Only mark as satisfied if the documentation truly meets professional
+ A score of 70+ means satisfied, below 70 means not satisfied.
+ """
+ 
++        if self.llm_client is None:
++            return self._enhanced_heuristic_evaluation(
++                skill_content, criterion, task_objective
++            )
+         try:
+-            # Try to use Claude API for evaluation
+-            result = subprocess.run(
+-                ['claude', '--model', 'sonnet-4'],
+-                input=prompt,
+-                capture_output=True,
+-                text=True,
+-                timeout=60
++            response = self.llm_client.complete_json(prompt, max_tokens=1024)
++            satisfied = response.get('satisfied', False) or response.get('score', 0) >= 70
++            evidence = response.get('evidence', 'LLM evaluation completed')
++            strengths = response.get('strengths', [])
++            weaknesses = response.get('weaknesses', [])
++            if strengths or weaknesses:
++                evidence += f" | Strengths: {', '.join(strengths[:2])}. Weaknesses: {', '.join(weaknesses[:2])}"
++            return satisfied, evidence
++        except Exception:
++            return self._enhanced_heuristic_evaluation(
++                skill_content, criterion, task_objective
+             )
+ 
+-            if result.returncode == 0:
+-                # Try to parse JSON from response
+-                response_text = result.stdout.strip()
+-
+-                # Extract JSON if wrapped in markdown code blocks
+-                if '```json' in response_text:
+-                    json_start = response_text.find('```json') + 7
+-                    json_end = response_text.find('```', json_start)
+-                    response_text = response_text[json_start:json_end].strip()
+-                elif '```' in response_text:
+-                    json_start = response_text.find('```') + 3
+-                    json_end = response_text.find('```', json_start)
+-                    response_text = response_text[json_start:json_end].strip()
+-
+-                try:
+-                    response = json.loads(response_text)
+-                    satisfied = response.get('satisfied', False) or response.get('score', 0) >= 70
+-                    evidence = response.get('evidence', 'LLM evaluation completed')
+-
+-                    # Enhance evidence with strengths/weaknesses if available
+-                    if 'strengths' in response or 'weaknesses' in response:
+-                        strengths = response.get('strengths', [])
+-                        weaknesses = response.get('weaknesses', [])
+-                        evidence += f" | Strengths: {', '.join(strengths[:2])}. Weaknesses: {', '.join(weaknesses[:2])}"
+-
+-                    return satisfied, evidence
+-                except json.JSONDecodeError:
+-                    # If JSON parsing fails, try to extract satisfaction from text
+-                    satisfied = 'satisfied": true' in response_text.lower() or 'score": 7' in response_text or 'score": 8' in response_text or 'score": 9' in response_text
+-                    return satisfied, response_text[:200]
+-
+-            # Fallback to enhanced heuristic evaluation
+-            return self._enhanced_heuristic_evaluation(skill_content, criterion, task_objective)
+-
+-        except (subprocess.TimeoutExpired, FileNotFoundError) as e:
+-            # Fallback to enhanced heuristic evaluation
+-            return self._enhanced_heuristic_evaluation(skill_content, criterion, task_objective)
+-
+     def _enhanced_heuristic_evaluation(self, skill_content: str, criterion: str, task_objective: str) -> Tuple[bool, str]:
+         """
+         Enhanced heuristic evaluation with stricter, multi-dimensional checks.
+diff --git a/skills-coach/subskills/optimize-agent/auto_fixer.py b/skills-coach/subskills/optimize-agent/auto_fixer.py
+index aa2289c..fd15217 100644
+--- a/skills-coach/subskills/optimize-agent/auto_fixer.py
++++ b/skills-coach/subskills/optimize-agent/auto_fixer.py
+@@ -16,15 +16,12 @@ import os
+ import re
+ import json
+ import subprocess
++import sys
+ from pathlib import Path
+ from typing import Dict, List, Optional, Tuple
+ from dataclasses import dataclass
+ 
+-try:
+-    import anthropic
+-    ANTHROPIC_AVAILABLE = True
+-except ImportError:
+-    ANTHROPIC_AVAILABLE = False
++from rsebench.adapters.skills_coach import DeepSeekAnthropicCompat
+ 
+ 
+ @dataclass
+@@ -43,11 +40,11 @@ class AutoFixer:
+     def __init__(self, skill_path: Path, config: Optional[Dict] = None):
+         self.skill_path = skill_path
+         self.config = config or {}
+-        self.api_key = os.environ.get('ANTHROPIC_API_KEY')
++        self.api_key = os.environ.get('DEEPSEEK_API_KEY')
+         self.client = None
+ 
+-        if ANTHROPIC_AVAILABLE and self.api_key:
+-            self.client = anthropic.Anthropic(api_key=self.api_key)
++        if self.api_key:
++            self.client = DeepSeekAnthropicCompat(api_key=self.api_key)
+ 
+     def analyze_and_fix(self, failure_analyses: List[Dict]) -> List[FixResult]:
+         """Analyze failures and apply fixes automatically."""
+diff --git a/skills-coach/subskills/optimize-agent/command_optimizer.py b/skills-coach/subskills/optimize-agent/command_optimizer.py
+index 587a38f..756029c 100644
+--- a/skills-coach/subskills/optimize-agent/command_optimizer.py
++++ b/skills-coach/subskills/optimize-agent/command_optimizer.py
+@@ -23,11 +23,7 @@ from typing import Dict, List, Optional, Tuple
+ from dataclasses import dataclass
+ from datetime import datetime
+ 
+-try:
+-    import anthropic
+-    ANTHROPIC_AVAILABLE = True
+-except ImportError:
+-    ANTHROPIC_AVAILABLE = False
++from rsebench.adapters.skills_coach import DeepSeekAnthropicCompat
+ 
+ 
+ @dataclass
+@@ -48,24 +44,11 @@ class CommandOptimizer:
+         self.work_dir = work_dir
+         self.skill_md_path = skill_path / "SKILL.md"
+ 
+-        # Initialize Anthropic client
++        # Initialize the locked DeepSeek client.
+         self.client = None
+-        if ANTHROPIC_AVAILABLE:
+-            # Support both API key and auth token
+-            auth_token = os.environ.get("ANTHROPIC_AUTH_TOKEN")
+-            base_url = os.environ.get("ANTHROPIC_BASE_URL")
+-            api_key = os.environ.get("ANTHROPIC_API_KEY")
+-
+-            if auth_token:
+-                # Use auth token with custom base URL
+-                self.client = anthropic.Anthropic(
+-                    api_key=auth_token,
+-                    base_url=base_url if base_url else None,
+-                    timeout=120.0  # 2 minutes timeout
+-                )
+-            elif api_key:
+-                # Use standard API key
+-                self.client = anthropic.Anthropic(api_key=api_key, timeout=120.0)
++        api_key = os.environ.get("DEEPSEEK_API_KEY")
++        if api_key:
++            self.client = DeepSeekAnthropicCompat(api_key=api_key, timeout=120.0)
+ 
+         self.commands = []
+         self.skill_content = ""
+@@ -238,7 +221,10 @@ Provide ONLY the improved bash command (no explanation):"""
+                     max_tokens=300,
+                     messages=[{"role": "user", "content": prompt}]
+                 )
+-                return response.content[0].text.strip()
++                improved = response.content[0].text.strip()
++                improved = re.sub(r'```bash\n?', '', improved)
++                improved = re.sub(r'```\n?', '', improved)
++                return improved.strip()
+             except Exception as e:
+                 if attempt < max_retries - 1:
+                     print(f"Warning: Failed to generate improved command (attempt {attempt + 1}/{max_retries}): {e}")
+@@ -247,15 +233,6 @@ Provide ONLY the improved bash command (no explanation):"""
+                 else:
+                     print(f"Error: Failed to generate improved command after {max_retries} attempts: {e}")
+                     return None
+-            )
+-            improved = response.content[0].text.strip()
+-            # Remove markdown code blocks if present
+-            improved = re.sub(r'```bash\n?', '', improved)
+-            improved = re.sub(r'```\n?', '', improved)
+-            return improved.strip()
+-        except Exception as e:
+-            print(f"Failed to generate improved command: {e}")
+-            return cmd_info.original_text
+ 
+     def optimize_commands(self) -> Dict:
+         """Main optimization loop for commands."""
+diff --git a/skills-coach/subskills/optimize-agent/training_free_grpo_optimizer.py b/skills-coach/subskills/optimize-agent/training_free_grpo_optimizer.py
+index e2322b9..2a69bf9 100755
+--- a/skills-coach/subskills/optimize-agent/training_free_grpo_optimizer.py
++++ b/skills-coach/subskills/optimize-agent/training_free_grpo_optimizer.py
+@@ -21,12 +21,7 @@ from typing import Dict, List, Optional, Any
+ from dataclasses import dataclass, asdict
+ from datetime import datetime
+ 
+-try:
+-    import anthropic
+-    ANTHROPIC_AVAILABLE = True
+-except ImportError:
+-    ANTHROPIC_AVAILABLE = False
+-    print("Warning: anthropic SDK not available, some features will be limited")
++from rsebench.adapters.skills_coach import DeepSeekAnthropicCompat
+ 
+ 
+ @dataclass
+@@ -139,29 +134,12 @@ class TrainingFreeGRPOOptimizer:
+         self.num_epochs = num_epochs
+         self.config = config or self._load_config()
+ 
+-        # Initialize Anthropic client if available
++        # Initialize the locked DeepSeek API client.
+         self.client = None
+-        if ANTHROPIC_AVAILABLE:
+-            try:
+-                # Support both API key and auth token
+-                auth_token = os.environ.get("ANTHROPIC_AUTH_TOKEN")
+-                base_url = os.environ.get("ANTHROPIC_BASE_URL")
+-
+-                if auth_token:
+-                    # Use auth token with custom base URL
+-                    self.client = anthropic.Anthropic(
+-                        api_key=auth_token,
+-                        base_url=base_url if base_url else None,
+-                        timeout=120.0  # 2 minutes timeout
+-                    )
+-                else:
+-                    # Use standard API key
+-                    self.client = anthropic.Anthropic(
+-                        api_key=api_key or os.environ.get("ANTHROPIC_API_KEY"),
+-                        timeout=120.0  # 2 minutes timeout
+-                    )
+-            except Exception as e:
+-                print(f"Warning: Failed to initialize Anthropic client: {e}")
++        try:
++            self.client = DeepSeekAnthropicCompat(api_key=api_key, timeout=120.0)
++        except Exception as e:
++            print(f"Warning: Failed to initialize DeepSeek client: {e}")
+ 
+         # Experience libraries
+         self.markdown_experiences = ExperienceLibrary(domain="markdown")
+diff --git a/tests/test_deepseek_client.py b/tests/test_deepseek_client.py
+new file mode 100644
+index 0000000..5c5c06a
+--- /dev/null
++++ b/tests/test_deepseek_client.py
+@@ -0,0 +1,71 @@
++import sys
++from pathlib import Path
++from types import SimpleNamespace
++
++
++SKILLS_COACH_ROOT = Path(__file__).parents[1] / "skills-coach"
++
++
++def test_anthropic_compat_routes_to_locked_deepseek(monkeypatch):
++    from rsebench.adapters import skills_coach as deepseek_client
++
++    calls = []
++
++    class Completions:
++        def create(self, **kwargs):
++            calls.append(kwargs)
++            message = SimpleNamespace(content="ok")
++            return SimpleNamespace(choices=[SimpleNamespace(message=message)])
++
++    fake = SimpleNamespace(chat=SimpleNamespace(completions=Completions()))
++    monkeypatch.setattr(deepseek_client, "OpenAI", lambda **kwargs: fake)
++
++    client = deepseek_client.DeepSeekAnthropicCompat(api_key="fixture-key")
++    response = client.messages.create(
++        model="claude-sonnet-4-6",
++        max_tokens=32,
++        messages=[{"role": "user", "content": "hello"}],
++    )
++
++    assert response.content[0].text == "ok"
++    assert calls[0]["model"] == "deepseek-v4-flash"
++    assert calls[0]["extra_body"] == {"thinking": {"type": "disabled"}}
++
++
++def test_client_requires_deepseek_key(monkeypatch):
++    from rsebench.adapters import skills_coach as deepseek_client
++
++    monkeypatch.delenv("DEEPSEEK_API_KEY", raising=False)
++
++    try:
++        deepseek_client.DeepSeekAnthropicCompat()
++    except RuntimeError as exc:
++        assert "DEEPSEEK_API_KEY" in str(exc)
++    else:
++        raise AssertionError("missing key was accepted")
++
++
++def test_active_pipeline_has_no_anthropic_or_claude_cli_model_calls():
++    active = [
++        SKILLS_COACH_ROOT / "api_checker.py",
++        SKILLS_COACH_ROOT
++        / "subskills"
++        / "optimize-agent"
++        / "training_free_grpo_optimizer.py",
++        SKILLS_COACH_ROOT / "subskills" / "optimize-agent" / "auto_fixer.py",
++        SKILLS_COACH_ROOT / "subskills" / "optimize-agent" / "command_optimizer.py",
++        SKILLS_COACH_ROOT / "subskills" / "evaluate-agent" / "evaluator.py",
++    ]
++
++    for path in active:
++        source = path.read_text(encoding="utf-8")
++        assert "anthropic.Anthropic" not in source, path
++        assert "['claude'," not in source, path
++
++
++def test_command_optimizer_is_valid_python():
++    path = (
++        SKILLS_COACH_ROOT / "subskills" / "optimize-agent" / "command_optimizer.py"
++    )
++
++    compile(path.read_text(encoding="utf-8"), str(path), "exec")
+

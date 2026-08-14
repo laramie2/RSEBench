@@ -1,0 +1,20 @@
+version: 1
+profile: officeqa-noise-pilot
+benchmark: officeqa_full
+domain: document
+data_root_env: RSEBENCH_DATA_ROOT
+dataset_path: materialized/officeqa_full/officeqa_full.csv
+corpus_path: materialized/officeqa_full/corpus
+operators:
+  - semantic_decoy_document
+  - gold_rank_displacement
+  - failed_attempt
+gold_ranks: [3, 5, 10]
+severities: [L1, L2, L3]
+seed: 20260812
+pilot_limit: 10
+smoke_severity: L2
+model_config: configs/pilot/deepseek-v4-flash.yaml
+blocked_when_missing:
+  - dataset_path
+  - corpus_path

@@ -1,0 +1,188 @@
+{
+  "$defs": {
+    "Channel": {
+      "enum": [
+        "C1",
+        "C2",
+        "C3",
+        "C4"
+      ],
+      "title": "Channel",
+      "type": "string"
+    },
+    "GeneratorMode": {
+      "enum": [
+        "rule",
+        "model",
+        "hybrid"
+      ],
+      "title": "GeneratorMode",
+      "type": "string"
+    },
+    "Mechanism": {
+      "enum": [
+        "M1",
+        "M2",
+        "M3",
+        "M4",
+        "M5",
+        "M6"
+      ],
+      "title": "Mechanism",
+      "type": "string"
+    },
+    "NoiseTiming": {
+      "enum": [
+        "evolution",
+        "test"
+      ],
+      "title": "NoiseTiming",
+      "type": "string"
+    },
+    "Severity": {
+      "additionalProperties": false,
+      "properties": {
+        "budget": {
+          "default": 1,
+          "minimum": 0,
+          "title": "Budget",
+          "type": "integer"
+        },
+        "level": {
+          "$ref": "#/$defs/SeverityLevel"
+        },
+        "parameters": {
+          "additionalProperties": true,
+          "title": "Parameters",
+          "type": "object"
+        },
+        "semantic_similarity": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Semantic Similarity"
+        }
+      },
+      "required": [
+        "level"
+      ],
+      "title": "Severity",
+      "type": "object"
+    },
+    "SeverityLevel": {
+      "enum": [
+        "L0",
+        "L1",
+        "L2",
+        "L3"
+      ],
+      "title": "SeverityLevel",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "benchmark": {
+      "minLength": 1,
+      "title": "Benchmark",
+      "type": "string"
+    },
+    "channel": {
+      "$ref": "#/$defs/Channel"
+    },
+    "clean_hash": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Clean Hash",
+      "type": "string"
+    },
+    "domain": {
+      "minLength": 1,
+      "title": "Domain",
+      "type": "string"
+    },
+    "generator_mode": {
+      "$ref": "#/$defs/GeneratorMode",
+      "default": "rule"
+    },
+    "mechanism": {
+      "$ref": "#/$defs/Mechanism"
+    },
+    "metadata": {
+      "additionalProperties": true,
+      "title": "Metadata",
+      "type": "object"
+    },
+    "noise_id": {
+      "minLength": 1,
+      "title": "Noise Id",
+      "type": "string"
+    },
+    "noisy_hash": {
+      "anyOf": [
+        {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Noisy Hash"
+    },
+    "operator": {
+      "minLength": 1,
+      "title": "Operator",
+      "type": "string"
+    },
+    "seed": {
+      "title": "Seed",
+      "type": "integer"
+    },
+    "severity": {
+      "$ref": "#/$defs/Severity"
+    },
+    "task_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Task Id"
+    },
+    "template_version": {
+      "default": "v1",
+      "title": "Template Version",
+      "type": "string"
+    },
+    "timing": {
+      "$ref": "#/$defs/NoiseTiming",
+      "default": "test"
+    }
+  },
+  "required": [
+    "noise_id",
+    "channel",
+    "mechanism",
+    "operator",
+    "domain",
+    "benchmark",
+    "severity",
+    "seed",
+    "clean_hash"
+  ],
+  "title": "NoiseManifest",
+  "type": "object"
+}

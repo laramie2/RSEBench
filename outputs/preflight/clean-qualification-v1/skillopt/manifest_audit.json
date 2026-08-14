@@ -1,0 +1,44 @@
+{
+  "all_ready": true,
+  "benchmarks": {
+    "officeqa_full": {
+      "arm": "clean",
+      "method_seed": 20260813,
+      "provider_calls": 0,
+      "resolved_artifact_count": 1,
+      "runtime": {
+        "batch_size": 4,
+        "max_completion_tokens": 4096,
+        "max_steps": 3,
+        "max_tool_turns": 12,
+        "workers": 2
+      },
+      "source_hash": "a5b1942c96d934734e280ed23726bd50644c0379ff4e972e81967a47175ba469",
+      "task_counts": {
+        "clean_test": 20,
+        "train": 12,
+        "validation": 6
+      }
+    },
+    "spreadsheetbench_verified": {
+      "arm": "clean",
+      "method_seed": 20260813,
+      "provider_calls": 0,
+      "resolved_artifact_count": 120,
+      "runtime": {
+        "batch_size": 7,
+        "max_completion_tokens": 2048,
+        "max_steps": 3,
+        "max_tool_turns": 3,
+        "workers": 2
+      },
+      "source_hash": "dab57db74e7d158d6e9cc17c6b3ac6d458f5b749f30da57617d85f844ea3a0c5",
+      "task_counts": {
+        "clean_test": 30,
+        "train": 20,
+        "validation": 10
+      }
+    }
+  },
+  "schema_version": "rsebench.clean-skillopt-preflight.v1"
+}

@@ -1,0 +1,25 @@
+{
+  "schema_version": "rsebench.run-status-overrides.v1",
+  "runs": {
+    "20260813T134207619825Z-skilladaptor": {
+      "status": "infrastructure_failed",
+      "reason": "The pre-fix lexical fault-dedup path called an unsupported embedding endpoint."
+    },
+    "20260813T134926217305Z-skilladaptor": {
+      "status": "clean_evolution_stalled",
+      "reason": "The original validation split was a 0/3 floor and five clean candidates produced no accepted update; the noisy arm was not launched."
+    },
+    "20260813T142220658602Z-skilladaptor": {
+      "status": "clean_evolution_stalled",
+      "reason": "After calibrating validation to 1/3, three clean candidates still had zero validation delta; the noisy arm was not launched."
+    },
+    "20260813T143746635698Z-skilllearn_self_feedback": {
+      "status": "infrastructure_stopped",
+      "reason": "The organize-messy-files task attempted a large external Docker-time download before model evaluation."
+    },
+    "20260813T151638329474Z-skilllearn_self_feedback": {
+      "status": "protocol_failed",
+      "reason": "Tool-call JSON remained malformed after bounded recovery at 2048 output tokens; a 4096-token retry is recorded separately."
+    }
+  }
+}

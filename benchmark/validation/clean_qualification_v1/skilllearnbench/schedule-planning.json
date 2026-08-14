@@ -1,0 +1,94 @@
+{
+  "benchmark": "skilllearnbench",
+  "clean_test": [
+    {
+      "artifact_path": "rsebench-methods://skilllearnbench/tasks/schedule-planning/schedule-planning-4",
+      "benchmark": "skilllearnbench",
+      "domain": "skill_learning",
+      "gold_answers": [],
+      "metadata": {
+        "official_instance_path": "rsebench-methods://skilllearnbench/tasks/schedule-planning/schedule-planning-4",
+        "task_family": "schedule-planning"
+      },
+      "prompt": "You need to read meeting schedule request emails from `/root/test_input.json`. You should parse your internal calendar `/root/calendar.pdf` to propose a meeting time for all requests. The time between two adjacent horizontal lines in the calendar is 15 minutes.\n\n## Workflow\n1. Extract Request Details: From each email in `/root/test_input.json`, extract the meeting duration and any specific time/date constraints mentioned in the message body.\n2. Access and read `/root/calendar.pdf`. Extract any existing appointments listed in this document. Determine the start and end times for each appointment block by measuring its position and span relative to the calendar's timeline axis.\n3. Specifically identify blue-colored blocks, which represent low-priority or flexible tasks. Treat these blue slots as available time that can be overwritten; if a meeting request overlaps with a blue-colored entry, prioritize the meeting and consider the slot open. Ensure that the earliest compatible time is selected, provided that all requests can be accommodated.\n4. Generate the reply content and save as a .txt file:\nFor each email, instead of sending a reply, generate the content based on the template below and save it as an individual text file (e.g., `/root/reply_{messageID}.txt`):\n\n    \"\"\"Hi,\n\n        Thank you for your meeting request.\n\n        I can be available:\n\n        Date: {day_name}, {date_formatted}\n        Time: {time_range}\n        Duration: {meetingDuration} hour(s)\n\n        If this time doesn't work, please let me know your preferred alternatives.\n\n        Best regards,\n        ConSkillBench\"\"\"\n\n   - The date format should be `{day_name}, {month} {DD}, {YYYY}`. For example: `Thursday, January 08, 2026` (NOT `January 8th, 2026` or `January 8, 2026`)\n   - The time format should be `{HH:MM AM/PM} - {HH:MM AM/PM}`. For example: `09:00 AM - 10:30 AM` (NOT `9:00 AM - 10:30 AM`)\n   - All the time should be set according to the time zone in the calendar.\n5. Save the results in results.json:\nLog the filenames of all generated text files in `/root/results.json` using the following format:\n{\n  \"sent_results\": [\n    {\"filename\": \"reply_{messageID1}.txt\", \"recipient\": <email of recipient1>},\n    {\"filename\": \"reply_{messageID2}.txt\", \"recipient\": <email of recipient2>}\n  ]\n}",
+      "source_hash": "23396534778510ed578636513530bf52da9d463ed44ee01cb39c4b091a90e3c9",
+      "task_id": "schedule-planning-4",
+      "verifier": "skilllearn_hidden_test_v1"
+    },
+    {
+      "artifact_path": "rsebench-methods://skilllearnbench/tasks/schedule-planning/schedule-planning-5",
+      "benchmark": "skilllearnbench",
+      "domain": "skill_learning",
+      "gold_answers": [],
+      "metadata": {
+        "official_instance_path": "rsebench-methods://skilllearnbench/tasks/schedule-planning/schedule-planning-5",
+        "task_family": "schedule-planning"
+      },
+      "prompt": "You need to read meeting schedule request emails from `/root/test_input.json`. You should parse your internal calendar `/root/calendar.pdf` to propose a meeting time for all requests. The time between two adjacent horizontal lines in the calendar is 15 minutes.\n\n## Workflow\n1. Extract Request Details: From each email in `/root/test_input.json`, extract the meeting duration and any specific time/date constraints mentioned in the message body.\n2. Access and read `/root/calendar.pdf`. Extract any existing appointments listed in this document. Determine the start and end times for each appointment block by measuring its position and span relative to the calendar's timeline axis.\n3. Specifically identify blue-colored blocks, which represent low-priority or flexible tasks. Treat these blue slots as available time that can be overwritten; if a meeting request overlaps with a blue-colored entry, prioritize the meeting and consider the slot open. Ensure that the earliest compatible time is selected, provided that all requests can be accommodated.\n4. Generate the reply content and save as a .txt file:\nFor each email, instead of sending a reply, generate the content based on the template below and save it as an individual text file (e.g., `/root/reply_{messageID}.txt`):\n\n    \"\"\"Hi,\n\n        Thank you for your meeting request.\n\n        I can be available:\n\n        Date: {day_name}, {date_formatted}\n        Time: {time_range}\n        Duration: {meetingDuration} hour(s)\n\n        If this time doesn't work, please let me know your preferred alternatives.\n\n        Best regards,\n        ConSkillBench\"\"\"\n\n   - The date format should be `{day_name}, {month} {DD}, {YYYY}`. For example: `Thursday, January 08, 2026` (NOT `January 8th, 2026` or `January 8, 2026`)\n   - The time format should be `{HH:MM AM/PM} - {HH:MM AM/PM}`. For example: `09:00 AM - 10:30 AM` (NOT `9:00 AM - 10:30 AM`)\n   - All the time should be set according to the time zone in the calendar.\n5. Save the results in results.json:\nLog the filenames of all generated text files in `/root/results.json` using the following format:\n{\n  \"sent_results\": [\n    {\"filename\": \"reply_{messageID1}.txt\", \"recipient\": <email of recipient1>},\n    {\"filename\": \"reply_{messageID2}.txt\", \"recipient\": <email of recipient2>}\n  ]\n}",
+      "source_hash": "7e5bc0fac8899b7a4a9720ff81f0fdae5631b9d50009cbdc14b879624d628b2a",
+      "task_id": "schedule-planning-5",
+      "verifier": "skilllearn_hidden_test_v1"
+    }
+  ],
+  "domain": "skill_learning",
+  "metadata": {
+    "baseline": "skilllearn_self_feedback",
+    "feedback_mode": "self",
+    "qualification_version": "clean-qualification-v1",
+    "runtime": {
+      "evolution_rounds": 2,
+      "max_completion_tokens": 4096,
+      "max_tool_turns": 16,
+      "require_prebuilt_images": true
+    },
+    "task_family": "schedule-planning"
+  },
+  "seed": 20260813,
+  "source_hash": "b9f5024c3cb5763d2d19c599eaa8d01f38de0790534a73470c573c69585171e9",
+  "train": [
+    {
+      "artifact_path": "rsebench-methods://skilllearnbench/tasks/schedule-planning/schedule-planning-1",
+      "benchmark": "skilllearnbench",
+      "domain": "skill_learning",
+      "gold_answers": [],
+      "metadata": {
+        "official_instance_path": "rsebench-methods://skilllearnbench/tasks/schedule-planning/schedule-planning-1",
+        "task_family": "schedule-planning"
+      },
+      "prompt": "You need to read meeting schedule request emails from `/root/test_input.json`. You should parse your internal calendar `/root/calendar.pdf` to propose a meeting time for all requests. The time between two adjacent horizontal lines in the calendar is 15 minutes.\n\n## Workflow\n1. Extract Request Details: From each email in `/root/test_input.json`, extract the meeting duration and any specific time/date constraints mentioned in the message body.\n2. Access and read `/root/calendar.pdf`. Extract any existing appointments listed in this document. Determine the start and end times for each appointment block by measuring its position and span relative to the calendar's timeline axis.\n3. Specifically identify blue-colored blocks, which represent low-priority or flexible tasks. Treat these blue slots as available time that can be overwritten; if a meeting request overlaps with a blue-colored entry, prioritize the meeting and consider the slot open. Ensure that the earliest compatible time is selected, provided that all requests can be accommodated.\n4. Generate the reply content and save as a .txt file:\nFor each email, instead of sending a reply, generate the content based on the template below and save it as an individual text file (e.g., `/root/reply_{messageID}.txt`):\n\n    \"\"\"Hi,\n\n        Thank you for your meeting request.\n\n        I can be available:\n\n        Date: {day_name}, {date_formatted}\n        Time: {time_range}\n        Duration: {meetingDuration} hour(s)\n\n        If this time doesn't work, please let me know your preferred alternatives.\n\n        Best regards,\n        ConSkillBench\"\"\"\n\n   - The date format should be `{day_name}, {month} {DD}, {YYYY}`. For example: `Thursday, January 08, 2026` (NOT `January 8th, 2026` or `January 8, 2026`)\n   - The time format should be `{HH:MM AM/PM} - {HH:MM AM/PM}`. For example: `09:00 AM - 10:30 AM` (NOT `9:00 AM - 10:30 AM`)\n   - All the time should be set according to the time zone in the calendar.\n5. Save the results in results.json:\nLog the filenames of all generated text files in `/root/results.json` using the following format:\n{\n  \"sent_results\": [\n    {\"filename\": \"reply_{messageID1}.txt\", \"recipient\": <email of recipient1>},\n    {\"filename\": \"reply_{messageID2}.txt\", \"recipient\": <email of recipient2>}\n  ]\n}",
+      "source_hash": "39b36a531718fee8cf71cfdb587fd9a3f804ed44b3127cffd4291476fea48ee8",
+      "task_id": "schedule-planning-1",
+      "verifier": "skilllearn_hidden_test_v1"
+    },
+    {
+      "artifact_path": "rsebench-methods://skilllearnbench/tasks/schedule-planning/schedule-planning-2",
+      "benchmark": "skilllearnbench",
+      "domain": "skill_learning",
+      "gold_answers": [],
+      "metadata": {
+        "official_instance_path": "rsebench-methods://skilllearnbench/tasks/schedule-planning/schedule-planning-2",
+        "task_family": "schedule-planning"
+      },
+      "prompt": "You need to read meeting schedule request emails from `/root/test_input.json`. You should parse your internal calendar `/root/calendar.pdf` to propose a meeting time for all requests. The time between two adjacent horizontal lines in the calendar is 15 minutes.\n\n## Workflow\n1. Extract Request Details: From each email in `/root/test_input.json`, extract the meeting duration and any specific time/date constraints mentioned in the message body.\n2. Access and read `/root/calendar.pdf`. Extract any existing appointments listed in this document. Determine the start and end times for each appointment block by measuring its position and span relative to the calendar's timeline axis.\n3. Specifically identify blue-colored blocks, which represent low-priority or flexible tasks. Treat these blue slots as available time that can be overwritten; if a meeting request overlaps with a blue-colored entry, prioritize the meeting and consider the slot open. Ensure that the earliest compatible time is selected, provided that all requests can be accommodated.\n4. Generate the reply content and save as a .txt file:\nFor each email, instead of sending a reply, generate the content based on the template below and save it as an individual text file (e.g., `/root/reply_{messageID}.txt`):\n\n    \"\"\"Hi,\n\n        Thank you for your meeting request.\n\n        I can be available:\n\n        Date: {day_name}, {date_formatted}\n        Time: {time_range}\n        Duration: {meetingDuration} hour(s)\n\n        If this time doesn't work, please let me know your preferred alternatives.\n\n        Best regards,\n        ConSkillBench\"\"\"\n\n   - The date format should be `{day_name}, {month} {DD}, {YYYY}`. For example: `Thursday, January 08, 2026` (NOT `January 8th, 2026` or `January 8, 2026`)\n   - The time format should be `{HH:MM AM/PM} - {HH:MM AM/PM}`. For example: `09:00 AM - 10:30 AM` (NOT `9:00 AM - 10:30 AM`)\n   - All the time should be set according to the time zone in the calendar.\n5. Save the results in results.json:\nLog the filenames of all generated text files in `/root/results.json` using the following format:\n{\n  \"sent_results\": [\n    {\"filename\": \"reply_{messageID1}.txt\", \"recipient\": <email of recipient1>},\n    {\"filename\": \"reply_{messageID2}.txt\", \"recipient\": <email of recipient2>}\n  ]\n}",
+      "source_hash": "5d0322a354879559864fd916e95370bb23b01d88acafae21c2a552002f8d1fec",
+      "task_id": "schedule-planning-2",
+      "verifier": "skilllearn_hidden_test_v1"
+    }
+  ],
+  "validation": [
+    {
+      "artifact_path": "rsebench-methods://skilllearnbench/tasks/schedule-planning/schedule-planning-3",
+      "benchmark": "skilllearnbench",
+      "domain": "skill_learning",
+      "gold_answers": [],
+      "metadata": {
+        "official_instance_path": "rsebench-methods://skilllearnbench/tasks/schedule-planning/schedule-planning-3",
+        "task_family": "schedule-planning"
+      },
+      "prompt": "You need to read meeting schedule request emails from `/root/test_input.json`. You should parse your internal calendar `/root/calendar.pdf` to propose a meeting time for all requests. The time between two adjacent horizontal lines in the calendar is 15 minutes.\n\n## Workflow\n1. Extract Request Details: From each email in `/root/test_input.json`, extract the meeting duration and any specific time/date constraints mentioned in the message body.\n2. Access and read `/root/calendar.pdf`. Extract any existing appointments listed in this document. Determine the start and end times for each appointment block by measuring its position and span relative to the calendar's timeline axis.\n3. Specifically identify blue-colored blocks, which represent low-priority or flexible tasks. Treat these blue slots as available time that can be overwritten; if a meeting request overlaps with a blue-colored entry, prioritize the meeting and consider the slot open. Ensure that the earliest compatible time is selected, provided that all requests can be accommodated.\n4. Generate the reply content and save as a .txt file:\nFor each email, instead of sending a reply, generate the content based on the template below and save it as an individual text file (e.g., `/root/reply_{messageID}.txt`):\n\n    \"\"\"Hi,\n\n        Thank you for your meeting request.\n\n        I can be available:\n\n        Date: {day_name}, {date_formatted}\n        Time: {time_range}\n        Duration: {meetingDuration} hour(s)\n\n        If this time doesn't work, please let me know your preferred alternatives.\n\n        Best regards,\n        ConSkillBench\"\"\"\n\n   - The date format should be `{day_name}, {month} {DD}, {YYYY}`. For example: `Thursday, January 08, 2026` (NOT `January 8th, 2026` or `January 8, 2026`)\n   - The time format should be `{HH:MM AM/PM} - {HH:MM AM/PM}`. For example: `09:00 AM - 10:30 AM` (NOT `9:00 AM - 10:30 AM`)\n   - All the time should be set according to the time zone in the calendar.\n5. Save the results in results.json:\nLog the filenames of all generated text files in `/root/results.json` using the following format:\n{\n  \"sent_results\": [\n    {\"filename\": \"reply_{messageID1}.txt\", \"recipient\": <email of recipient1>},\n    {\"filename\": \"reply_{messageID2}.txt\", \"recipient\": <email of recipient2>}\n  ]\n}",
+      "source_hash": "a9486e8b78b7738b34b1611164fd0a08d7799367a9c23c9a1f5a26df4d4d7dc1",
+      "task_id": "schedule-planning-3",
+      "verifier": "skilllearn_hidden_test_v1"
+    }
+  ]
+}

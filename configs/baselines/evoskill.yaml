@@ -1,0 +1,7 @@
+method: evoskill
+model: deepseek-v4-flash
+base_url: https://api.deepseek.com
+thinking: disabled
+max_tokens: 2048
+harness: deepseek_api
+native_benchmark: officeqa_full

@@ -1,0 +1,29 @@
+{
+  "config_version": "clean-qualification-v1",
+  "method_seeds": [
+    20260813,
+    20260814,
+    20260815
+  ],
+  "outputs": {
+    "officeqa_full": {
+      "path": "officeqa_full.json",
+      "sizes": {
+        "clean_test": 20,
+        "train": 12,
+        "validation": 6
+      },
+      "source_hash": "a5b1942c96d934734e280ed23726bd50644c0379ff4e972e81967a47175ba469"
+    },
+    "spreadsheetbench_verified": {
+      "path": "spreadsheetbench_verified.json",
+      "sizes": {
+        "clean_test": 30,
+        "train": 20,
+        "validation": 10
+      },
+      "source_hash": "dab57db74e7d158d6e9cc17c6b3ac6d458f5b749f30da57617d85f844ea3a0c5"
+    }
+  },
+  "schema_version": "rsebench.clean-skillopt-manifest.v1"
+}

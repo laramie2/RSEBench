@@ -1,0 +1,15 @@
+version: 1
+name: rsebench-pilot-a
+purpose: execution-sensitivity calibration before benchmark freeze
+model: deepseek-v4-flash
+profiles:
+  - configs/pilot/spreadsheet.yaml
+  - configs/pilot/officeqa.yaml
+  - configs/pilot/officeqa-demo.yaml
+  - configs/pilot/docvqa.yaml
+  - configs/pilot/math.yaml
+effectiveness_entrypoint: math-pilot-a
+notes:
+  - generation validation is not evidence of performance degradation
+  - DeepSeek V4 Flash is text-only, so DocVQA visual execution is out of scope
+  - OfficeQA retrieval execution requires gated corpus access

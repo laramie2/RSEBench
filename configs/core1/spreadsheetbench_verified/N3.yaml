@@ -1,0 +1,22 @@
+version: 1
+benchmark: spreadsheetbench_verified
+domain: spreadsheet
+primary_method: skillopt
+stage: N3
+operator: spreadsheet_n3_omit_workbook_edit
+form: runtime
+mode: rule
+severity: L2
+seed: 20260813
+sizes: {evolution: 5, validation: 3, clean_test: 10}
+selector: tag_priority
+selector_parameters:
+  tags: [workbook_write]
+budget: 1
+protected_fields: [reward, success, task_text, environment, save_event, final_response]
+failure_policy: record_inapplicable
+operator_version: v1
+token_cap: 4096
+source_revision: hf-main-verified-400-20260812
+model: deepseek-v4-flash
+thinking: false

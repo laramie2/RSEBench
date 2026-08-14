@@ -1,0 +1,23 @@
+{
+  "candidate_partition": "official_validation_500_1500",
+  "candidate_ids": [735, 994, 1036, 1195, 893, 788, 1180, 841, 1251, 1302, 1303, 1031],
+  "candidate_seed_scores": {
+    "735": 0.0,
+    "994": 0.0,
+    "1036": 0.0,
+    "1195": 1.0,
+    "893": 0.0,
+    "788": 1.0,
+    "1180": 0.0,
+    "841": 0.0,
+    "1251": 0.0,
+    "1302": 0.0,
+    "1303": 0.0,
+    "1031": 1.0
+  },
+  "policy": "first_seed_success_plus_first_two_seed_failures_in_structural_order",
+  "selected_ids": [1195, 735, 994],
+  "selected_seed_score": 0.3333333333333333,
+  "uses_noisy_outcomes": false,
+  "uses_clean_test_outcomes": false
+}

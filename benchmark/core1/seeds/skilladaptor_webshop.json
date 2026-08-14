@@ -1,0 +1,20 @@
+{
+  "history": [],
+  "skills": {
+    "webshop_constraint_check": {
+      "body": "Parse all required attributes, variants, and the price ceiling before searching. Open a candidate product, verify each required option is actually selectable and the displayed price is within budget, then select every required option before Buy Now. If any constraint fails, return to search and inspect another candidate.",
+      "created_from": "rsebench-core1-seed",
+      "description": "Verify every shopping constraint before purchase.",
+      "domain_category": "web",
+      "id": "webshop_constraint_check",
+      "tags": [
+        "shopping",
+        "constraint-verification",
+        "webshop"
+      ],
+      "title": "Constraint-checked product selection",
+      "version": 1,
+      "when_to_apply": "Use for product-search tasks with attribute, option, or price constraints."
+    }
+  }
+}

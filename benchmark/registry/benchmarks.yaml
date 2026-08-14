@@ -1,0 +1,138 @@
+version: 1
+benchmarks:
+  spreadsheetbench_verified:
+    active: true
+    tier: core1
+    primary_method: skillopt
+    operators:
+      N1: spreadsheet_n1_erroneous_handover
+      N2: spreadsheet_n2_unlabeled_stale_sheet
+      N3: spreadsheet_n3_omit_workbook_edit
+      N4: spreadsheet_n4_replace_blamed_range
+    domain: spreadsheet
+    source_kind: huggingface
+    source_id: KAKA22/SpreadsheetBench
+    revision: main
+    local_path: spreadsheetbench
+    gated: false
+    license_review_required: true
+  officeqa_full:
+    active: true
+    tier: core1
+    primary_method: skillopt
+    operators:
+      N1: officeqa_n1_one_axis_derivation
+      N2: officeqa_n2_conflicting_period_source
+      N3: officeqa_n3_omit_oracle_source
+      N4: officeqa_n4_replace_failure_axis
+    domain: document
+    source_kind: huggingface
+    source_id: databricks/officeqa
+    revision: main
+    local_path: officeqa
+    gated: true
+    license_review_required: true
+  officeqa_demo_10:
+    active: false
+    domain: document
+    source_kind: github
+    source_id: sentient-agi/EvoSkill
+    revision: 36f6f04952293d7054145550c2b9f0b0411bff1c
+    local_path: evoskill/examples/officeqa/data
+    gated: false
+    license_review_required: true
+  docvqa_10pct:
+    active: false
+    domain: document
+    source_kind: huggingface
+    source_id: lmms-lab/DocVQA
+    revision: main
+    local_path: docvqa
+    gated: false
+    license_review_required: true
+  searchqa_skillopt:
+    active: false
+    domain: document
+    source_kind: huggingface
+    source_id: lucadiliello/searchqa
+    revision: main
+    local_path: searchqa_skillopt_split
+    gated: false
+    license_review_required: true
+  dapo_fixed_1000:
+    active: false
+    domain: math
+    source_kind: huggingface
+    source_id: BytedTsinghua-SIA/DAPO-Math-17k
+    revision: main
+    local_path: dapo_math_17k
+    gated: false
+    license_review_required: false
+  wikitablequestions:
+    active: false
+    domain: spreadsheet
+    source_kind: github
+    source_id: ppasupat/WikiTableQuestions
+    revision: master
+    local_path: wikitablequestions
+    gated: false
+    license_review_required: true
+  livemathematicianbench:
+    active: false
+    domain: math
+    source_kind: huggingface
+    source_id: LiveMathematicianBench/LiveMathematicianBench
+    revision: main
+    local_path: live_mathematician_bench
+    gated: false
+    license_review_required: false
+  aime_2026:
+    active: false
+    domain: math
+    source_kind: github
+    source_id: eth-sri/matharena
+    revision: main
+    local_path: matharena
+    gated: false
+    license_review_required: true
+  skillflow_tasks:
+    active: false
+    domain: skill_native
+    source_kind: huggingface
+    source_id: zhang-ziao/SkillFlow-Task
+    revision: main
+    local_path: skillflow_tasks
+    gated: false
+    license_review_required: true
+  skilllearnbench:
+    active: true
+    tier: core1
+    primary_method: skilllearn_self_feedback
+    operators:
+      N1: skilllearn_n1_brittle_handover
+      N2: skilllearn_n2_competing_stale_resource
+      N3: skilllearn_n3_omit_artifact_event
+      N4: skilllearn_n4_replace_revision_diagnosis
+    domain: skill_learning
+    source_kind: github
+    source_id: cxcscmu/SkillLearnBench
+    revision: a0da045a8bf64b8a8ff20730c4d6ef10dc4e2c5b
+    local_path: skilllearnbench
+    gated: false
+    license_review_required: true
+  webshop:
+    active: true
+    tier: core1
+    primary_method: skilladaptor
+    operators:
+      N1: webshop_n1_near_match_session
+      N2: webshop_n2_promote_near_match
+      N3: webshop_n3_omit_constraint_event
+      N4: webshop_n4_replace_fault_step
+    domain: interactive
+    source_kind: github
+    source_id: princeton-nlp/WebShop
+    revision: 64fa2a5c15c7daa698b9ac93f5bb5437b634c9bd
+    local_path: webshop
+    gated: false
+    license_review_required: true

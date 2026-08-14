@@ -1,0 +1,22 @@
+version: 1
+benchmark: spreadsheetbench_verified
+domain: spreadsheet
+primary_method: skillopt
+stage: N4
+operator: spreadsheet_n4_replace_blamed_range
+form: runtime
+mode: rule
+severity: L2
+seed: 20260813
+sizes: {evolution: 5, validation: 3, clean_test: 10}
+selector: same_shape_decoy_resource
+selector_parameters:
+  attribution_axis: sheet_range
+budget: 1
+protected_fields: [trajectory, scalar_reward, verifier_score, result_files]
+failure_policy: record_inapplicable
+operator_version: v1
+token_cap: 4096
+source_revision: hf-main-verified-400-20260812
+model: deepseek-v4-flash
+thinking: false

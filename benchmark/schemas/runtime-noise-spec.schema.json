@@ -1,0 +1,84 @@
+{
+  "$defs": {
+    "EvidenceStage": {
+      "enum": [
+        "N1",
+        "N2",
+        "N3",
+        "N4"
+      ],
+      "title": "EvidenceStage",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "benchmark": {
+      "minLength": 1,
+      "title": "Benchmark",
+      "type": "string"
+    },
+    "budget": {
+      "default": 1,
+      "exclusiveMinimum": 0,
+      "title": "Budget",
+      "type": "integer"
+    },
+    "domain": {
+      "minLength": 1,
+      "title": "Domain",
+      "type": "string"
+    },
+    "failure_policy": {
+      "const": "record_inapplicable",
+      "default": "record_inapplicable",
+      "title": "Failure Policy",
+      "type": "string"
+    },
+    "operator": {
+      "minLength": 1,
+      "title": "Operator",
+      "type": "string"
+    },
+    "protected_fields": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Protected Fields",
+      "type": "array"
+    },
+    "seed": {
+      "title": "Seed",
+      "type": "integer"
+    },
+    "selector": {
+      "minLength": 1,
+      "title": "Selector",
+      "type": "string"
+    },
+    "selector_parameters": {
+      "additionalProperties": true,
+      "title": "Selector Parameters",
+      "type": "object"
+    },
+    "stage": {
+      "$ref": "#/$defs/EvidenceStage"
+    },
+    "version": {
+      "default": "v1",
+      "minLength": 1,
+      "title": "Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "stage",
+    "operator",
+    "benchmark",
+    "domain",
+    "seed",
+    "selector"
+  ],
+  "title": "RuntimeNoiseSpec",
+  "type": "object"
+}

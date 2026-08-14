@@ -1,0 +1,18 @@
+version: 1
+profile: docvqa-noise-pilot
+benchmark: docvqa_10pct
+domain: document
+data_root_env: RSEBENCH_DATA_ROOT
+dataset_path: materialized/docvqa_10pct/docvqa_534.parquet
+operators:
+  - failed_attempt
+  - related_distractor
+  - margin_clutter
+severities: [L1, L2, L3]
+seed: 20260812
+pilot_limit: 10
+smoke_severity: L2
+image_policy:
+  require_answer_localization: true
+  on_missing_localization: not_applicable
+model_config: configs/pilot/deepseek-v4-flash.yaml
