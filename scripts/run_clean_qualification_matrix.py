@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
-"""Expand and execute the frozen clean qualification matrix sequentially."""
+"""Expand and execute a frozen clean qualification matrix in isolation."""
 
 from __future__ import annotations
 
 import argparse
-import json
 import subprocess
 import sys
 from dataclasses import dataclass
@@ -18,7 +17,13 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from rsebench.hashing import sha256_file, sha256_tree  # noqa: E402
+from rsebench.evidence import canonical_hash  # noqa: E402
+from rsebench.experiments.scheduler import (  # noqa: E402
+    CommandRunner,
+    ExperimentScheduler,
+    ScheduledUnit,
+)
+from rsebench.hashing import sha256_file  # noqa: E402
 
 
 DEFAULT_CONFIG = PROJECT_ROOT / "configs/validation/clean_qualification_v1.yaml"
@@ -32,6 +37,21 @@ class MatrixUnit:
     family: str | None
     method_seed: int
     command: tuple[str, ...]
+    experiment_id: str
+    mutable_resource_keys: list[str]
+    adapter_key: str
+    adapter_max_parallel: int
+
+    def scheduled(self, output_root: Path) -> ScheduledUnit:
+        return ScheduledUnit(
+            key=self.key,
+            experiment_id=self.experiment_id,
+            command=list(self.command),
+            output_dir=str(output_root),
+            mutable_resource_keys=self.mutable_resource_keys,
+            adapter_key=self.adapter_key,
+            adapter_max_parallel=self.adapter_max_parallel,
+        )
 
 
 def load_config(path: Path) -> dict[str, Any]:
@@ -76,6 +96,33 @@ def _command(
     return tuple(values)
 
 
+def _unit_experiment_id(
+    config: dict[str, Any],
+    *,
+    benchmark: str,
+    family: str | None,
+    method_seed: int,
+    launcher: str,
+    manifest: str,
+    seed_skill: str | None,
+    image_manifest: str | None,
+) -> str:
+    """Build the stable legacy scheduling identity used before formal preflight."""
+
+    return canonical_hash(
+        {
+            "qualification_version": config["qualification_version"],
+            "benchmark": benchmark,
+            "family": family,
+            "method_seed": method_seed,
+            "launcher": launcher,
+            "manifest": manifest,
+            "seed_skill": seed_skill,
+            "image_manifest": image_manifest,
+        }
+    )
+
+
 def expand_units(
     config: dict[str, Any],
     *,
@@ -93,6 +140,17 @@ def expand_units(
     for benchmark_config in config["benchmarks"]:
         benchmark = str(benchmark_config["benchmark"])
         unit_root = root if benchmark != "webshop" else root / benchmark
+        adapter_key = str(
+            benchmark_config.get(
+                "adapter", "skilladaptor" if benchmark == "webshop" else "skillopt"
+            )
+        )
+        adapter_max_parallel = int(
+            benchmark_config.get(
+                "adapter_max_parallel", 1 if adapter_key == "skilladaptor" else 2
+            )
+        )
+        seed_skill = benchmark_config.get("seed_skill")
         for method_seed in seeds:
             units.append(
                 MatrixUnit(
@@ -105,10 +163,23 @@ def expand_units(
                         benchmark_config["manifest"],
                         method_seed,
                         unit_root,
-                        seed_skill=benchmark_config.get("seed_skill")
-                        if benchmark == "webshop"
-                        else None,
+                        seed_skill=seed_skill if benchmark == "webshop" else None,
                     ),
+                    experiment_id=_unit_experiment_id(
+                        config,
+                        benchmark=benchmark,
+                        family=None,
+                        method_seed=method_seed,
+                        launcher=benchmark_config["launcher"],
+                        manifest=benchmark_config["manifest"],
+                        seed_skill=seed_skill,
+                        image_manifest=None,
+                    ),
+                    mutable_resource_keys=list(
+                        benchmark_config.get("mutable_resource_keys", [])
+                    ),
+                    adapter_key=adapter_key,
+                    adapter_max_parallel=adapter_max_parallel,
                 )
             )
 
@@ -131,6 +202,26 @@ def expand_units(
                         root / "skilllearnbench",
                         seed_skill=skilllearn["seed_skill"],
                         image_manifest=config["image_manifest"],
+                    ),
+                    experiment_id=_unit_experiment_id(
+                        config,
+                        benchmark="skilllearnbench",
+                        family=str(family),
+                        method_seed=method_seed,
+                        launcher=skilllearn["launcher"],
+                        manifest=manifest,
+                        seed_skill=skilllearn["seed_skill"],
+                        image_manifest=config["image_manifest"],
+                    ),
+                    mutable_resource_keys=list(
+                        skilllearn.get(
+                            "mutable_resource_keys",
+                            [f"docker:skilllearn:{family}"],
+                        )
+                    ),
+                    adapter_key=str(skilllearn.get("adapter", "skilllearn")),
+                    adapter_max_parallel=int(
+                        skilllearn.get("adapter_max_parallel", 2)
                     ),
                 )
             )
@@ -157,33 +248,6 @@ def _ensure_clean_worktree() -> str:
     return head.stdout.strip()
 
 
-def _write_status(path: Path, payload: dict[str, Any]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    temporary = path.with_suffix(".json.tmp")
-    temporary.write_text(
-        json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
-        encoding="utf-8",
-    )
-    temporary.replace(path)
-
-
-def _run_dir(stdout: str) -> Path:
-    for line in stdout.splitlines():
-        candidate = Path(line.strip())
-        if not candidate.is_absolute():
-            candidate = PROJECT_ROOT / candidate
-        if candidate.is_dir():
-            return candidate.resolve()
-    raise RuntimeError("launcher succeeded without reporting an existing run directory")
-
-
-def _summarize(status: dict[str, Any]) -> None:
-    rows = status["units"]
-    status["terminal_units"] = len(rows)
-    status["completed_units"] = sum(row["status"] == "completed" for row in rows)
-    status["failed_units"] = sum(row["status"] == "failed" for row in rows)
-
-
 def run_matrix(
     config_path: Path = DEFAULT_CONFIG,
     *,
@@ -191,11 +255,15 @@ def run_matrix(
     output_root: Path | None = None,
     stop_on_failure: bool = False,
     max_new_units: int | None = None,
+    max_parallel: int = 4,
+    command_runner: CommandRunner | None = None,
 ) -> list[MatrixUnit]:
-    """Dry-expand by default, or execute formal units sequentially with resume state."""
+    """Dry-expand by default, or execute isolated units with resume state."""
 
     if max_new_units is not None and max_new_units < 1:
         raise ValueError("max_new_units must be positive")
+    if stop_on_failure:
+        raise ValueError("stop_on_failure conflicts with failure-isolated scheduling")
     config_path = config_path.resolve()
     config = load_config(config_path)
     root = (
@@ -209,68 +277,23 @@ def run_matrix(
 
     git_head = _ensure_clean_worktree()
     config_hash = sha256_file(config_path)
-    status_path = root / "matrix_status.json"
-    if status_path.is_file():
-        status = json.loads(status_path.read_text(encoding="utf-8"))
-        if status.get("config_hash") != config_hash:
-            raise RuntimeError("matrix config hash differs from existing resume state")
-        if status.get("git_head") not in {None, git_head}:
-            raise RuntimeError("git HEAD differs from existing resume state")
-    else:
-        status = {
-            "schema_version": "rsebench.clean-qualification-matrix-status.v1",
+    scheduler = ExperimentScheduler(
+        run_root=root,
+        project_root=PROJECT_ROOT,
+        max_parallel=max_parallel,
+        command_runner=command_runner,
+        status_metadata={
             "qualification_version": config["qualification_version"],
             "config_path": str(config_path),
             "config_hash": config_hash,
             "git_head": git_head,
             "expected_units": len(units),
-            "terminal_units": 0,
-            "completed_units": 0,
-            "failed_units": 0,
-            "units": [],
-        }
-    terminal_keys = {row["key"] for row in status["units"]}
-    new_terminal_units = 0
-    for unit in units:
-        if unit.key in terminal_keys:
-            continue
-        if max_new_units is not None and new_terminal_units >= max_new_units:
-            break
-        completed = subprocess.run(
-            list(unit.command),
-            cwd=PROJECT_ROOT,
-            capture_output=True,
-            text=True,
-        )
-        row: dict[str, Any] = {
-            "key": unit.key,
-            "benchmark": unit.benchmark,
-            "family": unit.family,
-            "method_seed": unit.method_seed,
-            "command": list(unit.command),
-            "returncode": completed.returncode,
-            "stdout": completed.stdout,
-            "stderr": completed.stderr,
-        }
-        if completed.returncode == 0:
-            try:
-                run_dir = _run_dir(completed.stdout)
-                row.update(
-                    status="completed",
-                    run_dir=str(run_dir),
-                    result_hash=sha256_tree(run_dir),
-                )
-            except Exception as exc:
-                row.update(status="failed", error=str(exc))
-        else:
-            row.update(status="failed", error="launcher returned non-zero status")
-        status["units"].append(row)
-        terminal_keys.add(unit.key)
-        new_terminal_units += 1
-        _summarize(status)
-        _write_status(status_path, status)
-        if row["status"] == "failed" and stop_on_failure:
-            break
+        },
+    )
+    scheduler.run(
+        [unit.scheduled(root) for unit in units],
+        max_new_units=max_new_units,
+    )
     return units
 
 
@@ -281,6 +304,7 @@ def main() -> None:
     parser.add_argument("--execute", action="store_true")
     parser.add_argument("--stop-on-failure", action="store_true")
     parser.add_argument("--max-new-units", type=int)
+    parser.add_argument("--max-parallel", type=int, default=4)
     args = parser.parse_args()
     units = run_matrix(
         args.config,
@@ -288,6 +312,7 @@ def main() -> None:
         output_root=args.output_root,
         stop_on_failure=args.stop_on_failure,
         max_new_units=args.max_new_units,
+        max_parallel=args.max_parallel,
     )
     if not args.execute:
         for unit in units:

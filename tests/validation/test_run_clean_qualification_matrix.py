@@ -24,6 +24,15 @@ def test_matrix_expands_exactly_33_clean_only_units() -> None:
         "skilllearnbench": 24,
     }
     assert {unit.method_seed for unit in units} == {20260813, 20260814, 20260815}
+    assert all(len(unit.experiment_id) == 64 for unit in units)
+    assert {
+        unit.adapter_key for unit in units if unit.benchmark != "skilllearnbench"
+    } == {"skillopt", "skilladaptor"}
+    assert all(
+        unit.mutable_resource_keys == [f"docker:skilllearn:{unit.family}"]
+        for unit in units
+        if unit.benchmark == "skilllearnbench"
+    )
     assert all(
         "paired" not in " ".join(unit.command).casefold()
         and "n1" not in " ".join(unit.command).casefold()
@@ -50,7 +59,7 @@ def test_matrix_default_dry_run_makes_no_subprocess_call(
     assert not (tmp_path / "matrix_status.json").exists()
 
 
-def test_matrix_execute_is_sequential_and_persists_each_terminal_unit(
+def test_matrix_execute_delegates_all_units_to_isolated_scheduler(
     monkeypatch,
     tmp_path: Path,
 ) -> None:
@@ -60,31 +69,35 @@ def test_matrix_execute_is_sequential_and_persists_each_terminal_unit(
         "method_seeds: [20260813]",
     )
     config_path.write_text(raw, encoding="utf-8")
-    observed_status_lengths = []
     monkeypatch.setattr(matrix, "_ensure_clean_worktree", lambda: "commit")
+    calls = []
 
-    def fake_run(command, **kwargs):
-        status_path = tmp_path / "matrix_status.json"
-        if status_path.exists():
-            observed_status_lengths.append(
-                len(json.loads(status_path.read_text())["units"])
-            )
-        else:
-            observed_status_lengths.append(0)
-        run_dir = tmp_path / f"run-{len(observed_status_lengths)}"
-        run_dir.mkdir()
-        (run_dir / "result.json").write_text("{}", encoding="utf-8")
+    def fake_run(command, *, cwd, env, unit):
+        del cwd, env
+        calls.append(unit.key)
+        output_root = Path(command[command.index("--output-root") + 1])
+        run_dir = output_root / "run"
+        run_dir.mkdir(parents=True)
+        (run_dir / "result.json").write_text(
+            json.dumps({"identity": {"experiment_id": unit.experiment_id}}),
+            encoding="utf-8",
+        )
         return SimpleNamespace(returncode=0, stdout=f"{run_dir}\n", stderr="")
 
-    monkeypatch.setattr(matrix.subprocess, "run", fake_run)
-
-    units = matrix.run_matrix(config_path, execute=True, output_root=tmp_path)
+    units = matrix.run_matrix(
+        config_path,
+        execute=True,
+        output_root=tmp_path,
+        command_runner=fake_run,
+        max_parallel=4,
+    )
 
     assert len(units) == 11
-    assert observed_status_lengths == list(range(11))
+    assert len(calls) == 11
     status = json.loads((tmp_path / "matrix_status.json").read_text())
-    assert status["terminal_units"] == 11
-    assert all(row["status"] == "completed" for row in status["units"])
+    assert status["metadata"]["expected_units"] == 11
+    assert status["metadata"]["git_head"] == "commit"
+    assert all(row["state"] == "completed" for row in status["units"].values())
 
 
 def test_matrix_refuses_resume_under_changed_config_hash(
@@ -93,7 +106,13 @@ def test_matrix_refuses_resume_under_changed_config_hash(
 ) -> None:
     monkeypatch.setattr(matrix, "_ensure_clean_worktree", lambda: "commit")
     (tmp_path / "matrix_status.json").write_text(
-        json.dumps({"config_hash": "0" * 64, "units": [{"status": "completed"}]}),
+        json.dumps(
+            {
+                "schema_version": "rsebench.scheduler-status.v1",
+                "metadata": {"config_hash": "0" * 64, "git_head": "commit"},
+                "units": {},
+            }
+        ),
         encoding="utf-8",
     )
 
@@ -108,22 +127,27 @@ def test_matrix_can_stage_a_bounded_number_of_new_units(
     monkeypatch.setattr(matrix, "_ensure_clean_worktree", lambda: "commit")
     calls = []
 
-    def fake_run(command, **kwargs):
+    def fake_run(command, *, cwd, env, unit):
+        del cwd, env
         calls.append(command)
-        run_dir = tmp_path / f"bounded-{len(calls)}"
-        run_dir.mkdir()
+        output_root = Path(command[command.index("--output-root") + 1])
+        run_dir = output_root / "run"
+        run_dir.mkdir(parents=True)
+        (run_dir / "result.json").write_text(
+            json.dumps({"identity": {"experiment_id": unit.experiment_id}}),
+            encoding="utf-8",
+        )
         return SimpleNamespace(returncode=0, stdout=f"{run_dir}\n", stderr="")
-
-    monkeypatch.setattr(matrix.subprocess, "run", fake_run)
 
     matrix.run_matrix(
         CONFIG,
         execute=True,
         output_root=tmp_path,
         max_new_units=2,
+        command_runner=fake_run,
     )
 
     status = json.loads((tmp_path / "matrix_status.json").read_text())
     assert len(calls) == 2
-    assert status["terminal_units"] == 2
-    assert status["expected_units"] == 33
+    assert len(status["units"]) == 2
+    assert status["metadata"]["expected_units"] == 33
