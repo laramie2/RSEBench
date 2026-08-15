@@ -28,6 +28,10 @@ from rsebench.selection.contracts import (
     SkillLearnQualificationDecision,
 )
 from rsebench.selection.qualification import ScreeningGeneralizationAggregate
+from rsebench.selection.splits import (
+    CONFIRMATION_SKILLLEARN_FAMILIES,
+    SCREENING_SKILLLEARN_FAMILIES,
+)
 
 
 EXPECTED_DOMAINS = frozenset(
@@ -44,8 +48,9 @@ EXPECTED_BASELINES = frozenset(
 _HASH_PATTERN = re.compile(r"^[0-9a-f]{64}$")
 _WINDOWS_ABSOLUTE = re.compile(r"^[A-Za-z]:[\\/]")
 _EMBEDDED_ABSOLUTE = re.compile(
-    r"(?:^|\s)/(?:home|Users|workspace|workspaces|mnt|tmp|var|opt|root)(?:/|\b)"
+    r"(?:^|[^A-Za-z0-9])/(?:home|Users|workspace|workspaces|mnt|tmp|var|opt|root)(?:/|\b)"
 )
+_URL_USERINFO = re.compile(r"(?:git\+)?https?://[^/\s@]+@")
 _SECRET_PATTERNS = (
     re.compile(r"sk-[A-Za-z0-9_-]{8,}"),
     re.compile(r"ghp_[A-Za-z0-9]{12,}"),
@@ -63,6 +68,16 @@ _CREDENTIAL_NAMES = frozenset(
         "access_token",
         "client_secret",
         "password",
+    }
+)
+_NORMALIZED_CREDENTIAL_NAMES = frozenset(
+    re.sub(r"[^a-z0-9]", "", name.casefold())
+    for name in {
+        *_CREDENTIAL_NAMES,
+        "apiKey",
+        "accessToken",
+        "secretKey",
+        "privateKey",
     }
 )
 _UNRESOLVED_MARKERS = (
@@ -85,31 +100,6 @@ class FrozenSelectionRelease(StrictModel):
     path: Path
     release_id: str = Field(pattern=r"^[0-9a-f]{64}$")
     file_hashes: dict[str, str]
-
-
-class SelectionReleaseInput(StrictModel):
-    """Strict JSON boundary used by the provider-free script and CLI."""
-
-    candidates: dict[str, StableSplitCandidate]
-    confirmations: dict[str, ConfirmationSplit]
-    decisions: dict[str, ReleaseDomainDecision]
-    domain_statuses: dict[str, str]
-    exposure_registry: ExposureRegistry
-    confirmation_seal: ConfirmationSeal
-    resource_lock: ResourceLock
-    baseline_fingerprints: dict[str, str]
-
-    @model_validator(mode="after")
-    def exact_release_keys(self) -> "SelectionReleaseInput":
-        for field_name in (
-            "candidates",
-            "confirmations",
-            "decisions",
-            "domain_statuses",
-        ):
-            if set(getattr(self, field_name)) != EXPECTED_DOMAINS:
-                raise ValueError(f"{field_name} requires exactly the four registered domains")
-        return self
 
 
 class QualificationReleaseCompanion(StrictModel):
@@ -154,6 +144,35 @@ class QualificationReleaseCompanion(StrictModel):
         return self
 
 
+class ScreeningReleaseCompanion(StrictModel):
+    """Hash-bound screening aggregate derived from owned replay evidence."""
+
+    schema_version: str = "rsebench.screening-release-companion.v1"
+    selection_status_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
+    selection_hashes: dict[str, str]
+    aggregate: ScreeningGeneralizationAggregate
+    evidence_hashes: dict[str, str]
+    companion_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+    @model_validator(mode="after")
+    def validate_bindings(self) -> "ScreeningReleaseCompanion":
+        if set(self.selection_hashes) != EXPECTED_DOMAINS:
+            raise ValueError("screening companion requires exactly four selection hashes")
+        if set(self.aggregate.domains) != EXPECTED_DOMAINS:
+            raise ValueError("screening companion requires exactly four domains")
+        if not self.evidence_hashes:
+            raise ValueError("screening companion requires owned evidence hashes")
+        for values in (self.selection_hashes, self.evidence_hashes):
+            if any(not _HASH_PATTERN.fullmatch(value) for value in values.values()):
+                raise ValueError("screening companion contains a non-SHA-256 hash")
+        expected = canonical_hash(
+            self.model_dump(mode="json", exclude={"companion_hash"})
+        )
+        if self.companion_hash != expected:
+            raise ValueError("screening companion hash differs")
+        return self
+
+
 def _qualification_companion_unsigned(
     companion: QualificationReleaseCompanion,
 ) -> dict[str, Any]:
@@ -188,6 +207,30 @@ def make_qualification_release_companion(
         "evidence_hashes": dict(sorted(evidence_hashes.items())),
     }
     return QualificationReleaseCompanion(
+        **unsigned,
+        companion_hash=canonical_hash(unsigned),
+    )
+
+
+def make_screening_release_companion(
+    *,
+    selection_status: SelectionStatus,
+    selection_hashes: Mapping[str, str],
+    aggregate: ScreeningGeneralizationAggregate,
+    evidence_hashes: Mapping[str, str],
+) -> ScreeningReleaseCompanion:
+    """Create a companion covering the exact recomputed screening evidence."""
+
+    unsigned = {
+        "schema_version": "rsebench.screening-release-companion.v1",
+        "selection_status_hash": canonical_hash(
+            selection_status.model_dump(mode="json")
+        ),
+        "selection_hashes": dict(sorted(selection_hashes.items())),
+        "aggregate": aggregate.model_dump(mode="json"),
+        "evidence_hashes": dict(sorted(evidence_hashes.items())),
+    }
+    return ScreeningReleaseCompanion(
         **unsigned,
         companion_hash=canonical_hash(unsigned),
     )
@@ -266,6 +309,261 @@ def _expected_confirmation_seal(
     return split_hashes, task_ids
 
 
+_POOL_CANDIDATE_COUNTS = {
+    "spreadsheetbench_verified": (20, 10, 30, 30),
+    "officeqa_full": (12, 12, 20, 20),
+    "webshop": (5, 5, 20, 20),
+}
+_POOL_CONFIRMATION_COUNTS = {
+    "spreadsheetbench_verified": (20, 10, 30),
+    "officeqa_full": (12, 12, 20),
+    "webshop": (5, 5, 20),
+}
+_BENCHMARK_LABELS = {
+    "spreadsheetbench_verified": "Spreadsheet",
+    "officeqa_full": "OfficeQA",
+    "webshop": "WebShop",
+}
+
+
+def _role_payload(split: Any, roles: Sequence[str]) -> dict[str, list[Any]]:
+    return {
+        role: [task.model_dump(mode="json") for task in getattr(split, role)]
+        for role in roles
+    }
+
+
+def _role_ids(split: Any, roles: Sequence[str]) -> dict[str, list[str]]:
+    return {
+        role: [task.task_id for task in getattr(split, role)] for role in roles
+    }
+
+
+def _validate_split_hashes(split: Any, roles: Sequence[str], *, label: str) -> None:
+    expected_source = canonical_hash(_role_payload(split, roles))
+    if split.source_hash != expected_source:
+        raise ValueError(f"{label} source_hash differs from its task manifests")
+    expected_selection = canonical_hash(_role_ids(split, roles))
+    if split.selection_hash != expected_selection:
+        raise ValueError(f"{label} selection_hash differs from its ordered task IDs")
+
+
+def _tasks_for_family(tasks: Sequence[TaskManifest], family: str) -> list[TaskManifest]:
+    return [task for task in tasks if task.metadata.get("task_family") == family]
+
+
+def _validate_skilllearn_candidate(candidate: StableSplitCandidate) -> None:
+    expected_families = list(SCREENING_SKILLLEARN_FAMILIES)
+    if list(candidate.metadata.get("families") or []) != expected_families:
+        raise ValueError("SkillLearn screening families differ from the fixed preregistration")
+    if candidate.candidate_index != 1 or candidate.qualification_test:
+        raise ValueError("SkillLearn screening candidate requires Candidate 1 and no qualification set")
+    allocations = candidate.metadata.get("static_audit", {}).get(
+        "family_allocations"
+    )
+    if not isinstance(allocations, Mapping) or set(allocations) != set(
+        expected_families
+    ):
+        raise ValueError("SkillLearn screening families lack fixed family allocations")
+    for family in expected_families:
+        train = _tasks_for_family(candidate.train, family)
+        validation = _tasks_for_family(candidate.validation, family)
+        screening = _tasks_for_family(candidate.screening_test, family)
+        if (len(train), len(validation), len(screening)) not in {
+            (2, 1, 2),
+            (2, 1, 3),
+        }:
+            raise ValueError(
+                f"SkillLearn screening families require 2/1/2-or-3: {family}"
+            )
+        expected = {
+            "train": [task.task_id for task in train],
+            "validation": [task.task_id for task in validation],
+            "screening_test": [task.task_id for task in screening],
+        }
+        allocation = allocations[family]
+        if not isinstance(allocation, Mapping) or {
+            role: list(allocation.get(role) or []) for role in expected
+        } != expected:
+            raise ValueError(
+                f"SkillLearn screening family allocation differs: {family}"
+            )
+
+
+def _validate_skilllearn_confirmation(confirmation: ConfirmationSplit) -> None:
+    expected_families = list(CONFIRMATION_SKILLLEARN_FAMILIES)
+    if list(confirmation.metadata.get("families") or []) != expected_families:
+        raise ValueError(
+            "SkillLearn confirmation families differ from the fixed preregistration"
+        )
+    all_tasks = [
+        *confirmation.train,
+        *confirmation.validation,
+        *confirmation.confirmation_test,
+    ]
+    if any(
+        task.metadata.get("task_family") not in CONFIRMATION_SKILLLEARN_FAMILIES
+        for task in all_tasks
+    ):
+        raise ValueError(
+            "SkillLearn confirmation families differ from the fixed preregistration"
+        )
+    for family in expected_families:
+        counts = (
+            len(_tasks_for_family(confirmation.train, family)),
+            len(_tasks_for_family(confirmation.validation, family)),
+            len(_tasks_for_family(confirmation.confirmation_test, family)),
+        )
+        if counts not in {(2, 1, 2), (2, 1, 3)}:
+            raise ValueError(
+                f"SkillLearn confirmation families require 2/1/2-or-3: {family}"
+            )
+
+
+def _validate_split_contracts(
+    candidates: Mapping[str, StableSplitCandidate],
+    confirmations: Mapping[str, ConfirmationSplit],
+) -> None:
+    candidate_roles = (
+        "train",
+        "validation",
+        "qualification_test",
+        "screening_test",
+    )
+    confirmation_roles = ("train", "validation", "confirmation_test")
+    for benchmark in sorted(EXPECTED_DOMAINS):
+        candidate = candidates[benchmark]
+        confirmation = confirmations[benchmark]
+        _validate_split_hashes(
+            candidate, candidate_roles, label=f"{benchmark} candidate"
+        )
+        _validate_split_hashes(
+            confirmation, confirmation_roles, label=f"{benchmark} confirmation"
+        )
+        if benchmark == "skilllearnbench":
+            _validate_skilllearn_candidate(candidate)
+            _validate_skilllearn_confirmation(confirmation)
+            continue
+        candidate_counts = tuple(len(getattr(candidate, role)) for role in candidate_roles)
+        expected_candidate = _POOL_CANDIDATE_COUNTS[benchmark]
+        if candidate_counts != expected_candidate:
+            label = _BENCHMARK_LABELS[benchmark]
+            expected = "/".join(str(value) for value in expected_candidate)
+            raise ValueError(f"{label} candidate requires {expected} tasks")
+        confirmation_counts = tuple(
+            len(getattr(confirmation, role)) for role in confirmation_roles
+        )
+        expected_confirmation = _POOL_CONFIRMATION_COUNTS[benchmark]
+        if confirmation_counts != expected_confirmation:
+            label = _BENCHMARK_LABELS[benchmark]
+            expected = "/".join(str(value) for value in expected_confirmation)
+            raise ValueError(f"{label} confirmation requires {expected} tasks")
+
+
+def _validate_release_exposure(
+    candidates: Mapping[str, StableSplitCandidate],
+    confirmations: Mapping[str, ConfirmationSplit],
+    registry: ExposureRegistry,
+) -> None:
+    records = {
+        (record.benchmark, record.task_id): record for record in registry.records
+    }
+    for benchmark, confirmation in confirmations.items():
+        tasks = [
+            *confirmation.train,
+            *confirmation.validation,
+            *confirmation.confirmation_test,
+        ]
+        for task in tasks:
+            record = records.get((benchmark, task.task_id))
+            if record is not None and record.level.rank >= 1:
+                raise ValueError(
+                    f"confirmation task was historically executed: {benchmark}/{task.task_id}"
+                )
+    for benchmark, candidate in candidates.items():
+        for task in candidate.screening_test:
+            family = task.metadata.get("task_family")
+            if benchmark == "skilllearnbench" and family not in set(
+                SCREENING_SKILLLEARN_FAMILIES
+            ):
+                raise ValueError(
+                    "SkillLearn screening families differ from the fixed preregistration"
+                )
+            record = records.get((benchmark, task.task_id))
+            if (
+                benchmark != "skilllearnbench"
+                and record is not None
+                and record.level.rank >= 2
+            ):
+                raise ValueError(
+                    f"screening task was score_observed: {benchmark}/{task.task_id}"
+                )
+
+
+def _portable_resource_uris(value: Any) -> set[str]:
+    if isinstance(value, Mapping):
+        return set().union(*(_portable_resource_uris(child) for child in value.values()))
+    if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
+        return set().union(*(_portable_resource_uris(child) for child in value))
+    if isinstance(value, str) and value.startswith(
+        ("rsebench-data://", "rsebench-methods://")
+    ):
+        return {value}
+    return set()
+
+
+def _validate_resource_coverage(
+    *,
+    candidates: Mapping[str, StableSplitCandidate],
+    confirmations: Mapping[str, ConfirmationSplit],
+    resource_lock: ResourceLock,
+) -> None:
+    required_uris: set[str] = set()
+    for split in [*candidates.values(), *confirmations.values()]:
+        required_uris.update(
+            _portable_resource_uris(split.model_dump(mode="json"))
+        )
+    locked_uris = {resource.uri for resource in resource_lock.resources}
+    missing = sorted(required_uris - locked_uris)
+    if missing:
+        raise ValueError(
+            f"resource lock lacks required portable resources: {missing[:5]}"
+        )
+
+    git_materializations = {
+        resource.materialization
+        for resource in resource_lock.resources
+        if resource.kind == "git"
+    }
+    required_methods = {
+        f"rsebench-methods://{baseline}" for baseline in EXPECTED_BASELINES
+    }
+    if git_materializations != required_methods:
+        raise ValueError("resource lock baseline git pins require exactly three baselines")
+
+    skill_task_ids = {
+        task.task_id
+        for split in (
+            candidates["skilllearnbench"],
+            confirmations["skilllearnbench"],
+        )
+        for role in (
+            ("train", "validation", "confirmation_test")
+            if isinstance(split, ConfirmationSplit)
+            else ("train", "validation", "qualification_test", "screening_test")
+        )
+        for task in getattr(split, role)
+    }
+    image_task_ids = {
+        task_id
+        for resource in resource_lock.resources
+        if resource.kind == "external-image"
+        for task_id in resource.task_ids
+    }
+    if image_task_ids != skill_task_ids:
+        raise ValueError("resource lock SkillLearn image coverage is incomplete or extra")
+
+
 def _validate_release_inputs(
     *,
     candidates: Mapping[str, StableSplitCandidate],
@@ -298,12 +596,14 @@ def _validate_release_inputs(
             raise ValueError(f"baseline fingerprint is not SHA-256: {baseline}")
 
     validate_cross_release_disjointness(candidates, confirmations)
+    _validate_split_contracts(candidates, confirmations)
 
     expected_registry_hash = canonical_hash(
         [record.model_dump(mode="json") for record in exposure_registry.records]
     )
     if exposure_registry.registry_hash != expected_registry_hash:
         raise ValueError("exposure registry hash differs from its records")
+    _validate_release_exposure(candidates, confirmations, exposure_registry)
     if not confirmation_seal.created_before_screening:
         raise ValueError("confirmation split was not sealed before screening")
     if confirmation_seal.exposure_registry_hash != exposure_registry.registry_hash:
@@ -377,6 +677,11 @@ def _validate_release_inputs(
             )
         if not resource.materialization.strip():
             raise ValueError(f"resource materialization is unresolved: {resource.uri}")
+    _validate_resource_coverage(
+        candidates=candidates,
+        confirmations=confirmations,
+        resource_lock=resource_lock,
+    )
 
 def build_release_files(
     *,
@@ -389,6 +694,7 @@ def build_release_files(
     resource_lock: ResourceLock,
     baseline_fingerprints: Mapping[str, str],
     qualification_companion: QualificationReleaseCompanion | None = None,
+    screening_companion: ScreeningReleaseCompanion | None = None,
 ) -> dict[str, bytes]:
     """Return canonical UTF-8 JSON bytes keyed by repository-relative path."""
 
@@ -444,9 +750,21 @@ def build_release_files(
             baseline_fingerprints
         ):
             raise ValueError("qualification companion baseline fingerprints differ")
-        files["qualification_release.json"] = _canonical_json_bytes(
+        files["release_qualification.json"] = _canonical_json_bytes(
             qualification_companion
         )
+    if screening_companion is not None:
+        if dict(screening_companion.selection_hashes) != {
+            benchmark: candidate.selection_hash
+            for benchmark, candidate in candidates.items()
+        }:
+            raise ValueError("screening companion selection hashes differ")
+        if {
+            benchmark: domain.status
+            for benchmark, domain in screening_companion.aggregate.domains.items()
+        } != dict(domain_statuses):
+            raise ValueError("screening companion domain statuses differ")
+        files["screening_release.json"] = _canonical_json_bytes(screening_companion)
     for benchmark in sorted(EXPECTED_DOMAINS):
         files[f"base_splits/{benchmark}.json"] = _canonical_json_bytes(
             candidates[benchmark]
@@ -463,8 +781,11 @@ def build_release_files(
 def _walk_values(value: Any, *, key: str | None = None) -> None:
     if isinstance(value, dict):
         for child_key, child in value.items():
-            normalized = str(child_key).casefold()
-            if normalized in _CREDENTIAL_NAMES and child not in (None, "", False):
+            normalized = re.sub(r"[^a-z0-9]", "", str(child_key).casefold())
+            if (
+                normalized in _NORMALIZED_CREDENTIAL_NAMES
+                and child not in (None, "", False)
+            ):
                 raise ValueError(f"secret credential field detected: {child_key}")
             _walk_values(child, key=str(child_key))
         return
@@ -479,6 +800,8 @@ def _walk_values(value: Any, *, key: str | None = None) -> None:
         raise ValueError(f"worktree path detected in {key or 'value'}")
     if any(marker in folded for marker in _UNRESOLVED_MARKERS):
         raise ValueError(f"unresolved locator detected in {key or 'value'}")
+    if _URL_USERINFO.search(value):
+        raise ValueError(f"URL userinfo detected in {key or 'value'}")
     if (
         value.startswith("/")
         or _WINDOWS_ABSOLUTE.match(value)
@@ -541,9 +864,15 @@ def atomic_content_addressed_write(
         _validate_relative_file_name(name)
     hashes = _file_hashes(normalized)
     release_id = canonical_hash([[name, digest] for name, digest in hashes.items()])
-    target = Path(destination).resolve()
-    if target.is_symlink():
-        raise RuntimeError(f"existing release destination is a symlink: {target}")
+    raw_target = Path(destination)
+    if raw_target.is_symlink():
+        raise RuntimeError(
+            f"existing release destination is a symlink: {raw_target}"
+        )
+    target = Path(os.path.abspath(raw_target))
+    for parent in (target.parent, *target.parent.parents):
+        if parent.is_symlink():
+            raise RuntimeError(f"release destination parent is a symlink: {parent}")
     if target.exists():
         if not target.is_dir() or _tree_bytes(target) != normalized:
             raise RuntimeError(f"existing release content differs: {target}")
@@ -585,6 +914,7 @@ def freeze_selection_release(
     resource_lock: ResourceLock,
     baseline_fingerprints: Mapping[str, str],
     qualification_companion: QualificationReleaseCompanion | None = None,
+    screening_companion: ScreeningReleaseCompanion | None = None,
 ) -> FrozenSelectionRelease:
     """Freeze one release only after every portable selection barrier passes."""
 
@@ -598,30 +928,10 @@ def freeze_selection_release(
         resource_lock=resource_lock,
         baseline_fingerprints=baseline_fingerprints,
         qualification_companion=qualification_companion,
+        screening_companion=screening_companion,
     )
     reject_secrets_and_absolute_paths(files)
     return atomic_content_addressed_write(destination, files)
-
-
-def freeze_selection_release_file(
-    *, input_path: Path, destination: Path
-) -> FrozenSelectionRelease:
-    """Validate a strict input document and freeze it without provider calls."""
-
-    payload = SelectionReleaseInput.model_validate_json(
-        Path(input_path).read_text(encoding="utf-8")
-    )
-    return freeze_selection_release(
-        destination=destination,
-        candidates=payload.candidates,
-        confirmations=payload.confirmations,
-        decisions=payload.decisions,
-        domain_statuses=payload.domain_statuses,
-        exposure_registry=payload.exposure_registry,
-        confirmation_seal=payload.confirmation_seal,
-        resource_lock=payload.resource_lock,
-        baseline_fingerprints=payload.baseline_fingerprints,
-    )
 
 
 def _read_json_object(path: Path) -> dict[str, Any]:
@@ -719,11 +1029,22 @@ def freeze_selection_release_roots(
         status=status,
     )
     confirmations = _load_confirmations(selection_root=selection, index=index)
-    screening = ScreeningGeneralizationAggregate.model_validate_json(
+    stored_screening = ScreeningGeneralizationAggregate.model_validate_json(
         _owned_path(runs, "screening_generalization.json").read_text(
             encoding="utf-8"
         )
     )
+    from rsebench.selection.qualification_io import (
+        derive_release_screening_companion,
+    )
+
+    screening_companion = derive_release_screening_companion(
+        selection_root=selection,
+        run_root=runs,
+    )
+    if stored_screening != screening_companion.aggregate:
+        raise ValueError("screening aggregate differs from owned replay evidence")
+    screening = screening_companion.aggregate
     if set(screening.domains) != EXPECTED_DOMAINS or not screening.all_ready:
         raise ValueError("all domains must be clean_generalization_ready")
     domain_statuses = {
@@ -780,6 +1101,23 @@ def freeze_selection_release_roots(
     )
     lock_path = _owned_path(selection, lock_locator)
     resource_lock = ResourceLock.model_validate(_read_json_object(lock_path))
+    from rsebench.selection.resources import validate_resource_lock_materializations
+
+    project_root = Path(__file__).resolve().parents[3]
+    data_root = Path(
+        os.environ.get("RSEBENCH_DATA_ROOT", project_root / "data")
+    ).resolve()
+    methods_root = Path(
+        os.environ.get(
+            "RSEBENCH_METHODS_ROOT", project_root / "methods/external"
+        )
+    ).resolve()
+    validate_resource_lock_materializations(
+        resource_lock,
+        data_root=data_root,
+        methods_root=methods_root,
+        methods_registry=project_root / "benchmark/registry/methods.yaml",
+    )
     return freeze_selection_release(
         destination=destination,
         candidates=candidates,
@@ -791,6 +1129,7 @@ def freeze_selection_release_roots(
         resource_lock=resource_lock,
         baseline_fingerprints=stored_companion.baseline_fingerprints,
         qualification_companion=stored_companion,
+        screening_companion=screening_companion,
     )
 
 
@@ -799,14 +1138,14 @@ __all__ = [
     "EXPECTED_DOMAINS",
     "FrozenSelectionRelease",
     "QualificationReleaseCompanion",
+    "ScreeningReleaseCompanion",
     "ReleaseDomainDecision",
-    "SelectionReleaseInput",
     "atomic_content_addressed_write",
     "build_release_files",
     "freeze_selection_release",
-    "freeze_selection_release_file",
     "freeze_selection_release_roots",
     "make_qualification_release_companion",
+    "make_screening_release_companion",
     "reject_secrets_and_absolute_paths",
     "validate_cross_release_disjointness",
 ]

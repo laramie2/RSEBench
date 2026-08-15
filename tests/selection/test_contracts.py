@@ -867,10 +867,10 @@ def test_decision_and_release_contracts_use_exact_literals_and_ranges() -> None:
     lock = ResourceLock(
         resources=[
             ResourceReference(
-                uri="https://example.invalid/repo.git",
+                uri="git+https://example.invalid/repo.git@" + "a" * 40,
                 kind="git",
                 sha256=HASH,
-                materialization="git clone",
+                materialization="rsebench-methods://skillopt",
             )
         ]
     )

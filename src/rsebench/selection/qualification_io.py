@@ -2641,6 +2641,97 @@ def aggregate_selection_roots(
     raise ValueError(f"unknown aggregation mode: {mode}")
 
 
+def derive_release_screening_companion(
+    *,
+    selection_root: Path,
+    run_root: Path,
+) -> Any:
+    """Recompute screening decisions and hashes from owned clean/replay evidence."""
+
+    repository = load_selection_repository(selection_root)
+    root = Path(run_root).resolve()
+    status = SelectionStatus.model_validate_json(
+        (root / "selection_status.json").read_text(encoding="utf-8")
+    )
+    aggregate = _screening(repository, root)
+    records = discover_clean_runs(root, repository)
+    records = _overlay_reused_records(
+        records, _rehydrate_reused_records(root, repository)
+    )
+    selection_hashes: dict[str, str] = {}
+    evidence_hashes: dict[str, str] = {}
+    for benchmark in POOL_BENCHMARKS:
+        selected = status.domains[benchmark].selected_candidate_index
+        if selected is None:
+            raise ValueError(f"screening domain has no selected candidate: {benchmark}")
+        candidate = repository.candidates[benchmark][selected]
+        selection_hashes[benchmark] = candidate.selection_hash
+        selected_runs = sorted(
+            _records_for(records, benchmark, selected), key=lambda row: row.method_seed
+        )
+        evidence_hashes[f"clean-group:{benchmark}"] = canonical_hash(
+            [run.model_dump(mode="json") for run in selected_runs]
+        )
+        for run in selected_runs:
+            evidence_hashes[f"clean:{benchmark}:{run.method_seed}"] = canonical_hash(
+                run.model_dump(mode="json")
+            )
+            replay_path = _replay_result_path(
+                root,
+                role="screening_test",
+                benchmark=benchmark,
+                candidate_index=selected,
+                method_seed=run.method_seed,
+                family=None,
+            )
+            evidence_hashes[f"replay:{benchmark}:{run.method_seed}"] = (
+                sha256_file(replay_path)
+                if replay_path.is_file()
+                else canonical_hash({"status": "missing"})
+            )
+
+    skill_index = status.domains["skilllearnbench"].selected_candidate_index
+    if skill_index != 1:
+        raise ValueError("SkillLearn screening requires fixed Candidate 1")
+    skill_candidate = repository.candidates["skilllearnbench"][1]
+    selection_hashes["skilllearnbench"] = skill_candidate.selection_hash
+    for family in SKILLLEARN_FAMILIES:
+        family_runs = sorted(
+            _records_for(records, "skilllearnbench", 1, family),
+            key=lambda row: row.method_seed,
+        )
+        evidence_hashes[f"clean-group:skilllearnbench:{family}"] = canonical_hash(
+            [run.model_dump(mode="json") for run in family_runs]
+        )
+        for run in family_runs:
+            prefix = f"skilllearnbench:{family}:{run.method_seed}"
+            evidence_hashes[f"clean:{prefix}"] = canonical_hash(
+                run.model_dump(mode="json")
+            )
+            replay_path = _replay_result_path(
+                root,
+                role="screening_test",
+                benchmark="skilllearnbench",
+                candidate_index=1,
+                method_seed=run.method_seed,
+                family=family,
+            )
+            evidence_hashes[f"replay:{prefix}"] = (
+                sha256_file(replay_path)
+                if replay_path.is_file()
+                else canonical_hash({"status": "missing"})
+            )
+
+    from rsebench.selection.release import make_screening_release_companion
+
+    return make_screening_release_companion(
+        selection_status=status,
+        selection_hashes=selection_hashes,
+        aggregate=aggregate,
+        evidence_hashes=evidence_hashes,
+    )
+
+
 def derive_release_qualification_companion(
     *,
     selection_root: Path,

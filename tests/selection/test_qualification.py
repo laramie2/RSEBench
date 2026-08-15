@@ -223,6 +223,49 @@ def test_release_companion_rederives_typed_decisions_from_owned_evidence(
         "skilllearn_self_feedback": "c" * 64,
     }
 
+    screening = qualification_io.ScreeningGeneralizationAggregate(
+        domains={
+            benchmark: qualification_io.DomainScreeningGeneralization(
+                status="clean_generalization_ready"
+            )
+            for benchmark in benchmarks
+        },
+        all_ready=True,
+    )
+    for record in records:
+        if record.family == failed_family:
+            continue
+        replay = qualification_io._replay_result_path(
+            tmp_path,
+            role="screening_test",
+            benchmark=record.benchmark,
+            candidate_index=1,
+            method_seed=record.method_seed,
+            family=record.family,
+        )
+        replay.parent.mkdir(parents=True, exist_ok=True)
+        replay.write_text("{}\n", encoding="utf-8")
+    monkeypatch.setattr(qualification_io, "_screening", lambda *args: screening)
+
+    screening_companion = qualification_io.derive_release_screening_companion(
+        selection_root=tmp_path,
+        run_root=tmp_path,
+    )
+
+    assert screening_companion.aggregate == screening
+    assert set(screening_companion.selection_hashes) == set(benchmarks)
+    assert (
+        f"clean-group:skilllearnbench:{failed_family}"
+        in screening_companion.evidence_hashes
+    )
+    missing_replay = (
+        f"replay:skilllearnbench:{failed_family}:"
+        f"{qualification_io.METHOD_SEEDS[0]}"
+    )
+    assert screening_companion.evidence_hashes[missing_replay] == canonical_hash(
+        {"status": "missing"}
+    )
+
 
 @pytest.fixture(scope="module")
 def real_legacy_reuse_cases() -> dict[str, tuple[SelectionRepository, dict]]:

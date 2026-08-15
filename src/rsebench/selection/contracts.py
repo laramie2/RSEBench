@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+import re
 from collections.abc import Iterable, Iterator, Mapping, Sequence
 from enum import Enum
 from pathlib import Path
@@ -636,6 +637,57 @@ class ResourceReference(_ImmutableSelectionModel):
     kind: Literal["git", "rsebench-data", "rsebench-methods", "external-image"]
     sha256: str = Field(pattern=_HASH_PATTERN)
     materialization: str
+    task_ids: list[str] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def validate_locator(self) -> "ResourceReference":
+        portable = re.compile(
+            r"^rsebench-(?:data|methods)://(?!/)(?!.*(?:^|/)\.\.(?:/|$))"
+            r"(?!.*(?:^|/)\.(?:/|$))[^\\\s]+$"
+        )
+        git = re.compile(
+            r"^git\+https://(?![^/]*@)[A-Za-z0-9.-]+/[^\s@]+@[0-9a-f]{40}$"
+        )
+        oci = re.compile(
+            r"^oci://[A-Za-z0-9.-]+(?:/[A-Za-z0-9._-]+)+@sha256:[0-9a-f]{64}$"
+        )
+        portable_parts = self.uri.partition("://")[2].split("/")
+        portable_safe = not ({"", ".", ".."} & set(portable_parts))
+        matches = {
+            "rsebench-data": bool(portable.fullmatch(self.uri))
+            and self.uri.startswith("rsebench-data://")
+            and portable_safe,
+            "rsebench-methods": bool(portable.fullmatch(self.uri))
+            and self.uri.startswith("rsebench-methods://")
+            and portable_safe,
+            "git": bool(git.fullmatch(self.uri)),
+            "external-image": bool(oci.fullmatch(self.uri)),
+        }
+        if not matches[self.kind]:
+            raise ValueError(
+                f"resource URI does not match strict {self.kind} grammar: {self.uri}"
+            )
+        if not self.materialization.strip():
+            raise ValueError(f"resource materialization is unresolved: {self.uri}")
+        if len(self.task_ids) != len(set(self.task_ids)):
+            raise ValueError("resource task_ids must be unique")
+        if self.kind in {"rsebench-data", "rsebench-methods"}:
+            if self.materialization != self.uri:
+                raise ValueError(
+                    "portable local resource materialization must equal its URI"
+                )
+        elif self.kind == "git":
+            if not self.materialization.startswith("rsebench-methods://"):
+                raise ValueError("git resource must materialize to rsebench-methods")
+        else:
+            digest = self.uri.rpartition("@sha256:")[2]
+            if self.sha256 != digest:
+                raise ValueError("OCI resource sha256 differs from its pinned digest")
+            if self.materialization != f"docker-image://sha256:{digest}":
+                raise ValueError("OCI resource materialization differs from its digest")
+            if not self.task_ids:
+                raise ValueError("OCI resource requires covered task_ids")
+        return self
 
 
 class ResourceLock(_ImmutableSelectionModel):

@@ -20,7 +20,11 @@ from rsebench.selection.qualification import (
 )
 from rsebench.selection import ConfirmationSplit, StableSplitCandidate
 from rsebench.selection.contracts import SelectionReleaseManifest
-from rsebench.selection.release import QualificationReleaseCompanion
+from rsebench.selection.release import (
+    QualificationReleaseCompanion,
+    ScreeningReleaseCompanion,
+    make_screening_release_companion,
+)
 from scripts.freeze_noise_screen_selection import main
 
 
@@ -39,27 +43,6 @@ DOMAINS = RELEASE_FIXTURES.DOMAINS
 
 
 runner = CliRunner()
-
-
-@pytest.fixture
-def release_input_file(tmp_path: Path) -> Path:
-    release_inputs = RELEASE_FIXTURES.make_release_inputs()
-    payload = {
-        key: (
-            {name: value.model_dump(mode="json") for name, value in field.items()}
-            if key in {"candidates", "confirmations", "decisions"}
-            else field.model_dump(mode="json")
-            if hasattr(field, "model_dump")
-            else field
-        )
-        for key, field in release_inputs.items()
-    }
-    path = tmp_path / "release-input.json"
-    path.write_text(
-        json.dumps(payload, ensure_ascii=False, sort_keys=True) + "\n",
-        encoding="utf-8",
-    )
-    return path
 
 
 @pytest.fixture
@@ -174,29 +157,26 @@ def root_release_fixture(
         "rsebench.selection.qualification_io.derive_release_qualification_companion",
         lambda **kwargs: companion,
     )
-    return selection_root, run_root, destination
-
-
-def test_script_freezes_explicit_release_input_without_provider_calls(
-    tmp_path: Path,
-    release_input_file: Path,
-) -> None:
-    destination = tmp_path / "release"
-
-    result = main(
-        [
-            "--input",
-            str(release_input_file),
-            "--release-root",
-            str(destination),
-        ]
+    screening_companion = make_screening_release_companion(
+        selection_status=selection_status,
+        selection_hashes={
+            benchmark: release_inputs["candidates"][benchmark].selection_hash
+            for benchmark in DOMAINS
+        },
+        aggregate=screening,
+        evidence_hashes={
+            f"owned:{benchmark}": "7" * 64 for benchmark in DOMAINS
+        },
     )
-
-    assert result == 0
-    assert (destination / "manifest.json").is_file()
-    assert set(
-        json.loads((destination / "manifest.json").read_text())["domain_statuses"]
-    ) == set(DOMAINS)
+    monkeypatch.setattr(
+        "rsebench.selection.qualification_io.derive_release_screening_companion",
+        lambda **kwargs: screening_companion,
+    )
+    monkeypatch.setattr(
+        "rsebench.selection.resources.validate_resource_lock_materializations",
+        lambda *args, **kwargs: None,
+    )
+    return selection_root, run_root, destination
 
 
 def test_task8_root_owned_invocation_is_provider_free(
@@ -218,12 +198,19 @@ def test_task8_root_owned_invocation_is_provider_free(
     assert result == 0
     assert (destination / "manifest.json").is_file()
     emitted = QualificationReleaseCompanion.model_validate_json(
-        (destination / "qualification_release.json").read_text()
+        (destination / "release_qualification.json").read_text()
     )
     stored = QualificationReleaseCompanion.model_validate_json(
         (run_root / "release_qualification.json").read_text()
     )
     assert emitted == stored
+    screening = ScreeningReleaseCompanion.model_validate_json(
+        (destination / "screening_release.json").read_text()
+    )
+    assert screening.aggregate == ScreeningGeneralizationAggregate.model_validate_json(
+        (run_root / "screening_generalization.json").read_text()
+    )
+    assert screening.evidence_hashes
 
 
 def test_task8_root_owned_cli_reports_zero_provider_calls(
@@ -263,7 +250,7 @@ def test_root_mode_refuses_nonready_screening_even_with_passing_companion(
     payload["domains"]["webshop"]["status"] = "clean_generalization_failed"
     (run_root / "screening_generalization.json").write_text(json.dumps(payload))
 
-    with pytest.raises(ValueError, match="clean_generalization_ready"):
+    with pytest.raises(ValueError, match="screening aggregate differs"):
         main(
             [
                 "--selection-root",
@@ -297,51 +284,31 @@ def test_root_mode_refuses_companion_that_differs_from_owned_evidence(
         )
 
 
-def test_script_parser_makes_input_and_root_mode_mutually_exclusive() -> None:
+def test_script_parser_rejects_unowned_input_bypass() -> None:
     from scripts.freeze_noise_screen_selection import build_parser
 
     parser = build_parser()
     with pytest.raises(SystemExit):
-        parser.parse_args(
-            [
-                "--input",
-                "input.json",
-                "--selection-root",
-                "selection",
-                "--run-root",
-                "runs",
-                "--release-root",
-                "release",
-            ]
-        )
+        parser.parse_args(["--input", "input.json", "--release-root", "release"])
 
 
-def test_selection_freeze_cli_is_provider_free(
-    monkeypatch,
-    tmp_path: Path,
-    release_input_file: Path,
-) -> None:
-    destination = tmp_path / "release"
-
-    def provider_forbidden(*args, **kwargs):
-        raise AssertionError("selection freeze must not construct a provider")
-
-    monkeypatch.setattr(cli, "DeepSeekClient", provider_forbidden)
+def test_selection_freeze_cli_rejects_unowned_input_bypass() -> None:
     result = runner.invoke(
         cli.app,
         [
             "selection",
             "freeze",
             "--input",
-            str(release_input_file),
+            "input.json",
             "--release-root",
-            str(destination),
+            "release",
         ],
     )
 
-    assert result.exit_code == 0, result.stdout
-    assert "provider_calls=0" in result.stdout
-    assert len(result.stdout.split("release_id=")[1].split()[0]) == 64
+    assert result.exit_code != 0
+    help_result = runner.invoke(cli.app, ["selection", "freeze", "--help"])
+    assert help_result.exit_code == 0
+    assert "--input" not in help_result.stdout
 
 
 def test_export_schemas_includes_selection_release_contracts(tmp_path: Path) -> None:

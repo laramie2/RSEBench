@@ -26,7 +26,6 @@ from rsebench.selection.contracts import (
 from rsebench.selection.exposure import build_exposure_registry, merge_record
 from rsebench.selection.release import (
     FrozenSelectionRelease,
-    SelectionReleaseInput,
     freeze_selection_release,
 )
 
@@ -47,7 +46,6 @@ __all__ = [
     "ScreeningGeneralizationDecision",
     "ScreeningSeedEvidence",
     "SelectionAction",
-    "SelectionReleaseInput",
     "SelectionReleaseManifest",
     "SelectionStatus",
     "SkillLearnFamilyQualificationSummary",

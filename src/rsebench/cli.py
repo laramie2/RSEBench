@@ -43,7 +43,6 @@ from rsebench.selection.contracts import (
     StableSplitCandidate,
 )
 from rsebench.selection.release import (
-    freeze_selection_release_file,
     freeze_selection_release_roots,
 )
 
@@ -359,41 +358,21 @@ def release_freeze(
 
 @selection_app.command("freeze")
 def selection_freeze(
-    selection_root: Path | None = typer.Option(
-        None, "--selection-root", exists=True, file_okay=False, readable=True
+    selection_root: Path = typer.Option(
+        ..., "--selection-root", exists=True, file_okay=False, readable=True
     ),
-    run_root: Path | None = typer.Option(
-        None, "--run-root", exists=True, file_okay=False, readable=True
+    run_root: Path = typer.Option(
+        ..., "--run-root", exists=True, file_okay=False, readable=True
     ),
     release_root: Path = typer.Option(..., "--release-root", file_okay=False),
-    input_path: Path | None = typer.Option(
-        None,
-        "--input",
-        exists=True,
-        dir_okay=False,
-        readable=True,
-        hidden=True,
-    ),
 ) -> None:
     """Freeze owned Task 8 selection/run roots without provider calls."""
 
-    if (selection_root is None) == (input_path is None):
-        raise typer.BadParameter("provide exactly one of --selection-root or --input")
-    if selection_root is not None:
-        if run_root is None:
-            raise typer.BadParameter("--selection-root requires --run-root")
-        frozen = freeze_selection_release_roots(
-            selection_root=selection_root,
-            run_root=run_root,
-            destination=release_root,
-        )
-    else:
-        if run_root is not None:
-            raise typer.BadParameter("--run-root requires --selection-root")
-        frozen = freeze_selection_release_file(
-            input_path=input_path,
-            destination=release_root,
-        )
+    frozen = freeze_selection_release_roots(
+        selection_root=selection_root,
+        run_root=run_root,
+        destination=release_root,
+    )
     typer.echo(f"release_id={frozen.release_id} provider_calls=0")
     typer.echo(frozen.path)
 

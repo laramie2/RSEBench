@@ -1311,7 +1311,7 @@ Expected: formal model calls begin from a clean immutable commit.
 
 During provider-active work, mutable selection_status.json stays under the ignored run root so every formal matrix launch still sees a clean Git worktree. The atomic freeze step validates and copies its normalized form into benchmark/validation/noise_screen_v1/ only after all provider-backed runs have ended.
 
-- [ ] **Step 1: Prebuild the four screening SkillLearn images**
+- [ ] **Step 1: Prebuild all eight screening/confirmation SkillLearn families**
 
 ~~~bash
 PYTHONPATH=src python scripts/prebuild_clean_skilllearn_images.py \
@@ -1319,7 +1319,9 @@ PYTHONPATH=src python scripts/prebuild_clean_skilllearn_images.py \
   --output outputs/preflight/noise-screen-v1/skilllearn_image_manifest.json
 ~~~
 
-Expected: all_ready=true for the four screening families and no formal token events.
+Expected: all_ready=true, and the image manifest covers every task in the four
+screening plus four sealed confirmation families. The later resource-lock command
+rejects partial image coverage. No formal token events are produced.
 
 - [ ] **Step 2: Audit OfficeQA/WebShop Candidate-1 reuse**
 
@@ -1446,13 +1448,25 @@ Expected: all four domains become clean_generalization_ready. If any fails, stop
 - [ ] **Step 8: Freeze atomically and write the Chinese report**
 
 ~~~bash
+PYTHONPATH=src python scripts/build_noise_screen_resource_lock.py \
+  --selection-root benchmark/validation/noise_screen_v1 \
+  --data-root "${RSEBENCH_DATA_ROOT:-data}" \
+  --methods-root "${RSEBENCH_METHODS_ROOT:-methods/external}" \
+  --methods-registry benchmark/registry/methods.yaml \
+  --image-manifest outputs/preflight/noise-screen-v1/skilllearn_image_manifest.json \
+  --output benchmark/validation/noise_screen_v1/resource_lock.json
+
 PYTHONPATH=src python scripts/freeze_noise_screen_selection.py \
   --selection-root benchmark/validation/noise_screen_v1 \
   --release-root releases/validation/noise-screen-v1 \
   --run-root outputs/runs/noise-screen-v1-qualification
 ~~~
 
-Expected: command refuses unless all four domains are ready; success prints one 64-character release ID.
+Expected: resource generation reports `provider_calls=0` and verifies every data/
+method hash, all three baseline revisions/materializations, and every SkillLearn OCI
+digest. Freeze revalidates those locks and recomputes both qualification and
+screening from owned evidence; it refuses unless all four domains are ready. Success
+prints one 64-character release ID.
 
 The report lists exact train/validation/test IDs, confirmation counts/hashes, failed candidates, clean replay summaries, SkillLearn exposure exception, resource bootstrap requirements, release ID, calls/tokens, and run/stage/task timing. It explicitly states that N1–N4 have not run.
 
