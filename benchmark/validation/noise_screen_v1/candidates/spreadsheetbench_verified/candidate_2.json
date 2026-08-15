@@ -1,0 +1,1940 @@
+{
+  "benchmark": "spreadsheetbench_verified",
+  "candidate_index": 2,
+  "domain": "spreadsheet",
+  "metadata": {
+    "baseline": "skillopt",
+    "qualification_version": "noise-screen-v1",
+    "runtime": {
+      "batch_size": 7,
+      "max_completion_tokens": 2048,
+      "max_steps": 3,
+      "max_tool_turns": 3,
+      "workers": 2
+    },
+    "selection_version": "noise-screen-v1",
+    "source_seed": 20260812,
+    "static_audit": {
+      "keyword_map_version": "spreadsheet-operation-keywords-v1",
+      "noise_applicability": {
+        "N1": {
+          "coverage": 1.0,
+          "status": "pass"
+        },
+        "N2": {
+          "coverage": 1.0,
+          "status": "pass"
+        },
+        "N3": {
+          "coverage": null,
+          "status": "pending"
+        },
+        "N4": {
+          "coverage": null,
+          "status": "pending"
+        }
+      },
+      "operation_categories": [
+        "aggregation_formula",
+        "layout_chart_pivot",
+        "lookup_join",
+        "other",
+        "text_date_cleaning"
+      ],
+      "ordered_task_ids": {
+        "test": [
+          "254-34",
+          "59902",
+          "41691",
+          "120-24",
+          "52220",
+          "56915",
+          "47827",
+          "48257",
+          "42198",
+          "177-6",
+          "97-36",
+          "531-18",
+          "54638",
+          "547-43",
+          "353-6",
+          "51-12",
+          "59595",
+          "23-24",
+          "3911",
+          "32438",
+          "52917",
+          "333-29",
+          "48975",
+          "343-20",
+          "59129",
+          "6698",
+          "203-15",
+          "50952",
+          "32093",
+          "54196"
+        ],
+        "train": [
+          "55060",
+          "45372",
+          "33157",
+          "463-17",
+          "416-15",
+          "54144",
+          "290-1",
+          "82-38",
+          "433-47",
+          "414-20",
+          "31915",
+          "8942",
+          "30930",
+          "599-9",
+          "51359",
+          "105-24",
+          "384-4",
+          "66-24",
+          "9448",
+          "39046"
+        ],
+        "validation": [
+          "57113",
+          "24-23",
+          "55965",
+          "535-20",
+          "10747",
+          "9391",
+          "31746",
+          "44296",
+          "236-22",
+          "45707"
+        ]
+      },
+      "train_batch_sizes": [
+        7,
+        7,
+        6
+      ]
+    }
+  },
+  "qualification_test": [
+    {
+      "artifact_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/18935/1_18935_init.xlsx",
+      "benchmark": "spreadsheetbench_verified",
+      "domain": "spreadsheet",
+      "gold_answers": [],
+      "metadata": {
+        "answer_range": "D17:D22",
+        "answer_sheet": "",
+        "gold_workbook_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/18935/1_18935_golden.xlsx",
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        }
+      },
+      "prompt": "How can I perform a lookup in Excel to retrieve a value from a Data Table and place it into a report format, using the data and structure provided in the attached file?\nCurrently I need to lookup a value from a Data Table and return the value to the report format. Kindly refer to the attach file for reference. How can I lookup the Category Value based on the (1) Work Criteria, (2) Category Type and (3) Material from the Data Table above?  \nNote : The category value varies based on work type and material type.",
+      "source_hash": "dc22cf6b0dd5d0cb1575e154a8ef09c7d47cd37b4146f1ba5cc5495adc6524dc",
+      "task_id": "18935",
+      "verifier": "spreadsheetbench_cell_range_v1"
+    },
+    {
+      "artifact_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/50486/1_50486_init.xlsx",
+      "benchmark": "spreadsheetbench_verified",
+      "domain": "spreadsheet",
+      "gold_answers": [],
+      "metadata": {
+        "answer_range": "A2:A5",
+        "answer_sheet": "",
+        "gold_workbook_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/50486/1_50486_golden.xlsx",
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        }
+      },
+      "prompt": "Configure column A in Excel to display the text 'Chep' or 'Loscam' based on which of the two corresponding columns contains numeric values.",
+      "source_hash": "b69930d6c98bc56a5432ef6885b3957a11b97f0dabed52ef3d4a1991f00cb330",
+      "task_id": "50486",
+      "verifier": "spreadsheetbench_cell_range_v1"
+    },
+    {
+      "artifact_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/47766/1_47766_init.xlsx",
+      "benchmark": "spreadsheetbench_verified",
+      "domain": "spreadsheet",
+      "gold_answers": [],
+      "metadata": {
+        "answer_range": "K40",
+        "answer_sheet": "",
+        "gold_workbook_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/47766/1_47766_golden.xlsx",
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        }
+      },
+      "prompt": "I am attempting to calculate my agent's yearly production which includes yearly bonuses that reset annually. In the Excel spreadsheet I attached, I have used SUMIF formulas to calculate their total production based on certain criteria, such as including \"*PE*\" in my searches: =SUMIF($H$8:$H$37,\"*PE*\",$C$8:$C$37), =SUMIF($H$41:$H$58,\"*PE*\",$C$41:$C$58), =SUMIF($H$62:$H$74,\"*PE*\",$C$62:$C$74). However, I am having trouble adapting these formulas to work with a date range for the start and end of the year, using closing dates that are found in Column F. I would like to find out how to modify these formulas or use a different approach to consider the date range for accurately calculating annual production. Please change the values in table J39:O53 to reflect the correct yearly totals.",
+      "source_hash": "3de57615623f6a42b6acc5f1934cc15747fb846cd8305ff7f1508e30ead8eb3c",
+      "task_id": "47766",
+      "verifier": "spreadsheetbench_cell_range_v1"
+    },
+    {
+      "artifact_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/46167/1_46167_init.xlsx",
+      "benchmark": "spreadsheetbench_verified",
+      "domain": "spreadsheet",
+      "gold_answers": [],
+      "metadata": {
+        "answer_range": "D2",
+        "answer_sheet": "",
+        "gold_workbook_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/46167/1_46167_golden.xlsx",
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        }
+      },
+      "prompt": "How can I create a formula in Excel that will calculate the sum of multiple cells subject to a specific criterion? Specifically, I want to sum the quantities (QTY) in a column for the rows where the 'PRODUCT ID' matches a given value (e.g., 111111). Please output the answer in D2. For example, the expected result of this sum for 'PRODUCT ID' 111111 should be 270, deriving from the individual QTY values of 50, 60, 70, and 90.        Sum of QTYs where PRODUCT ID=111111.",
+      "source_hash": "0896de553ad83488aa3dcfa74dfa757350e3b6386f3c539ba4b4a078e5ec4ee8",
+      "task_id": "46167",
+      "verifier": "spreadsheetbench_cell_range_v1"
+    },
+    {
+      "artifact_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/398-14/1_398-14_init.xlsx",
+      "benchmark": "spreadsheetbench_verified",
+      "domain": "spreadsheet",
+      "gold_answers": [],
+      "metadata": {
+        "answer_range": "'COLLECTION'!A2:G9",
+        "answer_sheet": "COLLECTION",
+        "gold_workbook_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/398-14/1_398-14_golden.xlsx",
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        }
+      },
+      "prompt": "I have data across multiple sheets where I need to match and sum values from columns that are repeated across these sheets. To do this, I need to insert a column called 'BALANCE' which subtracts the 'RET' value from the 'SALE' columns. Whenever I add new sheets that have the same structure, the macro should be able to adapt to include them. The results, along with headers, should be compiled in the 'collection' sheet. Reference the values and logic of the existing rows, then complete the table for any missing information from the other sheets by adding it to the bottom of the current table, but do not alter the order of the original rows.  Make sure that rows are aggregated across all sheets where “TY” and “OR” are the same.  Additionally, instead of showing a formula in column G, it should display the calculated value, and any empty cells should show a hyphen instead of a zero, and any negatives should have a text color hex code of #FF0000, and column headers should be un-bolded and left-side aligned.  All other formatting should remain unchanged, and any new data added should match. Columns A, E, F, and G now align right, while columns B, C, and D align left. Make all text unbold, and font Calibri 11pts.",
+      "source_hash": "409e0162d0edee3fe00d04d17bd067739a1232e53162162e4d1922f67929e3bf",
+      "task_id": "398-14",
+      "verifier": "spreadsheetbench_cell_range_v1"
+    },
+    {
+      "artifact_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/41589/1_41589_init.xlsx",
+      "benchmark": "spreadsheetbench_verified",
+      "domain": "spreadsheet",
+      "gold_answers": [],
+      "metadata": {
+        "answer_range": "'Contact List'!J4",
+        "answer_sheet": "",
+        "gold_workbook_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/41589/1_41589_golden.xlsx",
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        }
+      },
+      "prompt": "How can I Create a function that populates Column J based on the last contact date in Column H and a yes/no response in Column I. The logic should be: If H4 is within the last 30 days AND I4 is 'YES' then display 'HOLD'. If H4 is more than 30 days ago AND I4 is 'YES' then display 'TOUCH BASE'.  In all other cases display 'NO ACTION'\"",
+      "source_hash": "a92915ae8b3fea8990d040b281b675ff8e42550b9af1d2049acec50a2cc43225",
+      "task_id": "41589",
+      "verifier": "spreadsheetbench_cell_range_v1"
+    },
+    {
+      "artifact_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/44017/1_44017_init.xlsx",
+      "benchmark": "spreadsheetbench_verified",
+      "domain": "spreadsheet",
+      "gold_answers": [],
+      "metadata": {
+        "answer_range": "AD14:AO42",
+        "answer_sheet": "",
+        "gold_workbook_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/44017/1_44017_golden.xlsx",
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        }
+      },
+      "prompt": "I need to calculate updated rates for each customer based on price increases that roll out over time. Each customer has baseline rates in a 12-month historical range, an effective start date when increases begin applying, and a frequency value (representing months between waves) that determines when each increase takes effect. There are up to four sequential price increase percentages defined in separate columns.Create formulas in columns AD through AO starting at row 14 that calculate new rates by applying cumulative price increases to the base rate in column W. The increases should phase in based on the effective date in column L, the frequency in column J, and the increase percentages in columns M through P. Each column represents a different month with dates in row 9. Only show values when the column date is on or after the effective date. There should be no yellow fill in the cells you complete.",
+      "source_hash": "1d84bcc4fce1f8fc9cdcec2ef5db51179b37bd6b5dcffd583dd61efacc5ad8c8",
+      "task_id": "44017",
+      "verifier": "spreadsheetbench_cell_range_v1"
+    },
+    {
+      "artifact_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/58109/initial.xlsx",
+      "benchmark": "spreadsheetbench_verified",
+      "domain": "spreadsheet",
+      "gold_answers": [],
+      "metadata": {
+        "answer_range": "I6",
+        "answer_sheet": "",
+        "gold_workbook_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/58109/golden.xlsx",
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        }
+      },
+      "prompt": "Adjust the formula in I6 to sum the values of the previous four workdays, excluding weekends, since my current formula doesn’t correctly handle non-working days? My dataset contains no entries on weekends, so simply subtracting four calendar days gives an inaccurate result. I want the formula to dynamically include the last four weekday dates up to the date in cell I4 (assuming today is a weekday). My current formula is: SUMIFS(B:B,A:A,\">\"&I4-4)",
+      "source_hash": "6d601fb72e0e4b357f3a97bab58203a2b9b1d560242a55915ae1771dc2b86833",
+      "task_id": "58109",
+      "verifier": "spreadsheetbench_cell_range_v1"
+    },
+    {
+      "artifact_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/40892/1_40892_init.xlsx",
+      "benchmark": "spreadsheetbench_verified",
+      "domain": "spreadsheet",
+      "gold_answers": [],
+      "metadata": {
+        "answer_range": "B2:B17",
+        "answer_sheet": "",
+        "gold_workbook_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/40892/1_40892_golden.xlsx",
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        }
+      },
+      "prompt": "I need a formula to extract the color mentioned in each cell of column 1 and display that same color in column 2. For example, if a cell in column 1 says 'Dress with red details,' I want the corresponding cell in column 2 to show 'Red'. I have uploaded the file for reference. If no answer is found, output an empty string. Only add the colors mentioned in the list located in Column D.",
+      "source_hash": "d34d47f74a49f5d918535a986acbe02f5baa83dac47b0780007f8d0fb10352b0",
+      "task_id": "40892",
+      "verifier": "spreadsheetbench_cell_range_v1"
+    },
+    {
+      "artifact_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/56920/1_56920_init.xlsx",
+      "benchmark": "spreadsheetbench_verified",
+      "domain": "spreadsheet",
+      "gold_answers": [],
+      "metadata": {
+        "answer_range": "C3:C8",
+        "answer_sheet": "",
+        "gold_workbook_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/56920/1_56920_golden.xlsx",
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        }
+      },
+      "prompt": "I need a formula to extract 10-digit numbers or letters from a text string in Excel where one sequence always starts with '955' and another starts with 'CHK'. The number that starts with '955' may be preceded by '/TES-'. How can I extract these 10-digit numbers or letters correctly, considering both types may be present in the string? Please use priority extraction, input into Column C.",
+      "source_hash": "6775837160f373860788482c0d587ff95715d81f8be80249dcdc4d5b4f1d5e7c",
+      "task_id": "56920",
+      "verifier": "spreadsheetbench_cell_range_v1"
+    },
+    {
+      "artifact_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/188-39/1_188-39_init.xlsx",
+      "benchmark": "spreadsheetbench_verified",
+      "domain": "spreadsheet",
+      "gold_answers": [],
+      "metadata": {
+        "answer_range": "'result'!B2:D12",
+        "answer_sheet": "result",
+        "gold_workbook_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/188-39/1_188-39_golden.xlsx",
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        }
+      },
+      "prompt": "How can I update a result sheet in Excel to display the designation, contact details, and email of a person when their designation matches either 'Branch Manager' or 'Branch Credit Manager' for a given location, while marking cells with 'N/A' if the designation is different? The data to be matched comes from a main sheet containing fields such as name, contact number, mail ID, and designation. The result is required in a structured format where the person's name is listed against their location, accompanied by contact details and mail ID if the designation criteria is met.  Left align all outputed entries.",
+      "source_hash": "2c1b4b751f2538599157fb30e103b29026d749dba68be03aacdf554030c1be77",
+      "task_id": "188-39",
+      "verifier": "spreadsheetbench_cell_range_v1"
+    },
+    {
+      "artifact_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/194-19/1_194-19_init.xlsx",
+      "benchmark": "spreadsheetbench_verified",
+      "domain": "spreadsheet",
+      "gold_answers": [],
+      "metadata": {
+        "answer_range": "'Sheet1'!H1:I370",
+        "answer_sheet": "Sheet1",
+        "gold_workbook_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/194-19/1_194-19_golden.xlsx",
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        }
+      },
+      "prompt": "I am looking for a macro that can search through data on sheet two and generate results in only two columns, H and I, on sheet one. For column H, the macro should match the name in sheet two's column D, then look for the corresponding race number (#1, #2, etc.) in column H, and finally fill in the results for that race number from column I on sheet two into sheet one. This should be done for each individual race number. For column I on sheet one, the results should derive from columns J, K, L, and M on sheet two. When any data is missing from these four columns, it will always be from the farthest right column moving leftwards. The macro needs to match the meet name and race number, so for instance, if in sheet two for Port Macquarie, race #1, column J contains the number 1, then this result should reflect in cell I8 on sheet one, and so on for each number in columns K, L, and M, assigning results to their corresponding cells on sheet one. This process should continue for each race number and each meet name until the end of the sheet. I've completed results for the first meet and have uploaded a sample sheet for reference. Moreover, there is more data to the right of column J which I hadn't included in the original sample and forgot to mention, and I need the results to go directly into columns H and I without using offsets.",
+      "source_hash": "0e029d66901004776100906b79be56486031cfff98d1f9c02d5f8f7c2eb1b4f2",
+      "task_id": "194-19",
+      "verifier": "spreadsheetbench_cell_range_v1"
+    },
+    {
+      "artifact_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/58484/1_58484_init.xlsx",
+      "benchmark": "spreadsheetbench_verified",
+      "domain": "spreadsheet",
+      "gold_answers": [],
+      "metadata": {
+        "answer_range": "H5:H26",
+        "answer_sheet": "",
+        "gold_workbook_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/58484/1_58484_golden.xlsx",
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        }
+      },
+      "prompt": "Recreate Sheet1 exactly as it is. Make sure the headings are properly bordered and bolded. Ensure the 'Wrap Text' feature is turned on for the text in row 4. There shouldn't be any values or bordering on column G. How can I count the number of times the operator (column D), whose transfer number is 5551234, transfers a phone call to other staff members (Column E), and display the total number of transfers next to the last transfer in a list of phone calls? Multiple transfers to various staff members from the operator are possible, yet when I attempted to use a simple array formula sourced from forums, it resulted in all lines being filled, which is not the outcome I was looking for.\n\nCreate a new formula and insert it on the cells in column H.",
+      "source_hash": "cfe4d1d3511aa5f3bb73454aa5cb70b2622edc355fe258b8cbc087e465bfe329",
+      "task_id": "58484",
+      "verifier": "spreadsheetbench_cell_range_v1"
+    },
+    {
+      "artifact_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/297-42/1_297-42_init.xlsx",
+      "benchmark": "spreadsheetbench_verified",
+      "domain": "spreadsheet",
+      "gold_answers": [],
+      "metadata": {
+        "answer_range": "combined'!A2:O822",
+        "answer_sheet": "combined",
+        "gold_workbook_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/297-42/1_297-42_golden.xlsx",
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        }
+      },
+      "prompt": "Running my macro only creates a new sheet named 'combined' without pulling in the data from the other sheets. Use a macro or similar function to copy the data from the existing sheets into the newly created 'combined' sheet. I have given the header of the expected output in the 'combined sheet' in the attachment. Please start from cell A2 to output the answer, pay attention to the position, mapping between the answer and the header name.",
+      "source_hash": "f41be408508fa1818956c53d845e061a820f375faff78ea97ab239d86f056996",
+      "task_id": "297-42",
+      "verifier": "spreadsheetbench_cell_range_v1"
+    },
+    {
+      "artifact_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/39667/1_39667_init.xlsx",
+      "benchmark": "spreadsheetbench_verified",
+      "domain": "spreadsheet",
+      "gold_answers": [],
+      "metadata": {
+        "answer_range": "A20:A26",
+        "answer_sheet": "",
+        "gold_workbook_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/39667/1_39667_golden.xlsx",
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        }
+      },
+      "prompt": "How can I enter a 'description' in a table below a specific (black) row and automatically receive the corresponding 'Pay Item Number' and 'UOM' in the columns to the left of that 'description'? I want to be able to type in a description in the table below the black row and it spit out the corresponding 'Pay Item Number' and 'UOM' in the columns to the left of the 'description'. Outputs an empty string when search is empty. Also, please make rows 20-26, of columns A & B, color: #FFF2CC.",
+      "source_hash": "137f2f9e935c9f9274715cc8e2167cbe06465f86b7fb20b5d16097f348339e6a",
+      "task_id": "39667",
+      "verifier": "spreadsheetbench_cell_range_v1"
+    },
+    {
+      "artifact_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/58499/1_58499_init.xlsx",
+      "benchmark": "spreadsheetbench_verified",
+      "domain": "spreadsheet",
+      "gold_answers": [],
+      "metadata": {
+        "answer_range": "A13:A14",
+        "answer_sheet": "",
+        "gold_workbook_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/58499/1_58499_golden.xlsx",
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        }
+      },
+      "prompt": "How can I create a formula in Excel to list all the branches in column A that do not have a corresponding tick mark in column I? My attempts with an advanced filter have been unsuccessful, and I can't seem to extract the unticked branches correctly.",
+      "source_hash": "25bda553495548dd32e2b4f5ed6dc72bb6c1a2d6138880737d6d52adf9b943e0",
+      "task_id": "58499",
+      "verifier": "spreadsheetbench_cell_range_v1"
+    },
+    {
+      "artifact_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/227-40/1_227-40_init.xlsx",
+      "benchmark": "spreadsheetbench_verified",
+      "domain": "spreadsheet",
+      "gold_answers": [],
+      "metadata": {
+        "answer_range": "'Sheet1'!A14:E17",
+        "answer_sheet": "Sheet1",
+        "gold_workbook_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/227-40/1_227-40_golden.xlsx",
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        }
+      },
+      "prompt": "How can I remove or replace text duplicates within the same row in Excel, as most of the available methods only apply to columns? I have provided the sheet showing the issue I am facing with duplicates in consecutive columns where the expected result is shown in 'The Result I'm after' section. Place the output in A14:E17.",
+      "source_hash": "6b4414ad5f64b3666355094a0b9f8fefc8a1731025f31e0111b1a4d9c450a597",
+      "task_id": "227-40",
+      "verifier": "spreadsheetbench_cell_range_v1"
+    },
+    {
+      "artifact_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/37086/1_37086_init.xlsx",
+      "benchmark": "spreadsheetbench_verified",
+      "domain": "spreadsheet",
+      "gold_answers": [],
+      "metadata": {
+        "answer_range": "D2:D5",
+        "answer_sheet": "",
+        "gold_workbook_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/37086/1_37086_golden.xlsx",
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        }
+      },
+      "prompt": "I need a formula for a column named 'Total' where, if a value in column1 is 'A', it should add 10, but if the value is 'B', it should subtract 10. I have included a file that may help illustrate this.",
+      "source_hash": "e3a1d14c67030ea5939f3ef2b66b08bcc30bea34e84e619486694d0221178479",
+      "task_id": "37086",
+      "verifier": "spreadsheetbench_cell_range_v1"
+    },
+    {
+      "artifact_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/3413/1_3413_init.xlsx",
+      "benchmark": "spreadsheetbench_verified",
+      "domain": "spreadsheet",
+      "gold_answers": [],
+      "metadata": {
+        "answer_range": "G3:G6",
+        "answer_sheet": "",
+        "gold_workbook_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/3413/1_3413_golden.xlsx",
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        }
+      },
+      "prompt": "How can I create a formula in G3:G6 Excel that will: sum values when the Department in column A matches the department in the same row in column E, and when RU in column B matches RU in column F, and if that combination doesn't exist then sum all the values for the department regardless of RU? I've tried using a combination of 'PI&Melbourne' and excluding text with '<>*Med', but neither approach seems to work. I believe it could be either a = PI & Melbourne or \"<>*Med\"",
+      "source_hash": "8609a751505d248d91874edc7d1d01845ebc296d24b8afc6f52f93c0a9ba4266",
+      "task_id": "3413",
+      "verifier": "spreadsheetbench_cell_range_v1"
+    },
+    {
+      "artifact_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/52964/1_52964_init.xlsx",
+      "benchmark": "spreadsheetbench_verified",
+      "domain": "spreadsheet",
+      "gold_answers": [],
+      "metadata": {
+        "answer_range": "C2",
+        "answer_sheet": "",
+        "gold_workbook_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/52964/1_52964_golden.xlsx",
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        }
+      },
+      "prompt": "I need to create a formula for cell C2 that locates the number from A2 within column Q, and where a match is found, the formula should subtract the value in the corresponding row of column Y from the value in column U. I aim to replicate this process for D2 and other cells as well. Additionally, I request an explanation of the formulas provided, specifically the meaning of the array constants {5,9} and {-1,1} used in the SUMPRODUCT and VLOOKUP functions.",
+      "source_hash": "f9fe51ede02f5f36946efe5d1112b5b758c62a65cf166c16d4d3e2c2c16a2251",
+      "task_id": "52964",
+      "verifier": "spreadsheetbench_cell_range_v1"
+    },
+    {
+      "artifact_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/61-4/1_61-4_init.xlsx",
+      "benchmark": "spreadsheetbench_verified",
+      "domain": "spreadsheet",
+      "gold_answers": [],
+      "metadata": {
+        "answer_range": "'output'!A2:G15",
+        "answer_sheet": "output",
+        "gold_workbook_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/61-4/1_61-4_golden.xlsx",
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        }
+      },
+      "prompt": "How can I identify consecutive negative values in a column for specific stock names, and then merge the related data such that only the opening price from the first date, the closing price from the last date, the highest 'high' price, the lowest 'low' price within those dates are kept, and the volume from these dates is summed? This summarized data should then be sent to an output sheet. The input and output formats are illustrated in an attached Excel document, with color coding for clarity.Remarks : please chek comments inside cell C2,D2,E2,F2,G2.For better understanding, I kept the output to column K:Q,but this data will be shifted to \"Output sheet\".",
+      "source_hash": "73a2414e943be801f660e37a51880d32a748ceab1ed8635ccd5a17ae59940520",
+      "task_id": "61-4",
+      "verifier": "spreadsheetbench_cell_range_v1"
+    },
+    {
+      "artifact_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/54474/1_54474_init.xlsx",
+      "benchmark": "spreadsheetbench_verified",
+      "domain": "spreadsheet",
+      "gold_answers": [],
+      "metadata": {
+        "answer_range": "'WHP'!E7:G8",
+        "answer_sheet": "",
+        "gold_workbook_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/54474/1_54474_golden.xlsx",
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        }
+      },
+      "prompt": "I am working with a file that contains a tab named WHP and another with WHP data. I need to collect specific information from the WHP data tab for different sites located in the WHP tab.",
+      "source_hash": "faf68c2c450c0d443136353a97e8ea480df6bab0fb4edbd622038f5035eff003",
+      "task_id": "54474",
+      "verifier": "spreadsheetbench_cell_range_v1"
+    },
+    {
+      "artifact_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/56419/1_56419_init.xlsx",
+      "benchmark": "spreadsheetbench_verified",
+      "domain": "spreadsheet",
+      "gold_answers": [],
+      "metadata": {
+        "answer_range": "H2:H27",
+        "answer_sheet": "",
+        "gold_workbook_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/56419/1_56419_golden.xlsx",
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        }
+      },
+      "prompt": "How can I create a single formula in Excel in to pull a list of non-zero values from 'Quantity' and return the associated Type for each, without using multiple columns for step-by-step calculations as I've been doing? Specifically, I need to incorporate multiple steps, including the use of the MATCH function for which I am unable to specify an array within a combined formula.My current formula is: \n   INDIRECT(\"A\"&G2)\nalso include error handling and changing background color to #92D050. Every thing else should be kept as it is.",
+      "source_hash": "75a0cb13f31f74e10d4409f3b1d2965d0d6c127721b483e6578e549cc47f4b90",
+      "task_id": "56419",
+      "verifier": "spreadsheetbench_cell_range_v1"
+    },
+    {
+      "artifact_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/408-5/1_408-5_init.xlsx",
+      "benchmark": "spreadsheetbench_verified",
+      "domain": "spreadsheet",
+      "gold_answers": [],
+      "metadata": {
+        "answer_range": "A1:E137",
+        "answer_sheet": "Sheet1",
+        "gold_workbook_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/408-5/1_408-5_golden.xlsx",
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        }
+      },
+      "prompt": "How can I create a macro in Excel to calculate the sum of values in Column D for rows where Column E contains a zero, insert this result into Column D next to the row containing 'BR1 Sales' in Column C, and then delete all rows where Column E contains a zero except for the rows where the reference contains 'BR1 Sales'? Also delete blank lines. If Macro is not possible, just perform this task.",
+      "source_hash": "8a1b2f7852e2fd81feb4d544f64cf54b2a0f08e3a688e75c77ebd1b6b944705a",
+      "task_id": "408-5",
+      "verifier": "spreadsheetbench_cell_range_v1"
+    },
+    {
+      "artifact_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/9111/1_9111_init.xlsx",
+      "benchmark": "spreadsheetbench_verified",
+      "domain": "spreadsheet",
+      "gold_answers": [],
+      "metadata": {
+        "answer_range": "D2:D7",
+        "answer_sheet": "",
+        "gold_workbook_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/9111/1_9111_golden.xlsx",
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        }
+      },
+      "prompt": "I have two lists with names and corresponding IDs. How can I fill a table where I need to return specific IDs from these lists based on the following conditions? If both columns B and C are blank, then column D should also be blank. If the name in column B exists in list 1, then column D should show the corresponding ID from list 1 regardless of column C. If the name in column B does not exist in list 1 and the name in column C does not exist in list 2, then column D should be 2500. If the name in column B does not exist in list 1 but the name in column C exists in list 2, then column D should show the corresponding ID from list 2. Finally, if column B is blank but the name in column C exists in list 2, then column D should show the corresponding ID from list 2; if column C does not exist in list 2, then column D should be 2500. I've included a sample of the expected results and mentioned that I managed to create a solution using a formula with a length of 241 characters.\nlet say we have 2 lists\n\nlist1\nJack 1320\nRony 2563\nEVA 2314\nJane 98\nSuzi 25\nRose 1222\nSarah 2586\nDani 3950\nAnne 5314\nBob 6678\nCarla 8042\nDdiana 9406\n\nList2\naa 11\nbb 3628\ncc 8920\ndd 201\nff 3016\nWe need to fill the below table to get the ID's form the above lists in the following conditions:\n\nIf column B and column C are blank Dshoul be blank\nIf the name in column B is exisit in list 1; D column should be the ID for the existing name what ever column C is\nIf the name in column B is not exisit in list1; and column C not exist in list2 then D should be 2500\nIf the name in column B is not exisit in list1; and column C exist in list2 then D should be ids\nIf the cell in column B is blank; and cell in column C exist in list2 then D should be ids\nIf the cell in column B is blank; and cell in column C not exist in list2 then D should be 2500\n\nsample of results expected:\n\nJack ff 1320\nJohn bb 3628\nff 3016 \naab 2500\n\nRissa dd 201",
+      "source_hash": "d9ed46ee98cf0484f844a58ea41db34ff5aa6f17227b0e6d9c43f895e6ff7c22",
+      "task_id": "9111",
+      "verifier": "spreadsheetbench_cell_range_v1"
+    },
+    {
+      "artifact_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/53161/1_53161_init.xlsx",
+      "benchmark": "spreadsheetbench_verified",
+      "domain": "spreadsheet",
+      "gold_answers": [],
+      "metadata": {
+        "answer_range": "F22:AE29",
+        "answer_sheet": "",
+        "gold_workbook_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/53161/1_53161_golden.xlsx",
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        }
+      },
+      "prompt": "I need to calculate the total sum of different categories for each time interval, where the total is determined by which agents are scheduled during those intervals and which categories they are assigned. I've been unsuccessful with SUMIFS across two tables, and it seems that using pivot tables might not work for this scenario either. Could anyone offer a solution? A sample spreadsheet has been provided for reference.",
+      "source_hash": "a6ad4a81812e098acca76b6229142288293046232637446eec9fa8d7bf6457e3",
+      "task_id": "53161",
+      "verifier": "spreadsheetbench_cell_range_v1"
+    },
+    {
+      "artifact_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/39515/1_39515_init.xlsx",
+      "benchmark": "spreadsheetbench_verified",
+      "domain": "spreadsheet",
+      "gold_answers": [],
+      "metadata": {
+        "answer_range": "O2:O13",
+        "answer_sheet": "",
+        "gold_workbook_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/39515/1_39515_golden.xlsx",
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        }
+      },
+      "prompt": "How can I modify my Excel formula to return a value based on both month and year, rather than just month? I have a worksheet where I want to pull a specific value into column O based on the given month and year. The current formula only extracts the value for the current year (2023), but I need it to correctly extract the value for January of the previous year (2022) for all rows corresponding to that year. All 2022 rows should have the value for Jan. Can someone provide an updated formula that handles this two-parameter lookup?  @INDEX($C2:$N2,MATCH($A2,$C$1:$N$1,0))\n\nNow please apply this formula to my worksheet.",
+      "source_hash": "01d66c80dc1fbcdb52c0e5ac3bb3c4ff4e919de3992e579516b41c428d88593f",
+      "task_id": "39515",
+      "verifier": "spreadsheetbench_cell_range_v1"
+    },
+    {
+      "artifact_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/44913/1_44913_init.xlsx",
+      "benchmark": "spreadsheetbench_verified",
+      "domain": "spreadsheet",
+      "gold_answers": [],
+      "metadata": {
+        "answer_range": "D2:D13",
+        "answer_sheet": "",
+        "gold_workbook_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/44913/1_44913_golden.xlsx",
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        }
+      },
+      "prompt": "I have an Excel table with different IDs in column A and their corresponding turnover amounts in column B across different months in column C. In column D, I want to display the maximum turnover for each ID, but only show the value in the row where that maximum occurs. All other rows for that ID should be blank/empty (\"\"). Have no header for column D and no formatting. Please do this without the MAXIFS formula. Use the MAX formula.",
+      "source_hash": "88852c22ab21521fbbd0f27c0a4878273646dfbf270230d08ab49fa47bf8e31b",
+      "task_id": "44913",
+      "verifier": "spreadsheetbench_cell_range_v1"
+    },
+    {
+      "artifact_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/53383/1_53383_init.xlsx",
+      "benchmark": "spreadsheetbench_verified",
+      "domain": "spreadsheet",
+      "gold_answers": [],
+      "metadata": {
+        "answer_range": "worksheet2'!C3:C6",
+        "answer_sheet": "",
+        "gold_workbook_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/53383/1_53383_golden.xlsx",
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        }
+      },
+      "prompt": "How can I create a formula in Excel to compare names and corresponding statuses across two worksheets, indicating 'matched' if both the name and status are the same and 'not matched' if they differ? The formula should check for a name in column A and then verify if the status in column B for that name matches across both sheets, as shown in the provided example workbook.",
+      "source_hash": "f79e351250414d9e3d580694555ddb98cf7e5a0820a45a44d085a09498ab2372",
+      "task_id": "53383",
+      "verifier": "spreadsheetbench_cell_range_v1"
+    },
+    {
+      "artifact_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/37378/1_37378_init.xlsx",
+      "benchmark": "spreadsheetbench_verified",
+      "domain": "spreadsheet",
+      "gold_answers": [],
+      "metadata": {
+        "answer_range": "A2:A6",
+        "answer_sheet": "",
+        "gold_workbook_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/37378/1_37378_golden.xlsx",
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        }
+      },
+      "prompt": "How can I create an Excel formula to place a number in column A, starting at cell A2, that increments by 1 each time a new entry is made in the corresponding cell of column B, starting at B2? For example, cell A2 should display '1' if B2 is not empty, and A3 should show '2' if B3 contains any text.",
+      "source_hash": "6fe95778d1e664ad206f4b2525019b513cddbce72b2447d83b9345fd0ae67571",
+      "task_id": "37378",
+      "verifier": "spreadsheetbench_cell_range_v1"
+    }
+  ],
+  "schema_version": "rsebench.stable-split-candidate.v1",
+  "screening_test": [
+    {
+      "artifact_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/254-34/1_254-34_init.xlsx",
+      "benchmark": "spreadsheetbench_verified",
+      "domain": "spreadsheet",
+      "gold_answers": [],
+      "metadata": {
+        "answer_range": "'Before'!C2",
+        "answer_sheet": "Before",
+        "artifact_hash": "98cf15a6d3e75b5d521940a97f48d3de4d5e767c36c39aa3b8eeb2a8c4f40d6b",
+        "gold_artifact_hash": "6b395f0bd9fd3623bd5d7158d2e7986468138d89728ea07587291e9173409950",
+        "gold_workbook_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/254-34/1_254-34_golden.xlsx",
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        }
+      },
+      "prompt": "I've provided a spreadsheet with a 'before' and 'after' sheet. In the 'before' sheet, some values are colored green, and these specific values sum up to amounts between 994108 and 994112. I manually highlighted these values, but how can I automate this process through VBA code to highlight the cells that, when combined, provide a specific sum? Alternatively, if it's more appropriate, could you solve this using conditional formatting? I'm also curious about how to handle multiple combinations of values that could result in the sums specified. Please delete Sheet3 and make certain the highlighted cells on the \"Before\" Sheet are color: #00FF00. Put the one valid combination numerical value in cell C2.",
+      "source_hash": "a14fd4d476e245e4d66d1d161cba1e54a446cf13a15540bf233ba7875fecbe5e",
+      "task_id": "254-34",
+      "verifier": "spreadsheetbench_cell_range_v1"
+    },
+    {
+      "artifact_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/59902/1_59902_init.xlsx",
+      "benchmark": "spreadsheetbench_verified",
+      "domain": "spreadsheet",
+      "gold_answers": [],
+      "metadata": {
+        "answer_range": "C5:C28",
+        "answer_sheet": "",
+        "artifact_hash": "10ace2be6dbc8d6cc6fba30623f5e18f0c82cd8bbb2069407e94d9ff21bb8114",
+        "gold_artifact_hash": "76f88d13c971175b0d1b49a0da4860d95531cbeee5d4fa653e15dccc4fa1fa8a",
+        "gold_workbook_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/59902/1_59902_golden.xlsx",
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        }
+      },
+      "prompt": "How can I adjust my Index Match formula to calculate the days since our staff last made a sale, with the dates sorted in ascending order? Essentially, I want to count the number of days that have passed since the person (who's name is in the row) last made a sale. The current formula is wrong but may work for descending dates: '=IFERROR(F5-INDEX($F6:$F28,MATCH(G5,$G6:$G28,0),1),\"\")'. I need a version that functions correctly when the dates are sorted from oldest to newest. The expected results should show the difference in days between sales for each person, with the first sale for each having no prior date to compare to and thus being marked as 0. Your output column should be formatted as accounting format category. Does anyone know the formula to get this working for ascending? From what i've seen on the forum it should be possible but i can't work the formulas. The returns expected should simply be flipped solving the lookup difference in date (Diff).",
+      "source_hash": "d70675c91459ae4a871fd95d7e9f22f902fa346f25a18dc447c5890ec12e8103",
+      "task_id": "59902",
+      "verifier": "spreadsheetbench_cell_range_v1"
+    },
+    {
+      "artifact_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/41691/1_41691_init.xlsx",
+      "benchmark": "spreadsheetbench_verified",
+      "domain": "spreadsheet",
+      "gold_answers": [],
+      "metadata": {
+        "answer_range": "B7",
+        "answer_sheet": "",
+        "artifact_hash": "34476d415dc78b8556c4d5795d94f9c9b3cb974efad400188ab8ded3c96ae51f",
+        "gold_artifact_hash": "57b5ff227eec702fba2bcffc39847dfd87ea059b21d5dd40d801bc2e202a630a",
+        "gold_workbook_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/41691/1_41691_golden.xlsx",
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        }
+      },
+      "prompt": "Edit cell B:7 so that it is not #REF!.",
+      "source_hash": "c975a78ad205172fd773dc0eaa7afd954e8f35acb1681b6805f4fd7ef56a2484",
+      "task_id": "41691",
+      "verifier": "spreadsheetbench_cell_range_v1"
+    },
+    {
+      "artifact_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/120-24/1_120-24_init.xlsx",
+      "benchmark": "spreadsheetbench_verified",
+      "domain": "spreadsheet",
+      "gold_answers": [],
+      "metadata": {
+        "answer_range": "'Sheet1'!BN2:BN45",
+        "answer_sheet": "Sheet1",
+        "artifact_hash": "c73d3555c8f72a7c2d811e01f7aea6e7cc20440891a134fd15750e6876da3fc6",
+        "gold_artifact_hash": "0b8d29a3780075e551c3c039bab149b3bd61406aef1c96ea56ae685a0100d5b0",
+        "gold_workbook_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/120-24/1_120-24_golden.xlsx",
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        }
+      },
+      "prompt": "I need a VBA code or other solution implemented to validate data and replace values in Excel based on multiple conditions.  Specifically, the criteria for data replacement are: First, check if the value in column BL equals 'LAG'.       Second, look for one of two specific text strings in column BG: 'OCOGS - Spares - Transfer Price Overhead' or 'OFSS - ORCL Consulting Prod Cost I/C'.       Third, check if column AY contains either 'BOA_033E' or 'BOA_011G'.       Based on these conditions, if the first and second criteria are met, and column AY is 'BOA_033E' or 'BOA_011G', then the value in the BN column s should be 'OCOGS - Spares - Transfer Price Overhead';       otherwise, if only the first two conditions are met,  change it to 'OFSS - ORCL Consulting Prod Cost I/C' to column BN.  Finally make sure any cell in BL has a fill color hex value of #0070C0, when BL is ‘LAG’ and BN is populated.",
+      "source_hash": "b7f80072314534f83dec7285c76b89aa972771a45062166081b5c10364c014e5",
+      "task_id": "120-24",
+      "verifier": "spreadsheetbench_cell_range_v1"
+    },
+    {
+      "artifact_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/52220/1_52220_init.xlsx",
+      "benchmark": "spreadsheetbench_verified",
+      "domain": "spreadsheet",
+      "gold_answers": [],
+      "metadata": {
+        "answer_range": "C2:C3",
+        "answer_sheet": "",
+        "artifact_hash": "2026405f1711b883a8b220567a93aaa91f62221f4d20cbc640c464252e434f3c",
+        "gold_artifact_hash": "d904c4327e3cd4d15480651f93a2b1856bfcd77d177feb0109e5dae08717ae9b",
+        "gold_workbook_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/52220/1_52220_golden.xlsx",
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        }
+      },
+      "prompt": "How can I create a formula in Excel that will display the sum of two horizontal cells in a third cell, only if both of the first two cells contain a value? Specifically, if there's a calendar date in cell A1 and a number representing days or hours in cell B1, I want the sum to show in cell C1 but only if both A1 and B1 are not empty.",
+      "source_hash": "abb919485ceafc5ac5329f842c673e634bf6cb538034dd548f6eba0f3713f381",
+      "task_id": "52220",
+      "verifier": "spreadsheetbench_cell_range_v1"
+    },
+    {
+      "artifact_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/56915/1_56915_init.xlsx",
+      "benchmark": "spreadsheetbench_verified",
+      "domain": "spreadsheet",
+      "gold_answers": [],
+      "metadata": {
+        "answer_range": "'COVER'!B18:E23",
+        "answer_sheet": "",
+        "artifact_hash": "4cfd58a6f68f6fd929fce8158fe97f465707a3dcb72387774aa6c78ae6040824",
+        "gold_artifact_hash": "995b0939c260ec17e87cc3a6fd9ea04ae2712ef918ebf6444cc35eee6e2a042d",
+        "gold_workbook_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/56915/1_56915_golden.xlsx",
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        }
+      },
+      "prompt": "Populate cells in the range B18:E23 corresponding to the column header in Column A and row header in Row 13 on the COVER sheet with the correct data from the DATA sheet, where the entity is selected in cell B12 of the COVER sheet. The formulas I found only work for column B and don't seem to work for columns C, D, and E, which may be due to the presence of merged cells on the DATA sheet. All the data needs to be rounded off to two decimal places. Columns C and E to be updated in decimal format with negative numbers in parentheses even when they round off to zero.",
+      "source_hash": "2cc77e6c3c44aa9f9642a73952f15b2beb8475e40b661f52fcd29e36b4fe692e",
+      "task_id": "56915",
+      "verifier": "spreadsheetbench_cell_range_v1"
+    },
+    {
+      "artifact_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/47827/1_47827_init.xlsx",
+      "benchmark": "spreadsheetbench_verified",
+      "domain": "spreadsheet",
+      "gold_answers": [],
+      "metadata": {
+        "answer_range": "'3 straights to 3 boxed'!G2:G16",
+        "answer_sheet": "",
+        "artifact_hash": "60ee3d98738fc6548f6eb4dca37b1c4eecd75c5829f65aefb3966ff7f77b98fe",
+        "gold_artifact_hash": "8fcb2ee0c028b12250d9e69de641b5df6e3864223256519ebf4a06f89ea8905a",
+        "gold_workbook_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/47827/1_47827_golden.xlsx",
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        }
+      },
+      "prompt": "How to assemble three numbers into a three-digit number, with the numbers arranged in order from smallest to largest. Complete column G, bold and fill all boxed values with the color #EBF1DE",
+      "source_hash": "9f6745cfe2182eb710b59a6fe1ec60ca029f3b8c7d89291afb7ee7f1b97e2948",
+      "task_id": "47827",
+      "verifier": "spreadsheetbench_cell_range_v1"
+    },
+    {
+      "artifact_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/48257/1_48257_init.xlsx",
+      "benchmark": "spreadsheetbench_verified",
+      "domain": "spreadsheet",
+      "gold_answers": [],
+      "metadata": {
+        "answer_range": "C2:C5",
+        "answer_sheet": "",
+        "artifact_hash": "b9b1d3cc22152909ee2224cb3679ef24c6664deec686f1c6ad6ed7e75f5fd1d0",
+        "gold_artifact_hash": "42177948f53ab00a44e3f80becf7bb42ea4aa5f0a749a143ae8664b5cd63f5cd",
+        "gold_workbook_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/48257/1_48257_golden.xlsx",
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        }
+      },
+      "prompt": "How can I extract numerical values and determine the valid decimal sign from a text string containing various currency positions and formats in Excel?",
+      "source_hash": "d0a7d7d39d03e4c401f7ca83484549485d6cd3fb7d2aa74535fbdbd0dc8f08aa",
+      "task_id": "48257",
+      "verifier": "spreadsheetbench_cell_range_v1"
+    },
+    {
+      "artifact_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/42198/1_42198_init.xlsx",
+      "benchmark": "spreadsheetbench_verified",
+      "domain": "spreadsheet",
+      "gold_answers": [],
+      "metadata": {
+        "answer_range": "C2:C7",
+        "answer_sheet": "",
+        "artifact_hash": "95c93a4fad8915aa47147e6c883d39a379d5b364227721e4cf27bdb91380b502",
+        "gold_artifact_hash": "a110269f3108715e826af9dcae027b97c1262e39cc726540c2b8e6ad6d7b8e05",
+        "gold_workbook_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/42198/1_42198_golden.xlsx",
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        }
+      },
+      "prompt": "Apply formula for cells C2:C7 that evaluates each row cumulatively by looking at all the data from row 2 down to the current row, so that C2 only checks row 2, C3 checks rows 2 through 3, C4 checks rows 2 through 4, and so on. The formula should use COUNTIFS to check in this priority order: first, if there's any \"Potato\" in column A with a corresponding FALSE in column B within that expanding range, return \"Worst\"; otherwise if there's any \"Tomato\" with FALSE, return \"Ignore\"; otherwise if there's any \"Pickle\" with FALSE, return \"Bad\"; and if none of those conditions are met, return \"Good\". What would the appropriate Excel formula be to achieve this cumulative row-by-row evaluation?",
+      "source_hash": "83ed699efec5ffa7860917717a73c44ee5f5801f1a2257366adb3ea968afd2f1",
+      "task_id": "42198",
+      "verifier": "spreadsheetbench_cell_range_v1"
+    },
+    {
+      "artifact_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/177-6/1_177-6_init.xlsx",
+      "benchmark": "spreadsheetbench_verified",
+      "domain": "spreadsheet",
+      "gold_answers": [],
+      "metadata": {
+        "answer_range": "'combined'!A1:R8",
+        "answer_sheet": "combined",
+        "artifact_hash": "3b32238ab3e84f99a03a9973592780a56f445962bdd8caa81e52ea0a19ad9d28",
+        "gold_artifact_hash": "1880aefe10a20e246751b2a1a63af328875db7e65811b7cf7853438aa178df24",
+        "gold_workbook_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/177-6/1_177-6_golden.xlsx",
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        }
+      },
+      "prompt": "I'm seeking a macro that can merge entire rows in an Excel sheet based on matching values in a specific column. In my case, when the value in Column H is identical across different rows, I want those rows consolidated into one row by merging their data.  Put the results in the 'combined' sheet, and make sure to preserve the exact formatting for each row from columns A:R when copying over.  And for the end values from columns I:R, they should be output with 2 decimals and without commas, and 0s should display as blanks.  I have provided an example spreadsheet with my data.  Once Additionally, should the reference column change, adjust the macro accordingly.",
+      "source_hash": "7ea0b5d6d1261e8ba557f35291580d6a1b5304458cfe63aaf1b1c508a664e5fb",
+      "task_id": "177-6",
+      "verifier": "spreadsheetbench_cell_range_v1"
+    },
+    {
+      "artifact_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/97-36/1_97-36_init.xlsx",
+      "benchmark": "spreadsheetbench_verified",
+      "domain": "spreadsheet",
+      "gold_answers": [],
+      "metadata": {
+        "answer_range": "'Sheet1'!A1:A22",
+        "answer_sheet": "Sheet1",
+        "artifact_hash": "93c9a2355686f069dd829372916e77bd2b7709ca7b09de59a3acf7b09dcfb247",
+        "gold_artifact_hash": "ce7785dfe045babb7c9562ef9486f64e8deaa02ee6692a6874ed80a39333300a",
+        "gold_workbook_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/97-36/1_97-36_golden.xlsx",
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        }
+      },
+      "prompt": "How can I create a VBA code that deletes all rows in an Excel sheet above a specified substring, starting from the first row and first column, with the search string 'domestic'?",
+      "source_hash": "baceefc895cb831fffcd8595e09e769923dde151229e7b97f3b8da161494c08d",
+      "task_id": "97-36",
+      "verifier": "spreadsheetbench_cell_range_v1"
+    },
+    {
+      "artifact_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/531-18/1_531-18_init.xlsx",
+      "benchmark": "spreadsheetbench_verified",
+      "domain": "spreadsheet",
+      "gold_answers": [],
+      "metadata": {
+        "answer_range": "'Transpose'!A3:C970",
+        "answer_sheet": "Transpose",
+        "artifact_hash": "361b5ec445db8c56b838eedc313ece9e72bf8412f81dc2a7b09a4387f147bdc2",
+        "gold_artifact_hash": "5a054fa2da4ef16e98d4fba7c10d14955b9f02f38912292c6aa0fcbafeb3e769",
+        "gold_workbook_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/531-18/1_531-18_golden.xlsx",
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        }
+      },
+      "prompt": "I need to transpose data from the 'Data' tab into the format shown on the 'Transpose' tab of my Excel file, specifically focusing on the ITEM, DATE, and QTY columns. Could you advise whether a macro or VBA is more appropriate for this task?",
+      "source_hash": "6940e8dc01cbf91f669c6e0ab684361ef352213aff8b45a0843eecc46148359e",
+      "task_id": "531-18",
+      "verifier": "spreadsheetbench_cell_range_v1"
+    },
+    {
+      "artifact_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/54638/1_54638_init.xlsx",
+      "benchmark": "spreadsheetbench_verified",
+      "domain": "spreadsheet",
+      "gold_answers": [],
+      "metadata": {
+        "answer_range": "'Sheet1'!B2:B150",
+        "answer_sheet": "",
+        "artifact_hash": "a30499eda234dce8aa4902c18129466f28a9f4b1ca3cf47f417d9bb26264b87b",
+        "gold_artifact_hash": "32482d15652af472e571e85b92e07c2d22eab4145196fcee8fce7608a72a3bf8",
+        "gold_workbook_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/54638/1_54638_golden.xlsx",
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        }
+      },
+      "prompt": "Recreate Sheet1 exactly as it is with Calibri font. Recreate all formulas in column A of Sheet1 exactly as they are. Remove gridlines when appropriate. Hide Sheet2. How can I use a non-dynamic array formula to select and list only the unique values from a range of cells, specifically from A2:A150, and have these unique values displayed in an adjacent range, B2:B150, without using a dynamic array formula? A sample Excel file with the desired outcome in part of B2:B150 has been provided for reference.\n\nInsert this new formula into cells B2:B150 and format cells B2:B150 with gridlines and #FFFF00 fill color.  \nColumn A should only have borders up to row 13. There should be formulas all the way down to cell A150.",
+      "source_hash": "897eda30fc869b7279a0a635bedadcf7671866ebdb2e475c943ae6606bff5477",
+      "task_id": "54638",
+      "verifier": "spreadsheetbench_cell_range_v1"
+    },
+    {
+      "artifact_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/547-43/1_547-43_init.xlsx",
+      "benchmark": "spreadsheetbench_verified",
+      "domain": "spreadsheet",
+      "gold_answers": [],
+      "metadata": {
+        "answer_range": "'Expected'!A2:H19",
+        "answer_sheet": "Expected",
+        "artifact_hash": "38dfa1dd3bdf84e2ebdb73a635d04e4f62ec0281ac6c2e248759eb2e9c1c285e",
+        "gold_artifact_hash": "ee3ee36887748f1b914dd9fc821c67c343c5e9f949f7a711426f5d0e1dd58325",
+        "gold_workbook_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/547-43/1_547-43_golden.xlsx",
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        }
+      },
+      "prompt": "How do I transpose a selected column from the 'Comp1-performance' range in the 'Emp' table to a row, while keeping the previous variable constant? Additionally, how can I add two new columns ('category' and 'subcategory') when the variable from the 'emp' table matches with the variable in the lookup table? The macro should be tested on a table with 50 columns and 60 rows to validate the result. The desired output structure is provided in the attached 'Datawork.xlsx' file.",
+      "source_hash": "bef2d6503d109681ec1c2f37820ae47084b6c0e65495009d5070443eef4f64e5",
+      "task_id": "547-43",
+      "verifier": "spreadsheetbench_cell_range_v1"
+    },
+    {
+      "artifact_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/353-6/1_353-6_init.xlsx",
+      "benchmark": "spreadsheetbench_verified",
+      "domain": "spreadsheet",
+      "gold_answers": [],
+      "metadata": {
+        "answer_range": "'Data'!A1:AH20",
+        "answer_sheet": "Data",
+        "artifact_hash": "861e291e7deb4eb14cd266e9acc36c4aef21965706b89688fecf3a044ec11a0b",
+        "gold_artifact_hash": "fd63c6d6d8380dd742949cc87003731800759775b9e0b4e3aabfb015d0f55286",
+        "gold_workbook_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/353-6/1_353-6_golden.xlsx",
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        }
+      },
+      "prompt": "I am working with a large Excel sheet, and I need a solution to filter column 'I' to only display 'Hub Notes', then select all visible/filtered rows, excluding the header row '1', and delete these selected rows. This process needs to be replicable for different criteria in other columns. My original macro doesn't work because it requires manually selecting the row below the header which changes with each report.",
+      "source_hash": "5fe97146224ae8f8c63339fc0459f1467544435c91d2224db8d4943ff02248df",
+      "task_id": "353-6",
+      "verifier": "spreadsheetbench_cell_range_v1"
+    },
+    {
+      "artifact_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/51-12/1_51-12_init.xlsx",
+      "benchmark": "spreadsheetbench_verified",
+      "domain": "spreadsheet",
+      "gold_answers": [],
+      "metadata": {
+        "answer_range": "B6",
+        "answer_sheet": "Sheet1",
+        "artifact_hash": "f9985c2092b120b3bdf84a98a2e448e0e5f918d6070225104ad120871b708758",
+        "gold_artifact_hash": "21540e241e6a9e09c68767582a33ac77217d60426f32966c62e7add6e01d834a",
+        "gold_workbook_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/51-12/1_51-12_golden.xlsx",
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        }
+      },
+      "prompt": "How can I create a VBA code that will count the number of times a value in a range from A1 to M1 on an Excel sheet increases by at least 10% from a reference cell, beginning the count from A1 and restarting the counting process from the cell immediately right of each cell where a 10% increase is found, terminating the count before M1 if there is no further data, and display the count in cell B6? Additionally, I'm looking to include the ability to update the data range in the code, as the actual worksheet data range is L26 to SHA26.",
+      "source_hash": "fc9a93d436a615a813fd564f00c0e03cdad58b84d3760f6476422e6bd4a03368",
+      "task_id": "51-12",
+      "verifier": "spreadsheetbench_cell_range_v1"
+    },
+    {
+      "artifact_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/59595/1_59595_init.xlsx",
+      "benchmark": "spreadsheetbench_verified",
+      "domain": "spreadsheet",
+      "gold_answers": [],
+      "metadata": {
+        "answer_range": "C4:C19",
+        "answer_sheet": "",
+        "artifact_hash": "3477d0811524553b727491b8b8891cd5e019fcf77fd7b9e8a1cd16f303cd75a6",
+        "gold_artifact_hash": "0caa097a9924013ad35e642d84359cfc7a89f856d14c7b91b3fa746dd5bf7362",
+        "gold_workbook_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/59595/1_59595_golden.xlsx",
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        }
+      },
+      "prompt": "In my Excel spreadsheet, I have a column A with non-continuous but sequentially increasing dates and a column B with points recorded for each date. I'm looking for a formula that I can enter into column C, which will calculate the total sum of points from column B for the past seven days relative to each date in addition to the points listed for that date in column A. The number of rows to be summed can vary since the dates aren't consecutive. For example, if today's date is in row 10, I need to look back in column A to find the date that is seven days earlier and sum all the points in column B from that found date to the date in row 10. The total sum should then be displayed in the corresponding cell in column C.",
+      "source_hash": "f8db38c3550bca0d2440231b595b00126e32bf45b7cf042334677f897735bbdc",
+      "task_id": "59595",
+      "verifier": "spreadsheetbench_cell_range_v1"
+    },
+    {
+      "artifact_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/23-24/1_23-24_init.xlsx",
+      "benchmark": "spreadsheetbench_verified",
+      "domain": "spreadsheet",
+      "gold_answers": [],
+      "metadata": {
+        "answer_range": "A1:E1102",
+        "answer_sheet": "Sheet1",
+        "artifact_hash": "9edd14173d1e42f481a909f07e9ad9e56c2c38c0782f20a25cf6280020ce9cd5",
+        "gold_artifact_hash": "f0aed39194734eb7c471aa80fb5a0ec9677ba60a35b7b7fb1c10de38dc21b2b6",
+        "gold_workbook_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/23-24/1_23-24_golden.xlsx",
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        }
+      },
+      "prompt": "How can I automatically delete a word and its associated details in columns B, C, D, and E in my Excel file if the word in column A matches any word found in column I? Manually, I would highlight from A1 to E1 and press CTRL MINUS to shift cells up, but doing this for all duplicates is time-consuming.",
+      "source_hash": "2de3234a7c475ee8c2ee33b7321100c1aae023ec0d427dcc5870b4a72a976238",
+      "task_id": "23-24",
+      "verifier": "spreadsheetbench_cell_range_v1"
+    },
+    {
+      "artifact_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/3911/1_3911_init.xlsx",
+      "benchmark": "spreadsheetbench_verified",
+      "domain": "spreadsheet",
+      "gold_answers": [],
+      "metadata": {
+        "answer_range": "H2:P8",
+        "answer_sheet": "",
+        "artifact_hash": "f3f1d8b1312dd702ad6cd9ea1aa4df0e0738c9a0848c0b852bc66fffc1e31397",
+        "gold_artifact_hash": "307d9fe8216b381aaceed21c16fa2b6697e2a243bc2ca3055860c3187ff25f5e",
+        "gold_workbook_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/3911/1_3911_golden.xlsx",
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        }
+      },
+      "prompt": "How can I distribute 120 different currency notes among employees based on their salaries using Excel? I have provided a sample sheet with the necessary details. Note: I have 120 different currency note which i want to distribute between the emp as per their salaries.",
+      "source_hash": "2bfb042cd831720dda887721deee7803cc3447c505a22f1153e0d33ab9b2c60f",
+      "task_id": "3911",
+      "verifier": "spreadsheetbench_cell_range_v1"
+    },
+    {
+      "artifact_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/32438/1_32438_init.xlsx",
+      "benchmark": "spreadsheetbench_verified",
+      "domain": "spreadsheet",
+      "gold_answers": [],
+      "metadata": {
+        "answer_range": "J2:J4",
+        "answer_sheet": "",
+        "artifact_hash": "81fca15a5eaa04bea138962048d8dea4743d94b198e7855fdbfecfd3fdd9fce1",
+        "gold_artifact_hash": "e8a7b3d520f03e00f341de0b429e1d9e6935ff660b5b48205f815dbdff4e267e",
+        "gold_workbook_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/32438/1_32438_golden.xlsx",
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        }
+      },
+      "prompt": "How can I format the cells in column J to only display the standard time in 00:00:00 and AM/PM from I2, which contains both the date and the time in the format 'DD/MM/YYYY 00:00:00'? Using the =RIGHT(I2,8) function returns the time as a string of 8 numbers without the desired time formatting (e.g., 00:00:00), even after attempting to apply time formatting to the cell.",
+      "source_hash": "c460d4611225c3625c6050ee99fdd4a2f95afee2526e4407f0901a70a10cd7db",
+      "task_id": "32438",
+      "verifier": "spreadsheetbench_cell_range_v1"
+    },
+    {
+      "artifact_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/52917/1_52917_init.xlsx",
+      "benchmark": "spreadsheetbench_verified",
+      "domain": "spreadsheet",
+      "gold_answers": [],
+      "metadata": {
+        "answer_range": "J2:J9",
+        "answer_sheet": "",
+        "artifact_hash": "824a839650726db8e4dd2a1a2f2166b7bbc25b531cb512771a7d585008944c08",
+        "gold_artifact_hash": "f21a8f758e00ac62bd46ebedfb4d0b8237b64e776652e3b5eb295d4caab6c51b",
+        "gold_workbook_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/52917/1_52917_golden.xlsx",
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        }
+      },
+      "prompt": "I need to create a formula that can combine day, month, and year data from separate columns A, B, and C into a complete date format in column J, as shown in my attached  file.",
+      "source_hash": "0fb4db10ec9601c6fe670b8bdd61a5ba5e0deae454dffad844049aed918979dc",
+      "task_id": "52917",
+      "verifier": "spreadsheetbench_cell_range_v1"
+    },
+    {
+      "artifact_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/333-29/1_333-29_init.xlsx",
+      "benchmark": "spreadsheetbench_verified",
+      "domain": "spreadsheet",
+      "gold_answers": [],
+      "metadata": {
+        "answer_range": "B'!F4",
+        "answer_sheet": "B",
+        "artifact_hash": "a13bfec93f46eb29ec5d3b530752bfb041d98f3c89839438db09ba8d7d467618",
+        "gold_artifact_hash": "bffa443b0c187216bbc631e67e9973bdd29722eab2e5ee4ea400844ce1727f3b",
+        "gold_workbook_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/333-29/1_333-29_golden.xlsx",
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        }
+      },
+      "prompt": "I need to find a specific date using VBA in Excel according to the following conditions: In column P of the 'A' sheet, identify the first cell that contains either 'Yes' or 'NA'. Then, in column L of the same sheet, look for the value 100 in the cells above the one identified in step 1. After finding it, take the date from the corresponding row in column F. Finally, check the text in cell F1 against the entries in column C of the 'B' sheet and, if a match is found, paste the identified date from sheet 'A' into column F of sheet 'B'. If no entries of 'Yes' or 'NA' are found in column P of the 'A' sheet, I would like the date from cell F3 of the 'A' sheet to be directly pasted into the 'B' sheet instead. The 'A' sheet should be active when the process ends. Please output the answer to cell F4 of Table B.",
+      "source_hash": "a5a2426c96360e6b2aaffc25d9d1e6d680304544c159c89ae1d2bb0e387dfc15",
+      "task_id": "333-29",
+      "verifier": "spreadsheetbench_cell_range_v1"
+    },
+    {
+      "artifact_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/48975/1_48975_init.xlsx",
+      "benchmark": "spreadsheetbench_verified",
+      "domain": "spreadsheet",
+      "gold_answers": [],
+      "metadata": {
+        "answer_range": "Output'!B11:B17",
+        "answer_sheet": "",
+        "artifact_hash": "30e492a0c6c6f7cb57f322ce88b112e26070c675b813897f37394d403d37e6ec",
+        "gold_artifact_hash": "07ffac472757f5715c4e2478f9bf934c81348374cb2734ee06822920a3c69364",
+        "gold_workbook_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/48975/1_48975_golden.xlsx",
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        }
+      },
+      "prompt": "How can I copy values from columns 'A' and 'B' in one row from the 'Input' worksheet to the 'Output' worksheet if the corresponding 'To Do' cell in column 'E' is marked 'yes', while also skipping any empty rows or cells, without using VBA, as I have tried unsuccessfully for the last three hours?",
+      "source_hash": "b1989d0ca20ec6732a44aed167b8f9f8a1a89499155f7ec17545e770ad687301",
+      "task_id": "48975",
+      "verifier": "spreadsheetbench_cell_range_v1"
+    },
+    {
+      "artifact_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/343-20/1_343-20_init.xlsx",
+      "benchmark": "spreadsheetbench_verified",
+      "domain": "spreadsheet",
+      "gold_answers": [],
+      "metadata": {
+        "answer_range": "'Duplicates'!A1:E5",
+        "answer_sheet": "Duplicates",
+        "artifact_hash": "9c79abac23bbbd469820576a562304b7130bda99e17f845e1accbec06059a005",
+        "gold_artifact_hash": "c2dea869c1c2cca916fe08f05598786b58525114bac6b2d91d4ce402f104cbff",
+        "gold_workbook_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/343-20/1_343-20_golden.xlsx",
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        }
+      },
+      "prompt": "I need a macro to select and copy only the duplicated items in column C from the 'Import Data' sheet to the 'Duplicates' sheet. It should copy the entire row where the duplicates are found in column C. I have provided an example on the 'Duplicates' sheet to demonstrate what I require. Attached is the 'Macro to Extract Duplicate Records on Separate Sheet.xlsx' file for reference. The duplicates should be sorted in Ascending order as per the Balance and Invoiced Date, and keep the alignment for Invoice Date same as in Imported Data.",
+      "source_hash": "eabf81ec9a1ce5f0b8696c539abfe7951d50644a6149e71a4801e93a401cbf55",
+      "task_id": "343-20",
+      "verifier": "spreadsheetbench_cell_range_v1"
+    },
+    {
+      "artifact_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/59129/1_59129_init.xlsx",
+      "benchmark": "spreadsheetbench_verified",
+      "domain": "spreadsheet",
+      "gold_answers": [],
+      "metadata": {
+        "answer_range": "E2:P2",
+        "answer_sheet": "",
+        "artifact_hash": "49f2fd60e06d77d3336b1ac2f6e7a110f4335087ec85dc6879469b917ce919f4",
+        "gold_artifact_hash": "53f00c233e529f939d52d486c852299b9e82687022db4a570df5efea6a604346",
+        "gold_workbook_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/59129/1_59129_golden.xlsx",
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        }
+      },
+      "prompt": "How can I adjust the SUMPRODUCT formula to calculate month over month headcount in Excel, so it does not continue to count employees who have been terminated?     My current formula is:                  SUMPRODUCT(--(MONTH(YEAR($A$2:$A$22)>=E1))*(--(MONTH(YEAR($B2:$B$22)>=E1))))",
+      "source_hash": "17d42436790fa4403fd6876b8d646efaf357732421da1efd732f1dbce8fbf3cf",
+      "task_id": "59129",
+      "verifier": "spreadsheetbench_cell_range_v1"
+    },
+    {
+      "artifact_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/6698/1_6698_init.xlsx",
+      "benchmark": "spreadsheetbench_verified",
+      "domain": "spreadsheet",
+      "gold_answers": [],
+      "metadata": {
+        "answer_range": "G4:G8",
+        "answer_sheet": "",
+        "artifact_hash": "7f6f152382ca4ed5c1977cc70df6598e3e040be62f7f3eb9377b9acb7b296e7b",
+        "gold_artifact_hash": "d7acfc62e0cb135735ebaec4d04606a5fc35c0df147b7f11841073527c41779b",
+        "gold_workbook_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/6698/1_6698_golden.xlsx",
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        }
+      },
+      "prompt": "Modify my Excel formula in cell G4 that currently counts the number of occurrences where either the value in column B or C is not equal to 0, to also include an additional condition that the value in column A must match the value in my F column. Update the output in G4:G8 corresponding to the value of F in F4:F8. Add filter to the sheet A1:C1.\nSUM(COUNTIFS('raw 1'!B2:B100000,{\">\",\">\",\"=\"}&0,'raw 1'!C2:C100000,{\"<\",\"=\",\"<\"}&0))",
+      "source_hash": "74838d7f485435a6a2822295a349a032575d11104febb152662b2d1a285b71cb",
+      "task_id": "6698",
+      "verifier": "spreadsheetbench_cell_range_v1"
+    },
+    {
+      "artifact_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/203-15/1_203-15_init.xlsx",
+      "benchmark": "spreadsheetbench_verified",
+      "domain": "spreadsheet",
+      "gold_answers": [],
+      "metadata": {
+        "answer_range": "'Output Required'!A1:M3",
+        "answer_sheet": "Output Required",
+        "artifact_hash": "ab9d99df37251655dd2397e8eb7426ab5a9fdd9a82e854309aa28eb56219e1a9",
+        "gold_artifact_hash": "74ae267c22cbb2ef9514100b219346f75c034e160f70cf67223ffd4381bca4bb",
+        "gold_workbook_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/203-15/1_203-15_golden.xlsx",
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        }
+      },
+      "prompt": "I'm using Excel 2013 and have a main sheet that has data for staff,  which has headers in row 1 spanning from columns A to J. The names of the allowances are in column H, and I need a macro to perform the following tasks: 1) Create a new output sheet 'Output Required'; 2) Copy headers from A1 to G1 from the main sheet to the output sheet, and then copy the allowances details, which are in column H from the main sheet, into this new sheet in a transposed manner such that 'Basic', 'Housing Allowance', 'Transport Allowance', 'Other Allowance', and 'Social Allowance' will each be in separate columns; 3) Arrange the data so each staff member's output occupies only one row on the output sheet; 4) Calculate the total for each row and place it under column M on the output sheet. The cells in my provided sample are colored for explanation purposes only.",
+      "source_hash": "181db611742e0b250992077b71e5f7ab1b2f3d0bfa57cafc7713645c01213cf0",
+      "task_id": "203-15",
+      "verifier": "spreadsheetbench_cell_range_v1"
+    },
+    {
+      "artifact_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/50952/1_50952_init.xlsx",
+      "benchmark": "spreadsheetbench_verified",
+      "domain": "spreadsheet",
+      "gold_answers": [],
+      "metadata": {
+        "answer_range": "G2:G5",
+        "answer_sheet": "",
+        "artifact_hash": "eac77e4de5299e506183e4c0e2c9371d38824cddc854325217807035a02c0883",
+        "gold_artifact_hash": "b9196a27c66417d754122d3b86a0f699ae5e4f222596919760b70c6fdc20a62f",
+        "gold_workbook_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/50952/1_50952_golden.xlsx",
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        }
+      },
+      "prompt": "How can I retrieve the corresponding ID from a table in Excel based on multiple search parameters? The parameters are found within the comments column (B:B),  and have the corresponding ID to be shown in the G:G column as shown, which are not fixed in length and can appear anywhere within the comments. These comments may be separated by various characters such as spaces or dashes, and may include extra information irrelevant to the search. Additionally, the search parameters themselves may contain dashes, and not every comment will necessarily have a corresponding ID. I have attempted to split the comments into separate columns, but this method fails as the comments vary in format, the parameters aren't consistently presented, and I'm dealing with a large dataset. I'm working with a couple thousands of data.",
+      "source_hash": "e597fee503217e0e7609275df39ef44de91f92d5dcda9e7b71ea1b002ec7e16e",
+      "task_id": "50952",
+      "verifier": "spreadsheetbench_cell_range_v1"
+    },
+    {
+      "artifact_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/32093/1_32093_init.xlsx",
+      "benchmark": "spreadsheetbench_verified",
+      "domain": "spreadsheet",
+      "gold_answers": [],
+      "metadata": {
+        "answer_range": "F2:F15",
+        "answer_sheet": "",
+        "artifact_hash": "55df6b7724e183dface8a1cac3583b185a30d3323fde194c19a4f76e8fe36f4a",
+        "gold_artifact_hash": "91afa6f63580afadd17251bc0c06709361132396da9cb81d63f9f4e564ba2de8",
+        "gold_workbook_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/32093/1_32093_golden.xlsx",
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        }
+      },
+      "prompt": "I have an Excel spreadsheet for employee details with column B containing the current employee's name. Columns C, D, and E may or may not contain the names of new employees poised to take over in the next year. I need to create a formula for a new column (column F) that pulls the name of a new employee from columns C, D, or E if any exist, but if no new employee names are present, it should default to using the current employee's name from column B. With two columns, this would be a simple IF statement, but I'm unsure how to approach it with three potential new employee columns. An example was provided with the original question. Column F is what I'm trying to generate with a formula.",
+      "source_hash": "aeea3b67d0d524c9a55a0107b1b5da3c8f64e1aef08c716f28fc7e5b6e94e4c2",
+      "task_id": "32093",
+      "verifier": "spreadsheetbench_cell_range_v1"
+    },
+    {
+      "artifact_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/54196/1_54196_init.xlsx",
+      "benchmark": "spreadsheetbench_verified",
+      "domain": "spreadsheet",
+      "gold_answers": [],
+      "metadata": {
+        "answer_range": "'Sheet two'!E2:E279",
+        "answer_sheet": "",
+        "artifact_hash": "b6d10437377d64d64530e411ec7ded95a47b8bbe327d0c8f2397a82d245fe853",
+        "gold_artifact_hash": "f7a6042175b3f5164bd12780144e91b74197dff399c4ceb5cd897345dab113df",
+        "gold_workbook_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/54196/1_54196_golden.xlsx",
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        }
+      },
+      "prompt": "I'm struggling with a VLOOKUP function that seems to be failing. I aim to use this function to retrieve the lead time for items based on supplier IDs and item numbers. Despite trying to normalize the numbers and using both the VLOOKUP and INDEX MATCH functions, as well as trying in a different file, I'm unable to get it to work. I'm not sure what's causing the problem and urgently need to understand why this issue persists. If I can't resolve this for my university project, I risk not passing, which could have severe consequences for my studies. Can someone help me to fix this error?\nI try VLOOKUP(G2,Suppliers2,2,FALSE).\n\nHelp me populate Column E in Sheet two by matching the value in column G with column B and returning the value in column C. Everything referenced is in Sheet two. Columns B:E are part of a table that's a different length from F:G. Fill Column E to be the same length as the last row of the table from B:E",
+      "source_hash": "6a42a1487416934b7e5b011d79cdabbc974197506e0fa5dd5d0805336d632db2",
+      "task_id": "54196",
+      "verifier": "spreadsheetbench_cell_range_v1"
+    }
+  ],
+  "selection_hash": "aaf4e60e998d2741975429f962a25a6845883eb749b354dac5dc71b46213bdae",
+  "source_hash": "f976afae76bf3f377d304b8a45a19d7d866f2dbdd9b84081fbbc707dafa9e2fb",
+  "train": [
+    {
+      "artifact_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/55060/1_55060_init.xlsx",
+      "benchmark": "spreadsheetbench_verified",
+      "domain": "spreadsheet",
+      "gold_answers": [],
+      "metadata": {
+        "answer_range": "J23:N23",
+        "answer_sheet": "",
+        "artifact_hash": "50283c847c4884b1a9ef190bf8c159eed95341555b9a94623dd25382b596d920",
+        "gold_artifact_hash": "25eb8fd6465eacfdbddd2f59c4a540e1d35919e3aace9409fc2d0f2cef06eca1",
+        "gold_workbook_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/55060/1_55060_golden.xlsx",
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        }
+      },
+      "prompt": "How do I create a formula in Microsoft Excel that will make cell J23 exactly replicate the value selected in cell I12, but ensure that if cell I12 is blank, cell J23 will also be blank? Currently, I face an issue where either J23 is left blank or displays 'False' when I12 has a value, or it shows the correct value when I12 is not blank but defaults to display a date like 01/01/1900 when I12 is blank.\n My current formula is:  IF(I12=\"\",\"\")",
+      "source_hash": "5c0b7504a76f95dbad37cb0b8ef06c4716dcbfaa2f019912c33d0625f6fdc635",
+      "task_id": "55060",
+      "verifier": "spreadsheetbench_cell_range_v1"
+    },
+    {
+      "artifact_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/45372/1_45372_init.xlsx",
+      "benchmark": "spreadsheetbench_verified",
+      "domain": "spreadsheet",
+      "gold_answers": [],
+      "metadata": {
+        "answer_range": "E2:E15",
+        "answer_sheet": "",
+        "artifact_hash": "8bd7bcadb80576ee92da8be8dbe9721b5fa9a6eea6264a45bf739a009f7f4450",
+        "gold_artifact_hash": "0c43e506642b2daba042b684537f37f45838e8accb9d5693c5a1b5df18626598",
+        "gold_workbook_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/45372/1_45372_golden.xlsx",
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        }
+      },
+      "prompt": "Calculate a forecast total value in Excel column E based on the time. For instance, before 09:45, the value should come from column B, and after 09:45, it should switch to the value in column C.  Finish by applying fill hex color #FFC000 to E2:E15 and ensuring all other formatting remains unchanged from the original file. If it's 0, just leave blank",
+      "source_hash": "8595dbcbae7b6e393fe812b0a4e0c0929497a573c7a05c1cb58dbf6f76aed3c4",
+      "task_id": "45372",
+      "verifier": "spreadsheetbench_cell_range_v1"
+    },
+    {
+      "artifact_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/33157/1_33157_init.xlsx",
+      "benchmark": "spreadsheetbench_verified",
+      "domain": "spreadsheet",
+      "gold_answers": [],
+      "metadata": {
+        "answer_range": "'Sheet1'!K2:K6",
+        "answer_sheet": "",
+        "artifact_hash": "2056b7d60d3ddb6516be004ff5f08011fec5f4bf274478bb482697b2161a05f8",
+        "gold_artifact_hash": "8e2cd6f5e8ad18ccc361952006aef97dfe8d7d20c8c56e5fec72ca2bbeabb307",
+        "gold_workbook_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/33157/1_33157_golden.xlsx",
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        }
+      },
+      "prompt": "I need to know how I can populate column K with the earliest activity number for each individual based on the dates listed in column J of my Excel sheet. Is there a way to use the date in column J as a reference to search through the adjacent cells in columns B, D, F, and H to find and return this earliest date? \nFor example, if a match is found in Col B, populate col K with that header (Activity 1 is the header for Col B)",
+      "source_hash": "fa38174103e7d8796d8c10d83320d9455c771b2014647f427dbaed1447a3f765",
+      "task_id": "33157",
+      "verifier": "spreadsheetbench_cell_range_v1"
+    },
+    {
+      "artifact_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/463-17/1_463-17_init.xlsx",
+      "benchmark": "spreadsheetbench_verified",
+      "domain": "spreadsheet",
+      "gold_answers": [],
+      "metadata": {
+        "answer_range": "'Sheet1'!D2:D46",
+        "answer_sheet": "Sheet1",
+        "artifact_hash": "c9cf51a492859c67df9c7f7e1caf1f6a27071870631e26389fbc478c212648c6",
+        "gold_artifact_hash": "9a368f613e49c976fb42b68e8d85097b282ec0f564ab21064e97ffdda5fff87f",
+        "gold_workbook_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/463-17/1_463-17_golden.xlsx",
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        }
+      },
+      "prompt": "I have a list of company names in column A and their respective counts in column B of an Excel sheet. I need to generate a list where each company name from column A is repeated based on the number indicated in column B next to it. Place the resulting list of company names into column D where it has been started.",
+      "source_hash": "b2f756de3f2018ff579c7b3d1cd9126bb2cf53c08a88dcbf75c9b5e7399f0899",
+      "task_id": "463-17",
+      "verifier": "spreadsheetbench_cell_range_v1"
+    },
+    {
+      "artifact_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/416-15/1_416-15_init.xlsx",
+      "benchmark": "spreadsheetbench_verified",
+      "domain": "spreadsheet",
+      "gold_answers": [],
+      "metadata": {
+        "answer_range": "'Sheet1'!A2:A19",
+        "answer_sheet": "Sheet1",
+        "artifact_hash": "58e15c9406eef54303e6e255005b014e1a7e714847e5493e1a90da7d864159bd",
+        "gold_artifact_hash": "1894212b89df1bdc0d50f47b3b753e8f752e4128af130a487a22780141a509f0",
+        "gold_workbook_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/416-15/1_416-15_golden.xlsx",
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        }
+      },
+      "prompt": "I have an Excel spreadsheet with a column of dates where some cells include a time value that starts with 'T' and ends with 'Z' and these strings are 14 characters long. I'm seeking assistance to modify an existing macro to remove these time values, leaving just the date in each cell of column A. Outputs should adhere to m/dd/yyyy (see existing A2 format)",
+      "source_hash": "8259309fc3adb6033551f054154aad81c75a3652f2e269ae5f63650634b88dec",
+      "task_id": "416-15",
+      "verifier": "spreadsheetbench_cell_range_v1"
+    },
+    {
+      "artifact_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/54144/1_54144_init.xlsx",
+      "benchmark": "spreadsheetbench_verified",
+      "domain": "spreadsheet",
+      "gold_answers": [],
+      "metadata": {
+        "answer_range": "'Report'!D3:D10",
+        "answer_sheet": "",
+        "artifact_hash": "7b118b22445b55803a11488411c13c4b1ed54fcdebf72a4a0c34090bd18bad9c",
+        "gold_artifact_hash": "24c31c7817de4e649f8272c32e69c7f90db9ad18bcaa8713938aeb07ef251393",
+        "gold_workbook_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/54144/1_54144_golden.xlsx",
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        }
+      },
+      "prompt": "How can I create an Excel 365 formula to sum the quantities of trucks listed on the 'Data' Sheet when the truck names are concatenated on the 'Report' Sheet, but they are listed separately on the 'Data' Sheet?     Could you help me in my question ,please?\nI need a formula to sum trucks quantities from \"Data\"Sheet but the problem is that the Trucks here are concatenated and in Data\" Sheet Trucks are not concatenated\nPlease help me",
+      "source_hash": "9cd10ee131f12f546333824a505ff37b1229f5868440c3845f787896bfe93dc0",
+      "task_id": "54144",
+      "verifier": "spreadsheetbench_cell_range_v1"
+    },
+    {
+      "artifact_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/290-1/1_290-1_init.xlsx",
+      "benchmark": "spreadsheetbench_verified",
+      "domain": "spreadsheet",
+      "gold_answers": [],
+      "metadata": {
+        "answer_range": "K2:U10",
+        "answer_sheet": "Sheet1",
+        "artifact_hash": "b268380274b565aff1b5d4751620721f203dd35e953fe66e809010fe25316340",
+        "gold_artifact_hash": "b20e6d2b76d466d4dda0332e4a3db43f7b6290fa97eb2f937b3375b7e709ff22",
+        "gold_workbook_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/290-1/1_290-1_golden.xlsx",
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        }
+      },
+      "prompt": "I have a data set that is currently manually transposed in columns K to V, and I would like a macro to automate this process for data that will likely span around 2,000 rows. The relevant data is evidenced in the file that I have attached. I have given some examples in the answer attachment, please help me complete the rest of the answer. Note the position correspondence. Don't change any formatting",
+      "source_hash": "6f6a15e048c63e4c4eb815165716892303c432c707ef7fd6c5b1b9d802455d93",
+      "task_id": "290-1",
+      "verifier": "spreadsheetbench_cell_range_v1"
+    },
+    {
+      "artifact_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/82-38/1_82-38_init.xlsx",
+      "benchmark": "spreadsheetbench_verified",
+      "domain": "spreadsheet",
+      "gold_answers": [],
+      "metadata": {
+        "answer_range": "'DATA'!D2:D20",
+        "answer_sheet": "DATA",
+        "artifact_hash": "f6781585d4e4b065a1423cb41995ceb6de689584c3b88cbddb3544eec836a5cb",
+        "gold_artifact_hash": "9044ec3a4913a99f3af49ffbf96349ff48563e3f8328f3517fd3413053b38736",
+        "gold_workbook_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/82-38/1_82-38_golden.xlsx",
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        }
+      },
+      "prompt": "On my SH1 sheet, there are multiple headers labeled 'INVOICE NO' with a number underneath each for different ranges. In my DATA sheet, column D should match the 'INVOICE NO' from SH1 and repeat for each header until a 'TOTAL' row, which correlates with the sheet name in column E of the DATA sheet. The invoice numbers should be arranged in the order they appear on SH1 when the sheet names match; otherwise, sheets with names that do not match should be ignored. I initially wanted formulas that do not specify a range and dynamically work up to the last row containing data. However, I encountered a problem when the DATA sheet has more data than the SH1 sheet, resulting in a #NUM! error. I want to keep the original numbers after the new ones have been filled in and only fill in column D when there is a matching sheet name in column E, while ignoring rows with unmatched names or extra data. Can you provide a solution or VBA code that addresses these issues?",
+      "source_hash": "ed1203faf77da527cf00d5c04973e262994aacceef4999d6ecb4defcbd034d11",
+      "task_id": "82-38",
+      "verifier": "spreadsheetbench_cell_range_v1"
+    },
+    {
+      "artifact_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/433-47/1_433-47_init.xlsx",
+      "benchmark": "spreadsheetbench_verified",
+      "domain": "spreadsheet",
+      "gold_answers": [],
+      "metadata": {
+        "answer_range": "A1:I21",
+        "answer_sheet": "Sheet1",
+        "artifact_hash": "3be0dff6312c8aa9ef457422a5477be3fa0716f56081f49eb2b55b2d98a154ce",
+        "gold_artifact_hash": "ac71fdf06fe079f30fe56da9eb17d961a6babbd1feb3cbed9acbae9af212558c",
+        "gold_workbook_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/433-47/1_433-47_golden.xlsx",
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        }
+      },
+      "prompt": "How can I add to or subtract from cells across five unit columns (from unit 1 to unit 5 for addition, and from unit 5 to unit 1 for subtraction) in order to balance positive or negative residuals in another column, ensuring that the operation adheres to specified minimum and maximum quantity constraints for each unit column, and without changing unit column cells that are zero? Be careful to keep the original location of the data unchanged.\nAnd also change Column I values to 0 at the end.",
+      "source_hash": "eeb4188b4f74435496321d873400ea4d63150a0d61c9cdebcc0c0cd8b36c43be",
+      "task_id": "433-47",
+      "verifier": "spreadsheetbench_cell_range_v1"
+    },
+    {
+      "artifact_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/414-20/1_414-20_init.xlsx",
+      "benchmark": "spreadsheetbench_verified",
+      "domain": "spreadsheet",
+      "gold_answers": [],
+      "metadata": {
+        "answer_range": "'Sheet1'!A4:A18",
+        "answer_sheet": "Sheet1",
+        "artifact_hash": "d99922e1462b9b1a0889d95800639a1c6455e05be1b35140f97445987520c540",
+        "gold_artifact_hash": "30470f2fc44f76f9aa28baa7fa4ef553d5aeb2a6b27baf957f067e5cf9b19149",
+        "gold_workbook_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/414-20/1_414-20_golden.xlsx",
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        }
+      },
+      "prompt": "Delete all rows above the first occurrence of the text “Invoice No.” in column A. The macro should search for the phrase (case-insensitive) and delete everything above it, leaving the “Invoice No.” row and all rows below untouched.",
+      "source_hash": "0a4eec784de9306273d8ba44d3ffa16b51da68be0c92acd23c8223fad46510b9",
+      "task_id": "414-20",
+      "verifier": "spreadsheetbench_cell_range_v1"
+    },
+    {
+      "artifact_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/31915/1_31915_init.xlsx",
+      "benchmark": "spreadsheetbench_verified",
+      "domain": "spreadsheet",
+      "gold_answers": [],
+      "metadata": {
+        "answer_range": "'Sheet2'!C2:C11",
+        "answer_sheet": "",
+        "artifact_hash": "9637f70b8f9e65c711f51505d59456ce267f7663836774db78fa3782da02fece",
+        "gold_artifact_hash": "38d11317830795bef8212a24eb76510cd358186d3f36cfbeda00f6dc4629a241",
+        "gold_workbook_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/31915/1_31915_golden.xlsx",
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        }
+      },
+      "prompt": "create a formula in Excel that allows me to sum the prices in column B corresponding to each unique serial number in column A, with the sum appearing only once on the first row instance of each serial number",
+      "source_hash": "f69ccb0ebfe3a55a547b7de02e5a0653853fd2b8885e4d2e13ab2a34f26c731f",
+      "task_id": "31915",
+      "verifier": "spreadsheetbench_cell_range_v1"
+    },
+    {
+      "artifact_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/8942/1_8942_init.xlsx",
+      "benchmark": "spreadsheetbench_verified",
+      "domain": "spreadsheet",
+      "gold_answers": [],
+      "metadata": {
+        "answer_range": "'Overview'!B5",
+        "answer_sheet": "",
+        "artifact_hash": "634654379b942c475216a2bf55dfd92a287a2ddb4af5a621930d8f331cfc3244",
+        "gold_artifact_hash": "b77474ece5c7d0cb730f95b9bf2ee29f1c0e6b1b9e701d8d102819b46fd9494b",
+        "gold_workbook_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/8942/1_8942_golden.xlsx",
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        }
+      },
+      "prompt": "In my Excel workbook, I have an 'overview' sheet with an Index match set up in cells B2 and C2, and a data validation list in A2. I aim to have cell B5 on the 'overview' sheet automatically calculate the monthly total of all paychecks from the 'Pay Dates' worksheet, based on the month chosen in A2. How can I modify the workbook so that selecting just the month from the data validation list in A2 will also automatically update the monthly total in B5? I've created an Index match in B2 and C2 as well as a data validation list in A2. Now I want my 'overview' sheet to calculate the monthly total of all paychecks in B5 based on the month chosen in A2. Ex. If I choose January 29 from the data validation in A2 I want B5 to calculate all the monthly pay checks in January from the 'Pay Dates' worksheet.",
+      "source_hash": "5d40a4b04d89292a62636f7fbbc6ad9ead0c7d92c0dc3dffd147e27eee95b4a0",
+      "task_id": "8942",
+      "verifier": "spreadsheetbench_cell_range_v1"
+    },
+    {
+      "artifact_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/30930/1_30930_init.xlsx",
+      "benchmark": "spreadsheetbench_verified",
+      "domain": "spreadsheet",
+      "gold_answers": [],
+      "metadata": {
+        "answer_range": "C2:C66",
+        "answer_sheet": "",
+        "artifact_hash": "d84263979abff2895554096f13dce9075d2f229e9da7d8c47eb9db6357aa575b",
+        "gold_artifact_hash": "4a41155690bd3f3473527eb409856debdbb498bb2aff7a705ff5fa28ea3d6020",
+        "gold_workbook_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/30930/1_30930_golden.xlsx",
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        }
+      },
+      "prompt": "On Sheet1, how can I calculate the number of values greater than zero in Column A between occurrences of the number 1 in Column B, and display the result in Column C on each row where Column B contains 1? Leave other rows in Column C blank.",
+      "source_hash": "68643798fec0524d2c19b5251b9edefc56a1a7b03db51cede8f797ea5dd654a2",
+      "task_id": "30930",
+      "verifier": "spreadsheetbench_cell_range_v1"
+    },
+    {
+      "artifact_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/599-9/1_599-9_init.xlsx",
+      "benchmark": "spreadsheetbench_verified",
+      "domain": "spreadsheet",
+      "gold_answers": [],
+      "metadata": {
+        "answer_range": "'Before'!K2:K19",
+        "answer_sheet": "Before",
+        "artifact_hash": "6eb5973e4da988e4410ad500750d2e9047a82123272809e66fe78c4247008a26",
+        "gold_artifact_hash": "8029b1d52a233a8611533a108072937b0a3ee01c3c2293c60c232b6d7607c861",
+        "gold_workbook_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/599-9/1_599-9_golden.xlsx",
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        }
+      },
+      "prompt": "In my Excel workbook, column G contains a list of dates that changes with every report run. I need a script that would transfer the date from column G to column K when a date is present in column G. If there is no date in column G, then the script should leave the existing value in column K unchanged. Could someone assist me with this and perhaps look at the workbook I've attached for reference?",
+      "source_hash": "1d26ca4886825e47f9a560b68b5e1a5888a9c5e446a8f3250bcc88c88d236ac1",
+      "task_id": "599-9",
+      "verifier": "spreadsheetbench_cell_range_v1"
+    },
+    {
+      "artifact_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/51359/1_51359_init.xlsx",
+      "benchmark": "spreadsheetbench_verified",
+      "domain": "spreadsheet",
+      "gold_answers": [],
+      "metadata": {
+        "answer_range": "B15:E15",
+        "answer_sheet": "",
+        "artifact_hash": "cfbee6b6be6d107ef0e748f428b006207889f27157f4d1b0908cfeef11270341",
+        "gold_artifact_hash": "88565a35565d92e9daac4dbde142e17dfd97468a5642812fee99c1a1cf980732",
+        "gold_workbook_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/51359/1_51359_golden.xlsx",
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        }
+      },
+      "prompt": "How can I calculate the total of all consecutive 1's in a column in Excel, where only the groups of adjacent cells with a sum of 2 or more should be counted?",
+      "source_hash": "3c47b20efb068dcfd8cfd63606652472542ac092d9e0216a7891b186868bf367",
+      "task_id": "51359",
+      "verifier": "spreadsheetbench_cell_range_v1"
+    },
+    {
+      "artifact_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/105-24/1_105-24_init.xlsx",
+      "benchmark": "spreadsheetbench_verified",
+      "domain": "spreadsheet",
+      "gold_answers": [],
+      "metadata": {
+        "answer_range": "'Open'!C2:C23",
+        "answer_sheet": "Open",
+        "artifact_hash": "a05e86bd943665abdb294cfdf881cf49323716a5e124a90e9f461a95961cb612",
+        "gold_artifact_hash": "acc5652d56734d96080ecd7b15bcc0dfb2e50fc141c4505884cda91a2353d9da",
+        "gold_workbook_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/105-24/1_105-24_golden.xlsx",
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        }
+      },
+      "prompt": "In my Excel file, the 'Open' sheet contains IDs in Columns C and K. Find all these IDs and replace them with their respective Names. The corresponding Names for these IDs are located in Columns A and B of the 'Productivity' sheet. I require assistance with creating a macro or to automate this replacement process and also automatically consider any new additions to Columns A and B in the future for replacements. Do not create instructions, explanations, or a ID_Lookup_Helper tab. Do not create add data to any other columns other than C or K in the Open tab.  Do not hide any data.",
+      "source_hash": "4bad05b596f91cc9dea388fdcaf44d7e731e24cacdf2ad42191f451b64a1ac45",
+      "task_id": "105-24",
+      "verifier": "spreadsheetbench_cell_range_v1"
+    },
+    {
+      "artifact_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/384-4/1_384-4_init.xlsx",
+      "benchmark": "spreadsheetbench_verified",
+      "domain": "spreadsheet",
+      "gold_answers": [],
+      "metadata": {
+        "answer_range": "Result'!A2:A8",
+        "answer_sheet": "Result",
+        "artifact_hash": "7b8839b93688267399cf867bcaaf13b662a3074529e83bf16697b6c50319e9a8",
+        "gold_artifact_hash": "ce8be9c27a3c4d7d97af8bfbfb4340b2d866fe0da6812d53a1ca938a023677bb",
+        "gold_workbook_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/384-4/1_384-4_golden.xlsx",
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        }
+      },
+      "prompt": "How can I use VBA to determine the differences in values between two data sources in Excel? Please copy values that appear in the 'Source' table, but not in the 'Source2' table, to the 'Result' table, unless the value is 2. If the value '2' is present in both sources, include it in the 'Result' table. Make sure to include it only once.",
+      "source_hash": "cc0c78118cc2e9b0bb12844bceb5525abdf7eeb34125511ac04d132f9779a337",
+      "task_id": "384-4",
+      "verifier": "spreadsheetbench_cell_range_v1"
+    },
+    {
+      "artifact_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/66-24/1_66-24_init.xlsx",
+      "benchmark": "spreadsheetbench_verified",
+      "domain": "spreadsheet",
+      "gold_answers": [],
+      "metadata": {
+        "answer_range": "'Items Older than 30 days'!A1:I2",
+        "answer_sheet": "Items Older than 30 days",
+        "artifact_hash": "39ebccfbd4d7d667d7a049842874cab3c10ec5f4416d5c81225e5f88ae1cef29",
+        "gold_artifact_hash": "622124efe2c335fac9f9e3bc08d5b28ed1238fc3904d40e85252c87eeb1a34e2",
+        "gold_workbook_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/66-24/1_66-24_golden.xlsx",
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        }
+      },
+      "prompt": "Extract all rows from the 'Imported Data' sheet where the date in column E is more than 30 days older than the maximum date in column E, and copy them to the 'Items Older than 30 days' sheet. Include the header row and maintain the date formatting then after that delete column Z in sheet 2.",
+      "source_hash": "0dcc21dcabb45aa7d8a1c1e7df4acf34b6425bbd12339bc9d8c4e35b60a19852",
+      "task_id": "66-24",
+      "verifier": "spreadsheetbench_cell_range_v1"
+    },
+    {
+      "artifact_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/9448/1_9448_init.xlsx",
+      "benchmark": "spreadsheetbench_verified",
+      "domain": "spreadsheet",
+      "gold_answers": [],
+      "metadata": {
+        "answer_range": "'Data'!U9:U18",
+        "answer_sheet": "",
+        "artifact_hash": "acb2a3219b28f180236d64dcef2372360137313e423cedee520e0ad72fc944b9",
+        "gold_artifact_hash": "cdaf6a6e2676d5e56271c050e7acb4f7a14b07434043cdc25b2a8962489c7594",
+        "gold_workbook_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/9448/1_9448_golden.xlsx",
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        }
+      },
+      "prompt": "How can I create a formula in column U of my stock control spreadsheet that will retrieve and display the header value of a column from range I to T where a sale was last made? The cells from I to T represent months and contain the quantity of items sold. For example, if Item Ref 1 was last sold in April and the corresponding cell in column S7 has this information, I would like the header of S7 (April) to appear in cell U9. The spreadsheet that I use does not support the new Excel 2016 MAXIFS formula as I am limited to Excel 2010.\nI have a file for stock control where i need to see when last time we sell a product.\ni need a formula in column U which bring the header value in it if that column has got a number value.  Make sure that the displayed values in U appear as Short Date number format, using the first day of the month as the output value for the month/year combo selected.\n\nColumn G is Item Ref.\nColumn H is Item Description\nColumn I to T are the columns where i have my Quantities sold in those months \n\nfor Example \nItem Ref 1 has been sold in April Last time i am looking for a formula which can print the value of cell S7 here in Cell U9\nDon't add any headers or change anything else, keep everything as it is.",
+      "source_hash": "b52b3ab2637a83810910bae55ce5684b37b6a0958cbea4cb3e3a9bd68be80ad6",
+      "task_id": "9448",
+      "verifier": "spreadsheetbench_cell_range_v1"
+    },
+    {
+      "artifact_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/39046/1_39046_init.xlsx",
+      "benchmark": "spreadsheetbench_verified",
+      "domain": "spreadsheet",
+      "gold_answers": [],
+      "metadata": {
+        "answer_range": "F2:F6",
+        "answer_sheet": "",
+        "artifact_hash": "141845043354a1ef354f8237080a2c9cb894792d7473de8574ff92a96c92f3b9",
+        "gold_artifact_hash": "3fbbbf65e0ccfacde00868bbeea9e4733268d302f90f27a743a0f6eb03d9648d",
+        "gold_workbook_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/39046/1_39046_golden.xlsx",
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        }
+      },
+      "prompt": "How can I use a formula in Excel to check if a reference in column B is marked as 'CANCELLED' in another column, then count how many subreferences in column D contain a part of the parent reference from the entire column B, placing 'Yes' in column E if there is at least one match or 'No' otherwise, and finally count the number of 'Yes' entries to be displayed in column F?",
+      "source_hash": "02d53ec643d724598b0e4615c520976f606469bf4a39319f865fac5107f053eb",
+      "task_id": "39046",
+      "verifier": "spreadsheetbench_cell_range_v1"
+    }
+  ],
+  "validation": [
+    {
+      "artifact_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/57113/1_57113_init.xlsx",
+      "benchmark": "spreadsheetbench_verified",
+      "domain": "spreadsheet",
+      "gold_answers": [],
+      "metadata": {
+        "answer_range": "B2:C3",
+        "answer_sheet": "",
+        "gold_workbook_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/57113/1_57113_golden.xlsx",
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        }
+      },
+      "prompt": "I am working with Twitter data and attempting to create a new Excel column that extracts all hashtags from each tweet. While I can successfully use a formula to pull the first hashtag from a cell, I am struggling to modify it or use another method to extract multiple hashtags from cells that contain more than one. Additionally, I want to output these hashtags in adjacent cells starting from column B, without the # symbol and without any changes to the header row. An example file has been provided. Modify my current formula to achieve this.\n\nMy current formula is: TRIM(LEFT(SUBSTITUTE(MID(A2,FIND(\"#\",A2),LEN(A2)),\" \",REPT(\" \",100)),100))",
+      "source_hash": "7ddf4be79aa0864c46bf7fca6a958d1c5db4d2879ce5ab94cb2ff79a2cba3216",
+      "task_id": "57113",
+      "verifier": "spreadsheetbench_cell_range_v1"
+    },
+    {
+      "artifact_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/24-23/1_24-23_init.xlsx",
+      "benchmark": "spreadsheetbench_verified",
+      "domain": "spreadsheet",
+      "gold_answers": [],
+      "metadata": {
+        "answer_range": "A2:D207",
+        "answer_sheet": "Sheet1",
+        "gold_workbook_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/24-23/1_24-23_golden.xlsx",
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        }
+      },
+      "prompt": "In my Excel spreadsheet, which has over 13,000 rows, I need to filter column A for the groups labeled '@9T', 'SAL', and 'T9A', and then delete these rows. The attached example only shows 207 rows. Can the provided code handle deleting the rows without taking excessive amounts of time?",
+      "source_hash": "f5873a11f9eb0ced43c042848d31311e9c463dcee3291df1c522786f739bceb6",
+      "task_id": "24-23",
+      "verifier": "spreadsheetbench_cell_range_v1"
+    },
+    {
+      "artifact_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/55965/1_55965_init.xlsx",
+      "benchmark": "spreadsheetbench_verified",
+      "domain": "spreadsheet",
+      "gold_answers": [],
+      "metadata": {
+        "answer_range": "'Foglio1'!G2:G18",
+        "answer_sheet": "",
+        "gold_workbook_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/55965/1_55965_golden.xlsx",
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        }
+      },
+      "prompt": "How can I display the last 10 results from a data sheet on Sheet1 from columns G to P, based on the comparison between the ID in column E on Sheet1 and the ID in column K on the data sheet? I've provided the expected outcome in those columns, and it's manually entered as an example of the desired result.",
+      "source_hash": "b399dfbbf10ecf44a72ecd8e717259046f14b593070c348d8ffd28454a2bba49",
+      "task_id": "55965",
+      "verifier": "spreadsheetbench_cell_range_v1"
+    },
+    {
+      "artifact_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/535-20/1_535-20_init.xlsx",
+      "benchmark": "spreadsheetbench_verified",
+      "domain": "spreadsheet",
+      "gold_answers": [],
+      "metadata": {
+        "answer_range": "'Sheet1'!A1:BIG5",
+        "answer_sheet": "Sheet1",
+        "gold_workbook_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/535-20/1_535-20_golden.xlsx",
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        }
+      },
+      "prompt": "How can I delete all columns in an Excel worksheet that contain the keyword '/description' in the first row, given that there are over 1000 columns in the sheet? I would prefer to use VBA code, but I am open to other methods as well.",
+      "source_hash": "fe7e5090046e8af836ac2403fa27532741583f2c733eee00e9f836f1830944c6",
+      "task_id": "535-20",
+      "verifier": "spreadsheetbench_cell_range_v1"
+    },
+    {
+      "artifact_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/10747/1_10747_init.xlsx",
+      "benchmark": "spreadsheetbench_verified",
+      "domain": "spreadsheet",
+      "gold_answers": [],
+      "metadata": {
+        "answer_range": "K6",
+        "answer_sheet": "",
+        "gold_workbook_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/10747/1_10747_golden.xlsx",
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        }
+      },
+      "prompt": "I've attached a file containing a basic table and another table showing only a portion of that basic data. I've also included a formula that is supposed to extract the desired part, but it isn't working, and I can't identify the mistake. Could you please help me understand where I've gone wrong with the formula?\nIF((@$A$3:$A$8=$I3)*(@$B$3:$B$8=$J3),C3,0). The correct formula should sum the net profit from the first table based on the year and share no values in cells I3 and J3. It should be placed into cell K6.",
+      "source_hash": "4b1d4a8a1616c9a9dc981c3fd34b2f0889dc0a8f08f817d4b55a61abec334dea",
+      "task_id": "10747",
+      "verifier": "spreadsheetbench_cell_range_v1"
+    },
+    {
+      "artifact_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/9391/1_9391_init.xlsx",
+      "benchmark": "spreadsheetbench_verified",
+      "domain": "spreadsheet",
+      "gold_answers": [],
+      "metadata": {
+        "answer_range": "'Front'!B2:C12",
+        "answer_sheet": "",
+        "gold_workbook_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/9391/1_9391_golden.xlsx",
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        }
+      },
+      "prompt": "Create an Excel formula that takes a date from cell B1 on a 'Front' sheet, searches for that date in column A on a 'Data' sheet, and retrieves a corresponding value from column F on the 'Data' sheet associated with a specific letter. I'm familiar with using Index, Offset, and Match functions but am struggling to apply them successfully in this situation. Additionally, when data is added to the 'Data' sheet with new date ranges, the order of names might change or some may be absent. Is there a solution that can address this issue and ensure accurate data retrieval when the order of agents is not consistent?  Make sure that the formula, that for any dates that do not exist in the Data sheet, returns a blank rather than error or zero.",
+      "source_hash": "82216f5f66dc0905a2f9d6352e23b3cb9f21ed5a4120c1e6f9a2faeb59c7a7d5",
+      "task_id": "9391",
+      "verifier": "spreadsheetbench_cell_range_v1"
+    },
+    {
+      "artifact_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/31746/1_31746_init.xlsx",
+      "benchmark": "spreadsheetbench_verified",
+      "domain": "spreadsheet",
+      "gold_answers": [],
+      "metadata": {
+        "answer_range": "Q3:Q38",
+        "answer_sheet": "",
+        "gold_workbook_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/31746/1_31746_golden.xlsx",
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        }
+      },
+      "prompt": "Calculate the total cost savings for a contract given multiple cost savings that could occur in different months, considering that the contract duration is always 81 months. For example, if a saving of £4165 occurs in month 21, the calculation would be 81 months minus 20 months times £4165, because the saving is included within the given month. Additionally, if another saving occurs in month 70 of £500, the calculation would be 81 months minus 69 months times £500, and then those savings would need to be added together. Update the total cost savings in column Q with the grand total in Q38 and do not bold the numbers.",
+      "source_hash": "a26510909d0db517ae068801b8e34001d3e8470a5c83d2bcb05aeb67160bcc25",
+      "task_id": "31746",
+      "verifier": "spreadsheetbench_cell_range_v1"
+    },
+    {
+      "artifact_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/44296/1_44296_init.xlsx",
+      "benchmark": "spreadsheetbench_verified",
+      "domain": "spreadsheet",
+      "gold_answers": [],
+      "metadata": {
+        "answer_range": "'Sheet2'!D3:D104",
+        "answer_sheet": "",
+        "gold_workbook_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/44296/1_44296_golden.xlsx",
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        }
+      },
+      "prompt": "How can I convert data from a range in Sheet 1 to column D in Sheet 2 by matching units with states using a formula? I need a step-by-step guide on how to achieve this since I'm unsure about the looping aspect.",
+      "source_hash": "32f2fa3855e1df331789b6aff17d18de8b7ff8471d394af8ccff3fb80406916c",
+      "task_id": "44296",
+      "verifier": "spreadsheetbench_cell_range_v1"
+    },
+    {
+      "artifact_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/236-22/1_236-22_init.xlsx",
+      "benchmark": "spreadsheetbench_verified",
+      "domain": "spreadsheet",
+      "gold_answers": [],
+      "metadata": {
+        "answer_range": "'Sheet1'!A1:E7",
+        "answer_sheet": "Sheet1",
+        "gold_workbook_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/236-22/1_236-22_golden.xlsx",
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        }
+      },
+      "prompt": "I've created a macro to remove blank rows in Column A, but I need to adjust it so that it also deletes the row directly above each blank row. It's crucial that rows with data in Column A right below headers, which contain the term 'Line No', remain untouched. In particular, rows 2 & 9 should not be deleted, as they have important data. I need this macro to function on multiple sheets, beginning with sheet 'BR1' onwards. Can someone help me modify my code to achieve this?\n\nIn other words, every time “Line No” appears in column A and the cell below that is blank, delete both the row containing “Line No” and the row below.\nThe data currently spans A1:E16",
+      "source_hash": "417d76159242e54f968289cdb261e625f313eb7201f4894984208693bafd16f9",
+      "task_id": "236-22",
+      "verifier": "spreadsheetbench_cell_range_v1"
+    },
+    {
+      "artifact_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/45707/1_45707_init.xlsx",
+      "benchmark": "spreadsheetbench_verified",
+      "domain": "spreadsheet",
+      "gold_answers": [],
+      "metadata": {
+        "answer_range": "D2:D69",
+        "answer_sheet": "",
+        "gold_workbook_path": "rsebench-data://materialized/spreadsheetbench_verified/spreadsheetbench_verified_400/spreadsheet/45707/1_45707_golden.xlsx",
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        }
+      },
+      "prompt": "Create formulas in column D (D2:D69) that check if the next day in column A is the 1st of a new month. If it is, count how many times the value 1 appears in column C for all dates in that same month and year. Apply this formula to all rows from D2:D69. If the next day is not the 1st of a month, leave the cell completely empty. Retain all the 3 column headers of the file as it is in row A1, C1 and E1.",
+      "source_hash": "d777b30146773c71aea58bc81b357457f62e50fc0c12934f9f9d7cd444855ff8",
+      "task_id": "45707",
+      "verifier": "spreadsheetbench_cell_range_v1"
+    }
+  ]
+}

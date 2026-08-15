@@ -47,8 +47,9 @@ def _family_split(
     family: str,
     *,
     qualification_version: str = "clean-qualification-v1",
+    methods_root: Path = METHODS_ROOT,
 ) -> CleanEvolutionSplitManifest:
-    family_root = METHODS_ROOT / "skilllearnbench/tasks" / family
+    family_root = methods_root / "skilllearnbench/tasks" / family
     instances = sorted(
         (path for path in family_root.iterdir() if path.is_dir()),
         key=lambda path: int(path.name.rsplit("-", 1)[1]),

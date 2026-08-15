@@ -17,12 +17,13 @@
 - Provider identity is deepseek-v4-flash, temperature 0, thinking disabled; method seeds are exactly 20260813, 20260814, 20260815.
 - Screening sizes are Spreadsheet 20/10/30, OfficeQA 12/12/20, WebShop 5/5/20, and four SkillLearn families with 2/1/2–3 per family.
 - Confirmation sizes match screening and use four different SkillLearn families.
-- SkillLearn screening families are organize-messy-files, offer-letter-generator, schedule-planning, and dependency-vulnerability-check; confirmation families are github-repo-analytics, financial-analysis, stock-data-visualization, and enterprise-information-search.
+- SkillLearn screening families are organize-messy-files, offer-letter-generator, schedule-planning, and dependency-vulnerability-check; confirmation families are court-form-filling, earthquake-plate-calculation, dbscan-parameter-tuning, and travel-planning.
 - Candidate 1 is current clean-v2; Candidate 2/3 replace train only and retain the fixed screening validation set.
 - The three-candidate fallback applies to Spreadsheet, OfficeQA, and WebShop. SkillLearn keeps its one preregistered 2/1/remainder allocation because post-result family or instance substitution would violate the fixed-family rule; fewer than three clean-ready families blocks that domain.
 - Candidate selection uses sequential stopping; the first pass wins and no test-score maximization is permitted.
 - New Spreadsheet/OfficeQA/WebShop screening tests exclude historically score-observed tasks; confirmation excludes historically executed tasks.
 - SkillLearn's documented development-screening exception does not relax confirmation-family isolation.
+- Preflight, image-build, and dry-run artifacts remain `manifest_only` unless the artifact itself contains task execution or score evidence; the selection output subtree is excluded from its own exposure scan.
 - JSON release files contain no absolute paths, worktree paths, credentials, or large unlicensed benchmark payloads.
 - Existing unrelated working-tree edits belong to the user and are never staged with selection commits.
 
@@ -557,7 +558,7 @@ round_robin_exact fails when the pool is insufficient. Reserve confirmation firs
 
 - [ ] **Step 4: Implement exact domain strata**
 
-Spreadsheet categories are lookup_join, aggregation_formula, text_date_cleaning, layout_chart_pivot, and other via a versioned keyword map. OfficeQA combines officeqa_stratum with one question axis: period, unit, entity, aggregation, or other. WebShop uses option-count, constraint-count, and retrieval-rank bins. SkillLearn screening uses organize-messy-files, offer-letter-generator, schedule-planning, and dependency-vulnerability-check; confirmation uses github-repo-analytics, financial-analysis, stock-data-visualization, and enterprise-information-search.
+Spreadsheet categories are lookup_join, aggregation_formula, text_date_cleaning, layout_chart_pivot, and other via a versioned keyword map. OfficeQA combines officeqa_stratum with one question axis: period, unit, entity, aggregation, or other. WebShop uses option-count, constraint-count, and retrieval-rank bins. SkillLearn screening uses organize-messy-files, offer-letter-generator, schedule-planning, and dependency-vulnerability-check; confirmation uses court-form-filling, earthquake-plate-calculation, dbscan-parameter-tuning, and travel-planning.
 
 - [ ] **Step 5: Materialize portable task records**
 

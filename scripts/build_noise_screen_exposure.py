@@ -52,7 +52,18 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
-    registry = build_exposure_registry(args.source)
+    output_parent = args.output.resolve().parent
+    excluded_roots = [
+        output_parent
+        for source in args.source
+        if source.root.is_dir()
+        and output_parent != source.root.resolve()
+        and output_parent.is_relative_to(source.root.resolve())
+    ]
+    registry = build_exposure_registry(
+        args.source,
+        exclude_roots=excluded_roots,
+    )
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(
         json.dumps(

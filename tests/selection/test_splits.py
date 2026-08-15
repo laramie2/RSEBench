@@ -20,6 +20,8 @@ from rsebench.selection.splits import (
     spreadsheet_operation_category,
     webshop_stratum,
 )
+from rsebench.core1.dataset import make_clean_split_paths_portable
+from scripts.build_clean_skilllearn_qualification import _family_split
 
 
 HASH = "a" * 64
@@ -561,14 +563,24 @@ def _skilllearn_splits() -> tuple[
         "dependency-vulnerability-check",
     )
     confirmation_names = (
-        "github-repo-analytics",
-        "financial-analysis",
-        "stock-data-visualization",
-        "enterprise-information-search",
+        "court-form-filling",
+        "earthquake-plate-calculation",
+        "dbscan-parameter-tuning",
+        "travel-planning",
     )
     screening = {name: _load_clean(root / f"{name}.json") for name in screening_names}
     confirmation = {
-        name: _load_clean(root / f"{name}.json") for name in confirmation_names
+        name: make_clean_split_paths_portable(
+            _family_split(
+                name,
+                qualification_version="noise-screen-v1",
+                methods_root=ROOT / "methods/external",
+            ),
+            project_root=ROOT,
+            data_root=ROOT / "data",
+            methods_root=ROOT / "methods/external",
+        )
+        for name in confirmation_names
     }
     return screening, confirmation
 

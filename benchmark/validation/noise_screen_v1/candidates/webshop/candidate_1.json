@@ -1,0 +1,1299 @@
+{
+  "benchmark": "webshop",
+  "candidate_index": 1,
+  "domain": "interactive",
+  "metadata": {
+    "baseline": "skilladaptor",
+    "qualification_version": "noise-screen-v1",
+    "runtime": {
+      "max_episode_steps": 15,
+      "max_iterations": 3,
+      "min_sample_size": 5
+    },
+    "selection_version": "noise-screen-v1",
+    "source_seed": 20260813,
+    "static_audit": {
+      "noise_applicability": {
+        "N1": {
+          "coverage": 1.0,
+          "status": "pass"
+        },
+        "N2": {
+          "coverage": 1.0,
+          "status": "pass"
+        },
+        "N3": {
+          "coverage": null,
+          "status": "pending"
+        },
+        "N4": {
+          "coverage": null,
+          "status": "pending"
+        }
+      },
+      "ordered_task_ids": {
+        "test": [
+          "goal_89",
+          "goal_173",
+          "goal_51",
+          "goal_6",
+          "goal_40",
+          "goal_9",
+          "goal_35",
+          "goal_325",
+          "goal_282",
+          "goal_19",
+          "goal_107",
+          "goal_287",
+          "goal_53",
+          "goal_67",
+          "goal_8",
+          "goal_494",
+          "goal_26",
+          "goal_82",
+          "goal_170",
+          "goal_271"
+        ],
+        "train": [
+          "goal_1554",
+          "goal_1665",
+          "goal_2446",
+          "goal_2826",
+          "goal_6018"
+        ],
+        "validation": [
+          "goal_1195",
+          "goal_1362",
+          "goal_735",
+          "goal_994",
+          "goal_1036"
+        ]
+      },
+      "reachable_target_asins": true,
+      "train_batch_sizes": [
+        5
+      ],
+      "unique_normalized_queries": true,
+      "validation_headroom": {
+        "successes": 2,
+        "total": 5
+      }
+    }
+  },
+  "qualification_test": [
+    {
+      "artifact_path": null,
+      "benchmark": "webshop",
+      "domain": "interactive",
+      "gold_answers": [],
+      "metadata": {
+        "constraint_count": 3,
+        "goal_idx": 3,
+        "normalized_query": "streaming media players",
+        "option_count": 0,
+        "query": "streaming media players",
+        "retrieval_rank": 0,
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        },
+        "target_asin": "B09LSKQF8C",
+        "target_reachable": true
+      },
+      "prompt": "Find me dual band streaming media players with quad core, and price lower than 350.00 dollars",
+      "source_hash": "1a03757c43ebff49d619f82184f7891469fec3405be4044a4fb5fd5d7413b0c2",
+      "task_id": "goal_3",
+      "verifier": "webshop_official_reward_v1"
+    },
+    {
+      "artifact_path": null,
+      "benchmark": "webshop",
+      "domain": "interactive",
+      "gold_answers": [],
+      "metadata": {
+        "constraint_count": 3,
+        "goal_idx": 100,
+        "normalized_query": "home office cabinets",
+        "option_count": 0,
+        "query": "home office cabinets",
+        "retrieval_rank": 0,
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        },
+        "target_asin": "B09P8D2Q1Q",
+        "target_reachable": true
+      },
+      "prompt": "Find me home office cabinets with storage space for living room, and price lower than 210.00 dollars",
+      "source_hash": "3c139d314db074397a656199ad14e6a11f1b78663315a3577244add325f0e4f3",
+      "task_id": "goal_100",
+      "verifier": "webshop_official_reward_v1"
+    },
+    {
+      "artifact_path": null,
+      "benchmark": "webshop",
+      "domain": "interactive",
+      "gold_answers": [],
+      "metadata": {
+        "constraint_count": 3,
+        "goal_idx": 132,
+        "normalized_query": "men s outdoor shoes",
+        "option_count": 0,
+        "query": "men's outdoor shoes",
+        "retrieval_rank": 0,
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        },
+        "target_asin": "B09QXF3V3X",
+        "target_reachable": true
+      },
+      "prompt": "Find me non slip men's outdoor shoes with rubber sole, and price lower than 140.00 dollars",
+      "source_hash": "fb17eec708ccae015802525c126a02828a188ce62c14765c865e7366d7a563e6",
+      "task_id": "goal_132",
+      "verifier": "webshop_official_reward_v1"
+    },
+    {
+      "artifact_path": null,
+      "benchmark": "webshop",
+      "domain": "interactive",
+      "gold_answers": [],
+      "metadata": {
+        "constraint_count": 3,
+        "goal_idx": 446,
+        "normalized_query": "refillable containers",
+        "option_count": 0,
+        "query": "refillable containers",
+        "retrieval_rank": 1,
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        },
+        "target_asin": "B08532HWVM",
+        "target_reachable": true
+      },
+      "prompt": "Find me leak proof refillable containers with travel bottles, and price lower than 30.00 dollars",
+      "source_hash": "b685e9bcedb8b8add5df541f8e3bf8994b9b5b27f86d46cd7ae777a1b4b859fc",
+      "task_id": "goal_446",
+      "verifier": "webshop_official_reward_v1"
+    },
+    {
+      "artifact_path": null,
+      "benchmark": "webshop",
+      "domain": "interactive",
+      "gold_answers": [],
+      "metadata": {
+        "constraint_count": 3,
+        "goal_idx": 71,
+        "normalized_query": "screen protectors",
+        "option_count": 0,
+        "query": "screen protectors",
+        "retrieval_rank": 2,
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        },
+        "target_asin": "B07JMXLXNY",
+        "target_reachable": true
+      },
+      "prompt": "Find me screen protectors with tempered glass, glass screen, and price lower than 40.00 dollars",
+      "source_hash": "bab71c3d4fb441df9e1babc5bb052d5286535de88e97b4b7831cbf0c212704e7",
+      "task_id": "goal_71",
+      "verifier": "webshop_official_reward_v1"
+    },
+    {
+      "artifact_path": null,
+      "benchmark": "webshop",
+      "domain": "interactive",
+      "gold_answers": [],
+      "metadata": {
+        "constraint_count": 3,
+        "goal_idx": 331,
+        "normalized_query": "tripods monopods",
+        "option_count": 0,
+        "query": "tripods & monopods",
+        "retrieval_rank": 0,
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        },
+        "target_asin": "B01MTYK2T9",
+        "target_reachable": true
+      },
+      "prompt": "Find me quick release tripods & monopods with aluminum alloy, and price lower than 40.00 dollars",
+      "source_hash": "3f936ed9718bfabb42f22cdf3d26f3ec4fb2bbcaf4ffbbf8956652120cef2c9a",
+      "task_id": "goal_331",
+      "verifier": "webshop_official_reward_v1"
+    },
+    {
+      "artifact_path": null,
+      "benchmark": "webshop",
+      "domain": "interactive",
+      "gold_answers": [],
+      "metadata": {
+        "constraint_count": 3,
+        "goal_idx": 333,
+        "normalized_query": "binoculars scopes",
+        "option_count": 0,
+        "query": "binoculars & scopes",
+        "retrieval_rank": 6,
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        },
+        "target_asin": "B08Q2YQ35N",
+        "target_reachable": true
+      },
+      "prompt": "Find me binoculars & scopes with aluminum alloy for bird watching, and price lower than 250.00 dollars",
+      "source_hash": "b3c497141a30d4c0aee12958aa400dbe620d37abb34dfd72ad221d3369badd23",
+      "task_id": "goal_333",
+      "verifier": "webshop_official_reward_v1"
+    },
+    {
+      "artifact_path": null,
+      "benchmark": "webshop",
+      "domain": "interactive",
+      "gold_answers": [],
+      "metadata": {
+        "constraint_count": 3,
+        "goal_idx": 399,
+        "normalized_query": "men s underwear",
+        "option_count": 0,
+        "query": "men's underwear",
+        "retrieval_rank": 3,
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        },
+        "target_asin": "B09HY9XB8P",
+        "target_reachable": true
+      },
+      "prompt": "Find me machine wash men's underwear with polyester spandex, and price lower than 50.00 dollars",
+      "source_hash": "01845eef3e8d869fe1e2cb86f40798a2a493852c7ee7de88732adfa404bad260",
+      "task_id": "goal_399",
+      "verifier": "webshop_official_reward_v1"
+    },
+    {
+      "artifact_path": null,
+      "benchmark": "webshop",
+      "domain": "interactive",
+      "gold_answers": [],
+      "metadata": {
+        "constraint_count": 3,
+        "goal_idx": 350,
+        "normalized_query": "foot hand nail care",
+        "option_count": 0,
+        "query": "foot, hand & nail care",
+        "retrieval_rank": 1,
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        },
+        "target_asin": "B09BWQZ68V",
+        "target_reachable": true
+      },
+      "prompt": "Find me dermatologist tested foot, hand & nail care for sensitive skin, and price lower than 30.00 dollars",
+      "source_hash": "886f29bbfc172d15b1be12e95acf71ea297a9f0afc8aa6d85ecf891285682503",
+      "task_id": "goal_350",
+      "verifier": "webshop_official_reward_v1"
+    },
+    {
+      "artifact_path": null,
+      "benchmark": "webshop",
+      "domain": "interactive",
+      "gold_answers": [],
+      "metadata": {
+        "constraint_count": 3,
+        "goal_idx": 252,
+        "normalized_query": "vcrs",
+        "option_count": 0,
+        "query": "vcrs",
+        "retrieval_rank": 4,
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        },
+        "target_asin": "B089R7JZHK",
+        "target_reachable": true
+      },
+      "prompt": "Find me easy use vcrs with aaa batteries, and price lower than 40.00 dollars",
+      "source_hash": "ee9e3e6cedaa2d7307cabaf670364d11d1ac8786b80fd4abc930892e3b61369a",
+      "task_id": "goal_252",
+      "verifier": "webshop_official_reward_v1"
+    },
+    {
+      "artifact_path": null,
+      "benchmark": "webshop",
+      "domain": "interactive",
+      "gold_answers": [],
+      "metadata": {
+        "constraint_count": 4,
+        "goal_idx": 87,
+        "normalized_query": "men s jeans",
+        "option_count": 0,
+        "query": "men's jeans",
+        "retrieval_rank": 0,
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        },
+        "target_asin": "B01MSP2B0I",
+        "target_reachable": true
+      },
+      "prompt": "Find me slim fit, straight leg men's jeans with quality materials, and price lower than 100.00 dollars",
+      "source_hash": "e4598c27908f4772ca51ad66090d28362939d8e1a9bb1101b6df120d20c5d90f",
+      "task_id": "goal_87",
+      "verifier": "webshop_official_reward_v1"
+    },
+    {
+      "artifact_path": null,
+      "benchmark": "webshop",
+      "domain": "interactive",
+      "gold_answers": [],
+      "metadata": {
+        "constraint_count": 4,
+        "goal_idx": 444,
+        "normalized_query": "av receivers amplifiers",
+        "option_count": 0,
+        "query": "av receivers & amplifiers",
+        "retrieval_rank": 1,
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        },
+        "target_asin": "B00VI88X7U",
+        "target_reachable": true
+      },
+      "prompt": "Find me power amplifier, hands free av receivers & amplifiers with usb port, and price lower than 320.00 dollars",
+      "source_hash": "a37461f592a5a3cc142a5bf6732d2a96826fc29ef599a8ab2007601f9efd7b51",
+      "task_id": "goal_444",
+      "verifier": "webshop_official_reward_v1"
+    },
+    {
+      "artifact_path": null,
+      "benchmark": "webshop",
+      "domain": "interactive",
+      "gold_answers": [],
+      "metadata": {
+        "constraint_count": 4,
+        "goal_idx": 484,
+        "normalized_query": "hair masks",
+        "option_count": 0,
+        "query": "hair masks",
+        "retrieval_rank": 4,
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        },
+        "target_asin": "B09FYBZNQL",
+        "target_reachable": true
+      },
+      "prompt": "Find me hair masks for damaged hair, hair treatment, dry hair, and price lower than 50.00 dollars",
+      "source_hash": "346cc5a3038327af255f6b1bb4f30fce2a57a9d7d6e3b25578246f989b1d0a1e",
+      "task_id": "goal_484",
+      "verifier": "webshop_official_reward_v1"
+    },
+    {
+      "artifact_path": null,
+      "benchmark": "webshop",
+      "domain": "interactive",
+      "gold_answers": [],
+      "metadata": {
+        "constraint_count": 4,
+        "goal_idx": 433,
+        "normalized_query": "bathing accessories",
+        "option_count": 0,
+        "query": "bathing accessories",
+        "retrieval_rank": 5,
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        },
+        "target_asin": "B083WSK6F2",
+        "target_reachable": true
+      },
+      "prompt": "Find me double sided bathing accessories for dead skin, dry skin, and price lower than 60.00 dollars",
+      "source_hash": "9ba039908b580c1fa89d65928908348e570559d58463cdde9ec5946c194b300f",
+      "task_id": "goal_433",
+      "verifier": "webshop_official_reward_v1"
+    },
+    {
+      "artifact_path": null,
+      "benchmark": "webshop",
+      "domain": "interactive",
+      "gold_answers": [],
+      "metadata": {
+        "constraint_count": 5,
+        "goal_idx": 32,
+        "normalized_query": "hair extensions wigs accessories",
+        "option_count": 0,
+        "query": "hair extensions, wigs & accessories",
+        "retrieval_rank": 4,
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        },
+        "target_asin": "B096MM7XM4",
+        "target_reachable": true
+      },
+      "prompt": "Find me double sided, easy clean, easy use hair extensions, wigs & accessories for hair extensions, and price lower than 50.00 dollars",
+      "source_hash": "b0e8043159626dc03be0f55b3c9866d9a34cd5bb6fd20dbb87b2cfddd9638834",
+      "task_id": "goal_32",
+      "verifier": "webshop_official_reward_v1"
+    },
+    {
+      "artifact_path": null,
+      "benchmark": "webshop",
+      "domain": "interactive",
+      "gold_answers": [],
+      "metadata": {
+        "constraint_count": 5,
+        "goal_idx": 234,
+        "normalized_query": "snack food gifts",
+        "option_count": 0,
+        "query": "snack food gifts",
+        "retrieval_rank": 0,
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        },
+        "target_asin": "B09DBYG4XD",
+        "target_reachable": true
+      },
+      "prompt": "Find me gmo free, gluten free, kosher certified, non gmo snack food gifts, and price lower than 40.00 dollars",
+      "source_hash": "1459d3c755014942099bbeec8d1d5687c7ab14e3e8159373e3351a946d407d60",
+      "task_id": "goal_234",
+      "verifier": "webshop_official_reward_v1"
+    },
+    {
+      "artifact_path": null,
+      "benchmark": "webshop",
+      "domain": "interactive",
+      "gold_answers": [],
+      "metadata": {
+        "constraint_count": 8,
+        "goal_idx": 352,
+        "normalized_query": "shampoo conditioner",
+        "option_count": 0,
+        "query": "shampoo & conditioner",
+        "retrieval_rank": 0,
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        },
+        "target_asin": "B07B6DVG41",
+        "target_reachable": true
+      },
+      "prompt": "Find me sulfate free, paraben free shampoo & conditioner with hyaluronic acid, coconut oil for damaged hair, hair growth, hair loss, and price lower than 60.00 dollars",
+      "source_hash": "3947554798edf4a9293a8cd9bf40329234f87de42bea106eea8c2cc4b31dd69f",
+      "task_id": "goal_352",
+      "verifier": "webshop_official_reward_v1"
+    },
+    {
+      "artifact_path": null,
+      "benchmark": "webshop",
+      "domain": "interactive",
+      "gold_answers": [],
+      "metadata": {
+        "constraint_count": 4,
+        "goal_idx": 392,
+        "normalized_query": "online game services",
+        "option_count": 1,
+        "query": "online game services",
+        "retrieval_rank": 0,
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        },
+        "target_asin": "B07VVVDRCX",
+        "target_reachable": true
+      },
+      "prompt": "Find me compatible apple online game services with case cover with color: cambridge blue, and price lower than 40.00 dollars",
+      "source_hash": "86603abf0dcf713596f22c6f49f977155acfe22f01f3c3e2423be2b635bed620",
+      "task_id": "goal_392",
+      "verifier": "webshop_official_reward_v1"
+    },
+    {
+      "artifact_path": null,
+      "benchmark": "webshop",
+      "domain": "interactive",
+      "gold_answers": [],
+      "metadata": {
+        "constraint_count": 4,
+        "goal_idx": 277,
+        "normalized_query": "tongue cleaners",
+        "option_count": 1,
+        "query": "tongue cleaners",
+        "retrieval_rank": 0,
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        },
+        "target_asin": "B09MW563KN",
+        "target_reachable": true
+      },
+      "prompt": "Find me tongue cleaners for oral hygiene, fresh breath with color: blue, and price lower than 60.00 dollars",
+      "source_hash": "11e3478b87dc12bcc25923dde441ff0d3da3c5647ceb452bd5d5c49695cd7f58",
+      "task_id": "goal_277",
+      "verifier": "webshop_official_reward_v1"
+    },
+    {
+      "artifact_path": null,
+      "benchmark": "webshop",
+      "domain": "interactive",
+      "gold_answers": [],
+      "metadata": {
+        "constraint_count": 4,
+        "goal_idx": 206,
+        "normalized_query": "hair loss products",
+        "option_count": 1,
+        "query": "hair loss products",
+        "retrieval_rank": 1,
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        },
+        "target_asin": "B09PY89B1S",
+        "target_reachable": true
+      },
+      "prompt": "Find me hair loss products for hair growth, hair loss with size: 3pcs, and price lower than 50.00 dollars",
+      "source_hash": "16ce569e8650236744bffa7a6198db33aecdafc4791f667e61d60f336c622a6e",
+      "task_id": "goal_206",
+      "verifier": "webshop_official_reward_v1"
+    }
+  ],
+  "schema_version": "rsebench.stable-split-candidate.v1",
+  "screening_test": [
+    {
+      "artifact_path": null,
+      "benchmark": "webshop",
+      "domain": "interactive",
+      "gold_answers": [],
+      "metadata": {
+        "constraint_count": 17,
+        "goal_idx": 89,
+        "normalized_query": "women s jeans",
+        "option_count": 1,
+        "query": "women's jeans",
+        "retrieval_rank": 0,
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        },
+        "target_asin": "B09PBPZ24Z",
+        "target_reachable": true
+      },
+      "prompt": "Find me fleece lined, low rise, straight leg, wide leg, butt lifting, wash cold, slim fit, hand wash, machine wash women's jeans with high waist, polyester spandex, regular fit, button closure for teen girls, daily wear with size: large, and price lower than 30.00 dollars",
+      "source_hash": "f54df113aed6ae68462a6eead141a8c66ae0ce8275abd4183a27c98c2be764fb",
+      "task_id": "goal_89",
+      "verifier": "webshop_official_reward_v1"
+    },
+    {
+      "artifact_path": null,
+      "benchmark": "webshop",
+      "domain": "interactive",
+      "gold_answers": [],
+      "metadata": {
+        "constraint_count": 4,
+        "goal_idx": 173,
+        "normalized_query": "men s sweaters",
+        "option_count": 1,
+        "query": "men's sweaters",
+        "retrieval_rank": 5,
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        },
+        "target_asin": "B07LBNRY7H",
+        "target_reachable": true
+      },
+      "prompt": "Find me officially licensed men's sweaters with classic fit with size: unisex medium, and price lower than 50.00 dollars",
+      "source_hash": "5b346bf2b265e11fd4c1b2cff68b6fc0d88564e72d951937ab9099627d0e615c",
+      "task_id": "goal_173",
+      "verifier": "webshop_official_reward_v1"
+    },
+    {
+      "artifact_path": null,
+      "benchmark": "webshop",
+      "domain": "interactive",
+      "gold_answers": [],
+      "metadata": {
+        "constraint_count": 5,
+        "goal_idx": 51,
+        "normalized_query": "women s dresses",
+        "option_count": 2,
+        "query": "women's dresses",
+        "retrieval_rank": 0,
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        },
+        "target_asin": "B08ZRR3DZT",
+        "target_reachable": true
+      },
+      "prompt": "Find me women's dresses with polyester spandex for daily wear with color: red, and size: small, and price lower than 20.00 dollars",
+      "source_hash": "0b2b1b0251cb5abe3c9b724b7169aba4f3329de2164ee6c29668fd87bd94a8a7",
+      "task_id": "goal_51",
+      "verifier": "webshop_official_reward_v1"
+    },
+    {
+      "artifact_path": null,
+      "benchmark": "webshop",
+      "domain": "interactive",
+      "gold_answers": [],
+      "metadata": {
+        "constraint_count": 7,
+        "goal_idx": 6,
+        "normalized_query": "men s shorts",
+        "option_count": 2,
+        "query": "men's shorts",
+        "retrieval_rank": 3,
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        },
+        "target_asin": "B09PYSKD7H",
+        "target_reachable": true
+      },
+      "prompt": "Find me men's shorts with elastic waist, classic fit, short sleeve for gym workout with color: navy, and size: x-large, and price lower than 10.00 dollars",
+      "source_hash": "63df218faccd452078ec6e043a964e1abce2a9398cc751233e7d706e88f40472",
+      "task_id": "goal_6",
+      "verifier": "webshop_official_reward_v1"
+    },
+    {
+      "artifact_path": null,
+      "benchmark": "webshop",
+      "domain": "interactive",
+      "gold_answers": [],
+      "metadata": {
+        "constraint_count": 5,
+        "goal_idx": 40,
+        "normalized_query": "candy chocolate",
+        "option_count": 1,
+        "query": "candy & chocolate",
+        "retrieval_rank": 2,
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        },
+        "target_asin": "B09LM3H2F5",
+        "target_reachable": true
+      },
+      "prompt": "Find me hand crafted candy & chocolate for gift set, valentine day with style: happy birthday truffle chocolate, and price lower than 30.00 dollars",
+      "source_hash": "fee4c4448d492e96224697511ec6783ce4fb08f9e42bc5057d733e8805d5c886",
+      "task_id": "goal_40",
+      "verifier": "webshop_official_reward_v1"
+    },
+    {
+      "artifact_path": null,
+      "benchmark": "webshop",
+      "domain": "interactive",
+      "gold_answers": [],
+      "metadata": {
+        "constraint_count": 7,
+        "goal_idx": 9,
+        "normalized_query": "men s t shirts tanks",
+        "option_count": 2,
+        "query": "men's t-shirts & tanks",
+        "retrieval_rank": 1,
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        },
+        "target_asin": "B09KLQLLT2",
+        "target_reachable": true
+      },
+      "prompt": "Find me machine wash, moisture wicking men's t-shirts & tanks with polyester spandex, long sleeve with color: blue | red, and size: xx-large, and price lower than 20.00 dollars",
+      "source_hash": "a6f384736e8160651d1ad736673d36f38c2b6575e02129ccba3fbb87fa1dc589",
+      "task_id": "goal_9",
+      "verifier": "webshop_official_reward_v1"
+    },
+    {
+      "artifact_path": null,
+      "benchmark": "webshop",
+      "domain": "interactive",
+      "gold_answers": [],
+      "metadata": {
+        "constraint_count": 10,
+        "goal_idx": 35,
+        "normalized_query": "men s tuxedo shirts",
+        "option_count": 3,
+        "query": "men's tuxedo shirts",
+        "retrieval_rank": 5,
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        },
+        "target_asin": "B07JVVDJ6L",
+        "target_reachable": true
+      },
+      "prompt": "Find me machine wash men's tuxedo shirts with polyester heathers, heathers cotton, cotton heather, needle sleeve, classic fit with color: heather grey, and fit type: men, and size: 3t, and price lower than 20.00 dollars",
+      "source_hash": "ac6de4cf85e3cfed800b93d401330b57bfa7953fe4abe7362fa0866e350ba776",
+      "task_id": "goal_35",
+      "verifier": "webshop_official_reward_v1"
+    },
+    {
+      "artifact_path": null,
+      "benchmark": "webshop",
+      "domain": "interactive",
+      "gold_answers": [],
+      "metadata": {
+        "constraint_count": 4,
+        "goal_idx": 325,
+        "normalized_query": "digital cameras",
+        "option_count": 1,
+        "query": "digital cameras",
+        "retrieval_rank": 1,
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        },
+        "target_asin": "B004HO58MA",
+        "target_reachable": true
+      },
+      "prompt": "Find me high speed digital cameras with optical zoom with color: black, and price lower than 110.00 dollars",
+      "source_hash": "05a80a5be5ca812a6968629d33fa54982f10b9b0e0e142f227fa9ec88e3b87ff",
+      "task_id": "goal_325",
+      "verifier": "webshop_official_reward_v1"
+    },
+    {
+      "artifact_path": null,
+      "benchmark": "webshop",
+      "domain": "interactive",
+      "gold_answers": [],
+      "metadata": {
+        "constraint_count": 6,
+        "goal_idx": 282,
+        "normalized_query": "sofa tables",
+        "option_count": 2,
+        "query": "sofa tables",
+        "retrieval_rank": 0,
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        },
+        "target_asin": "B09688C4XM",
+        "target_reachable": true
+      },
+      "prompt": "Find me high density, space saving sofa tables for living room with color: gs2900b, and size: large, and price lower than 10.00 dollars",
+      "source_hash": "5c716b9053fb79cdb3519d072f87a3517c5db643dc312b357818b74f0368cc7b",
+      "task_id": "goal_282",
+      "verifier": "webshop_official_reward_v1"
+    },
+    {
+      "artifact_path": null,
+      "benchmark": "webshop",
+      "domain": "interactive",
+      "gold_answers": [],
+      "metadata": {
+        "constraint_count": 5,
+        "goal_idx": 19,
+        "normalized_query": "women s pumps",
+        "option_count": 2,
+        "query": "women's pumps",
+        "retrieval_rank": 4,
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        },
+        "target_asin": "B092VDY5MF",
+        "target_reachable": true
+      },
+      "prompt": "Find me women's pumps with closed toe, rubber sole with color: black, and size: 7, and price lower than 50.00 dollars",
+      "source_hash": "a03972a0eddb8a80e2b7a105d084cbe9614ad68c176f8c0f5ca96f8621b1c002",
+      "task_id": "goal_19",
+      "verifier": "webshop_official_reward_v1"
+    },
+    {
+      "artifact_path": null,
+      "benchmark": "webshop",
+      "domain": "interactive",
+      "gold_answers": [],
+      "metadata": {
+        "constraint_count": 5,
+        "goal_idx": 107,
+        "normalized_query": "lips makeup",
+        "option_count": 1,
+        "query": "lips makeup",
+        "retrieval_rank": 0,
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        },
+        "target_asin": "B08XQRDDT1",
+        "target_reachable": true
+      },
+      "prompt": "Find me long lasting, easy apply, cruelty free lips makeup with color: set-a, and price lower than 20.00 dollars",
+      "source_hash": "40b844d9cfaf75fe3f33b72b52f85fb7150b0b95c0f1c9468a47b63129bbf868",
+      "task_id": "goal_107",
+      "verifier": "webshop_official_reward_v1"
+    },
+    {
+      "artifact_path": null,
+      "benchmark": "webshop",
+      "domain": "interactive",
+      "gold_answers": [],
+      "metadata": {
+        "constraint_count": 9,
+        "goal_idx": 287,
+        "normalized_query": "women s work safety footwear",
+        "option_count": 2,
+        "query": "women's work & safety footwear",
+        "retrieval_rank": 0,
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        },
+        "target_asin": "B09RPRRNVP",
+        "target_reachable": true
+      },
+      "prompt": "Find me open toe, slip resistant women's work & safety footwear with arch support, high heel, ankle strap, memory foam with color: black, and size: 9, and price lower than 20.00 dollars",
+      "source_hash": "72692d2ac4ea83d40e02ee7fca46941d9d55186fb95f86c652e20862b5c07e21",
+      "task_id": "goal_287",
+      "verifier": "webshop_official_reward_v1"
+    },
+    {
+      "artifact_path": null,
+      "benchmark": "webshop",
+      "domain": "interactive",
+      "gold_answers": [],
+      "metadata": {
+        "constraint_count": 5,
+        "goal_idx": 53,
+        "normalized_query": "throw blankets",
+        "option_count": 2,
+        "query": "throw blankets",
+        "retrieval_rank": 4,
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        },
+        "target_asin": "B09DG3YTHY",
+        "target_reachable": true
+      },
+      "prompt": "Find me eco friendly throw blankets with fleece throw with color: paris eiffel tower1goo8867, and size: 39x59in, and price lower than 40.00 dollars",
+      "source_hash": "d3b5d41f3988a87479f92754a2a01e1ea3567f1a246302c84f01291c141e7f50",
+      "task_id": "goal_53",
+      "verifier": "webshop_official_reward_v1"
+    },
+    {
+      "artifact_path": null,
+      "benchmark": "webshop",
+      "domain": "interactive",
+      "gold_answers": [],
+      "metadata": {
+        "constraint_count": 5,
+        "goal_idx": 67,
+        "normalized_query": "men s boots",
+        "option_count": 1,
+        "query": "men's boots",
+        "retrieval_rank": 1,
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        },
+        "target_asin": "B01EX1BWE4",
+        "target_reachable": true
+      },
+      "prompt": "Find me long lasting, moisture wicking men's boots for daily wear with size: 7.5, and price lower than 100.00 dollars",
+      "source_hash": "6dbb92edf6ced3aabbf7c3f6a71a7f56caef43ca16f7407f99cc9e92d2cde645",
+      "task_id": "goal_67",
+      "verifier": "webshop_official_reward_v1"
+    },
+    {
+      "artifact_path": null,
+      "benchmark": "webshop",
+      "domain": "interactive",
+      "gold_answers": [],
+      "metadata": {
+        "constraint_count": 11,
+        "goal_idx": 8,
+        "normalized_query": "men s shirts",
+        "option_count": 3,
+        "query": "men's shirts",
+        "retrieval_rank": 0,
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        },
+        "target_asin": "B09P39QN2W",
+        "target_reachable": true
+      },
+      "prompt": "Find me wash cold, machine wash men's shirts with polyester heathers, heathers cotton, cotton heather, needle sleeve, classic fit with color: brown, and fit type: youth, and size: medium, and price lower than 20.00 dollars",
+      "source_hash": "16e27b51ba31bf4872a35d5208a13ec6e6f948ddef06a1bfa332fab265ef2424",
+      "task_id": "goal_8",
+      "verifier": "webshop_official_reward_v1"
+    },
+    {
+      "artifact_path": null,
+      "benchmark": "webshop",
+      "domain": "interactive",
+      "gold_answers": [],
+      "metadata": {
+        "constraint_count": 4,
+        "goal_idx": 494,
+        "normalized_query": "eyes makeup",
+        "option_count": 1,
+        "query": "eyes makeup",
+        "retrieval_rank": 0,
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        },
+        "target_asin": "B01LM6W7Z6",
+        "target_reachable": true
+      },
+      "prompt": "Find me eyes makeup for nail polish, nail art with size: 5 shelves, and price lower than 20.00 dollars",
+      "source_hash": "7e10d3240a429b7d663b77bf621cac4f633c776eaf06565c3659376e5f2fa349",
+      "task_id": "goal_494",
+      "verifier": "webshop_official_reward_v1"
+    },
+    {
+      "artifact_path": null,
+      "benchmark": "webshop",
+      "domain": "interactive",
+      "gold_answers": [],
+      "metadata": {
+        "constraint_count": 11,
+        "goal_idx": 26,
+        "normalized_query": "men s t shirts",
+        "option_count": 3,
+        "query": "men's t-shirts",
+        "retrieval_rank": 1,
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        },
+        "target_asin": "B09GL561XH",
+        "target_reachable": true
+      },
+      "prompt": "Find me officially licensed, machine wash men's t-shirts with polyester heathers, heathers cotton, cotton heather, needle sleeve, classic fit with color: pink, and fit type: youth, and size: large, and price lower than 30.00 dollars",
+      "source_hash": "7a2e9589eefe60a9ff5d1e4005e59052e7a10df7d4ffef2dcab05b5d4234a8a7",
+      "task_id": "goal_26",
+      "verifier": "webshop_official_reward_v1"
+    },
+    {
+      "artifact_path": null,
+      "benchmark": "webshop",
+      "domain": "interactive",
+      "gold_answers": [],
+      "metadata": {
+        "constraint_count": 4,
+        "goal_idx": 82,
+        "normalized_query": "children s dental care",
+        "option_count": 1,
+        "query": "children's dental care",
+        "retrieval_rank": 2,
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        },
+        "target_asin": "B09Q55JLCS",
+        "target_reachable": true
+      },
+      "prompt": "Find me teeth whitening, easy use children's dental care with color: l, and price lower than 40.00 dollars",
+      "source_hash": "a5ce584f5ad4a401fb9abb0ca96f2115a4dabebd835976427b35bf07b1110b13",
+      "task_id": "goal_82",
+      "verifier": "webshop_official_reward_v1"
+    },
+    {
+      "artifact_path": null,
+      "benchmark": "webshop",
+      "domain": "interactive",
+      "gold_answers": [],
+      "metadata": {
+        "constraint_count": 8,
+        "goal_idx": 170,
+        "normalized_query": "women s outdoor shoes",
+        "option_count": 2,
+        "query": "women's outdoor shoes",
+        "retrieval_rank": 1,
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        },
+        "target_asin": "B07RPMCNKD",
+        "target_reachable": true
+      },
+      "prompt": "Find me light weight, non slip women's outdoor shoes with rubber sole, soft material, memory foam with color: blue, and size: 8-9, and price lower than 20.00 dollars",
+      "source_hash": "760678b8212f5a1fe4e11a6b73a2d9648fd2e78dd07d2007dd2ce0a478f4ca55",
+      "task_id": "goal_170",
+      "verifier": "webshop_official_reward_v1"
+    },
+    {
+      "artifact_path": null,
+      "benchmark": "webshop",
+      "domain": "interactive",
+      "gold_answers": [],
+      "metadata": {
+        "constraint_count": 5,
+        "goal_idx": 271,
+        "normalized_query": "makeup brushes tools",
+        "option_count": 1,
+        "query": "makeup brushes & tools",
+        "retrieval_rank": 1,
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        },
+        "target_asin": "B004TSFEBY",
+        "target_reachable": true
+      },
+      "prompt": "Find me cruelty free, high quality makeup brushes & tools for eye shadow with style: technique essentials, and price lower than 20.00 dollars",
+      "source_hash": "1ecf45b777bd6e0fcc7b4b117014ac71e9d0e9e7337cde7d189c90ab8793d794",
+      "task_id": "goal_271",
+      "verifier": "webshop_official_reward_v1"
+    }
+  ],
+  "selection_hash": "769686e8feea9f24b37e08c1eeb942790d3b450a1104771023175c1e5a311c90",
+  "source_hash": "006c27246a3a53a82108bc12d9fa418612a566b83be2fa21328e5d2a86ad57df",
+  "train": [
+    {
+      "artifact_path": null,
+      "benchmark": "webshop",
+      "domain": "interactive",
+      "gold_answers": [],
+      "metadata": {
+        "constraint_count": 4,
+        "goal_idx": 1554,
+        "normalized_query": "men s polos",
+        "option_count": 1,
+        "query": "men's polos",
+        "retrieval_rank": 1,
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        },
+        "target_asin": "B09KXCHWGD",
+        "target_reachable": true
+      },
+      "prompt": "Find me men's polos with short sleeve, button closure with color: black, and price lower than 30.00 dollars",
+      "source_hash": "bf90d3b04b6979a523f6d3b299a5c86ff6fcde9975919e8925fece4fe4109b82",
+      "task_id": "goal_1554",
+      "verifier": "webshop_official_reward_v1"
+    },
+    {
+      "artifact_path": null,
+      "benchmark": "webshop",
+      "domain": "interactive",
+      "gold_answers": [],
+      "metadata": {
+        "constraint_count": 4,
+        "goal_idx": 1665,
+        "normalized_query": "online game services",
+        "option_count": 1,
+        "query": "online game services",
+        "retrieval_rank": 0,
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        },
+        "target_asin": "B07VVVDRCX",
+        "target_reachable": true
+      },
+      "prompt": "Find me compatible apple online game services with case cover with color: red mandala, and price lower than 40.00 dollars",
+      "source_hash": "b9cd0b7d4fd3f234f11c3b2f71529d90a87d997366c991f25a035c0186f5b493",
+      "task_id": "goal_1665",
+      "verifier": "webshop_official_reward_v1"
+    },
+    {
+      "artifact_path": null,
+      "benchmark": "webshop",
+      "domain": "interactive",
+      "gold_answers": [],
+      "metadata": {
+        "constraint_count": 4,
+        "goal_idx": 2446,
+        "normalized_query": "beds",
+        "option_count": 1,
+        "query": "beds",
+        "retrieval_rank": 0,
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        },
+        "target_asin": "B018A8MPJ2",
+        "target_reachable": true
+      },
+      "prompt": "Find me queen size beds with storage unit with color: bark grey",
+      "source_hash": "da1752a6bbef68d0d5b69134558ad7711518d9c94ba212d18cda19eb6b63fe17",
+      "task_id": "goal_2446",
+      "verifier": "webshop_official_reward_v1"
+    },
+    {
+      "artifact_path": null,
+      "benchmark": "webshop",
+      "domain": "interactive",
+      "gold_answers": [],
+      "metadata": {
+        "constraint_count": 4,
+        "goal_idx": 2826,
+        "normalized_query": "pendants and chandeliers",
+        "option_count": 1,
+        "query": "pendants and chandeliers",
+        "retrieval_rank": 1,
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        },
+        "target_asin": "B091CNTBNS",
+        "target_reachable": true
+      },
+      "prompt": "Find me easy clean pendants and chandeliers with light fixture with color: semi flush mount, and price lower than 90.00 dollars",
+      "source_hash": "c0c821ff9d9f02d5080fec9a7c35546711a3f303403214b5448038a7f534b1e0",
+      "task_id": "goal_2826",
+      "verifier": "webshop_official_reward_v1"
+    },
+    {
+      "artifact_path": null,
+      "benchmark": "webshop",
+      "domain": "interactive",
+      "gold_answers": [],
+      "metadata": {
+        "constraint_count": 4,
+        "goal_idx": 6018,
+        "normalized_query": "women s shorts",
+        "option_count": 1,
+        "query": "women's shorts",
+        "retrieval_rank": 3,
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        },
+        "target_asin": "B08L373FLK",
+        "target_reachable": true
+      },
+      "prompt": "Find me machine washable women's shorts with cotton spandex with color: green, and price lower than 50.00 dollars",
+      "source_hash": "21e2541e042bee1e419dadac14a69ba880ecd42179bbf356127fd7176072979c",
+      "task_id": "goal_6018",
+      "verifier": "webshop_official_reward_v1"
+    }
+  ],
+  "validation": [
+    {
+      "artifact_path": null,
+      "benchmark": "webshop",
+      "domain": "interactive",
+      "gold_answers": [],
+      "metadata": {
+        "constraint_count": 3,
+        "goal_idx": 1195,
+        "normalized_query": "screen protectors",
+        "option_count": 0,
+        "query": "screen protectors",
+        "retrieval_rank": 3,
+        "seed_success": true,
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        },
+        "target_asin": "B083ZK4NRS",
+        "target_reachable": true
+      },
+      "prompt": "Find me screen protectors with tempered glass, glass screen, and price lower than 50.00 dollars",
+      "source_hash": "701d71b6330e8711875c8c771e41e73a8f90b079d2d7afa440ef020586f201a5",
+      "task_id": "goal_1195",
+      "verifier": "webshop_official_reward_v1"
+    },
+    {
+      "artifact_path": null,
+      "benchmark": "webshop",
+      "domain": "interactive",
+      "gold_answers": [],
+      "metadata": {
+        "constraint_count": 3,
+        "goal_idx": 1362,
+        "normalized_query": "women s socks hosiery",
+        "option_count": 0,
+        "query": "women's socks & hosiery",
+        "retrieval_rank": 6,
+        "seed_success": true,
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        },
+        "target_asin": "B093YT83QR",
+        "target_reachable": true
+      },
+      "prompt": "Find me women's socks & hosiery with blouse hosiery for laundry bag, and price lower than 50.00 dollars",
+      "source_hash": "66aa0f9d9347efdd404a560ba188e083f6c3862444c529d7d5423da8358bf2bd",
+      "task_id": "goal_1362",
+      "verifier": "webshop_official_reward_v1"
+    },
+    {
+      "artifact_path": null,
+      "benchmark": "webshop",
+      "domain": "interactive",
+      "gold_answers": [],
+      "metadata": {
+        "constraint_count": 3,
+        "goal_idx": 735,
+        "normalized_query": "women s slippers",
+        "option_count": 0,
+        "query": "women's slippers",
+        "retrieval_rank": 1,
+        "seed_success": false,
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        },
+        "target_asin": "B01N9I1E62",
+        "target_reachable": true
+      },
+      "prompt": "Find me women's slippers with faux fur, rubber sole, and price lower than 60.00 dollars",
+      "source_hash": "d23de5d45bae0b2119098c256e2b59e9fe18a3dca3958691a9e123c3e4eb4b1f",
+      "task_id": "goal_735",
+      "verifier": "webshop_official_reward_v1"
+    },
+    {
+      "artifact_path": null,
+      "benchmark": "webshop",
+      "domain": "interactive",
+      "gold_answers": [],
+      "metadata": {
+        "constraint_count": 3,
+        "goal_idx": 994,
+        "normalized_query": "cream cheeses",
+        "option_count": 0,
+        "query": "cream cheeses",
+        "retrieval_rank": 0,
+        "seed_success": false,
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        },
+        "target_asin": "B00CQ7PQYU",
+        "target_reachable": true
+      },
+      "prompt": "Find me usda organic, gluten free cream cheeses, and price lower than 120.00 dollars",
+      "source_hash": "f860d414c540e3911f2c356ef707d5b27a2881c053fe861c6b2d859badd5b93c",
+      "task_id": "goal_994",
+      "verifier": "webshop_official_reward_v1"
+    },
+    {
+      "artifact_path": null,
+      "benchmark": "webshop",
+      "domain": "interactive",
+      "gold_answers": [],
+      "metadata": {
+        "constraint_count": 3,
+        "goal_idx": 1036,
+        "normalized_query": "men s jackets coats",
+        "option_count": 0,
+        "query": "men's jackets & coats",
+        "retrieval_rank": 1,
+        "seed_success": false,
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        },
+        "target_asin": "B07V3WXX85",
+        "target_reachable": true
+      },
+      "prompt": "Find me machine wash men's jackets & coats with imported zipper, and price lower than 80.00 dollars",
+      "source_hash": "71756d6f3700420f1b917dd442a26e287a38e4916b076b3fd13e3b0226e72aba",
+      "task_id": "goal_1036",
+      "verifier": "webshop_official_reward_v1"
+    }
+  ]
+}

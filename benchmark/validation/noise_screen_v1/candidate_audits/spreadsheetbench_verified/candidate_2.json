@@ -1,0 +1,107 @@
+{
+  "benchmark": "spreadsheetbench_verified",
+  "candidate_index": 2,
+  "schema_version": "rsebench.selection-candidate-audit.v1",
+  "selection_hash": "aaf4e60e998d2741975429f962a25a6845883eb749b354dac5dc71b46213bdae",
+  "static_gates": {
+    "keyword_map_version": "spreadsheet-operation-keywords-v1",
+    "noise_applicability": {
+      "N1": {
+        "coverage": 1.0,
+        "status": "pass"
+      },
+      "N2": {
+        "coverage": 1.0,
+        "status": "pass"
+      },
+      "N3": {
+        "coverage": null,
+        "status": "pending"
+      },
+      "N4": {
+        "coverage": null,
+        "status": "pending"
+      }
+    },
+    "operation_categories": [
+      "aggregation_formula",
+      "layout_chart_pivot",
+      "lookup_join",
+      "other",
+      "text_date_cleaning"
+    ],
+    "ordered_task_ids": {
+      "test": [
+        "254-34",
+        "59902",
+        "41691",
+        "120-24",
+        "52220",
+        "56915",
+        "47827",
+        "48257",
+        "42198",
+        "177-6",
+        "97-36",
+        "531-18",
+        "54638",
+        "547-43",
+        "353-6",
+        "51-12",
+        "59595",
+        "23-24",
+        "3911",
+        "32438",
+        "52917",
+        "333-29",
+        "48975",
+        "343-20",
+        "59129",
+        "6698",
+        "203-15",
+        "50952",
+        "32093",
+        "54196"
+      ],
+      "train": [
+        "55060",
+        "45372",
+        "33157",
+        "463-17",
+        "416-15",
+        "54144",
+        "290-1",
+        "82-38",
+        "433-47",
+        "414-20",
+        "31915",
+        "8942",
+        "30930",
+        "599-9",
+        "51359",
+        "105-24",
+        "384-4",
+        "66-24",
+        "9448",
+        "39046"
+      ],
+      "validation": [
+        "57113",
+        "24-23",
+        "55965",
+        "535-20",
+        "10747",
+        "9391",
+        "31746",
+        "44296",
+        "236-22",
+        "45707"
+      ]
+    },
+    "train_batch_sizes": [
+      7,
+      7,
+      6
+    ]
+  }
+}

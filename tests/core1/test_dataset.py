@@ -261,6 +261,7 @@ def test_candidate_paths_round_trip_qualification_and_screening_roles(
 
     def role_task(task_id: str, root: Path) -> TaskManifest:
         artifact = root / f"artifacts/{task_id}.json"
+        gold = root / f"gold/{task_id}.json"
         artifact.parent.mkdir(parents=True, exist_ok=True)
         artifact.write_text("{}", encoding="utf-8")
         return TaskManifest(
@@ -272,7 +273,10 @@ def test_candidate_paths_round_trip_qualification_and_screening_roles(
             source_hash=task_id[0] * 64,
             artifact_path=str(artifact.resolve()),
             verifier="fixture_verifier_v1",
-            metadata={"artifact_hash": "f" * 64},
+            metadata={
+                "artifact_hash": "f" * 64,
+                "gold_workbook_path": str(gold.resolve()),
+            },
         )
 
     candidate = StableSplitCandidate(
@@ -302,6 +306,9 @@ def test_candidate_paths_round_trip_qualification_and_screening_roles(
     assert portable.screening_test[0].artifact_path == (
         "rsebench-data://artifacts/d-screening.json"
     )
+    assert portable.screening_test[0].metadata["gold_workbook_path"] == (
+        "rsebench-data://gold/d-screening.json"
+    )
     assert portable.qualification_test[0].verifier == "fixture_verifier_v1"
     assert portable.qualification_test[0].source_hash == "c" * 64
     assert portable.qualification_test[0].metadata["artifact_hash"] == "f" * 64
@@ -316,4 +323,7 @@ def test_candidate_paths_round_trip_qualification_and_screening_roles(
     )
     assert resolved.screening_test[0].artifact_path == str(
         (data_root / "artifacts/d-screening.json").resolve()
+    )
+    assert resolved.screening_test[0].metadata["gold_workbook_path"] == str(
+        (data_root / "gold/d-screening.json").resolve()
     )

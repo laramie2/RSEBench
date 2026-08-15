@@ -227,3 +227,9 @@ def test_repository_loader_exercises_real_local_materializations() -> None:
     ]
     assert [len(row.train) for row in bundles["webshop"].candidates] == [5, 5, 5]
     assert len(bundles["skilllearnbench"].candidates) == 1
+    assert bundles["skilllearnbench"].confirmation.metadata["families"] == [
+        "court-form-filling",
+        "earthquake-plate-calculation",
+        "dbscan-parameter-tuning",
+        "travel-planning",
+    ]

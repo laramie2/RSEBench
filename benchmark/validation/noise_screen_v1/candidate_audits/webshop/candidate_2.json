@@ -1,0 +1,73 @@
+{
+  "benchmark": "webshop",
+  "candidate_index": 2,
+  "schema_version": "rsebench.selection-candidate-audit.v1",
+  "selection_hash": "6e9d980810b878c8703a7197ab5013bd65cb90fab6b69fbe939f75207ed12d66",
+  "static_gates": {
+    "noise_applicability": {
+      "N1": {
+        "coverage": 1.0,
+        "status": "pass"
+      },
+      "N2": {
+        "coverage": 1.0,
+        "status": "pass"
+      },
+      "N3": {
+        "coverage": null,
+        "status": "pending"
+      },
+      "N4": {
+        "coverage": null,
+        "status": "pending"
+      }
+    },
+    "ordered_task_ids": {
+      "test": [
+        "goal_89",
+        "goal_173",
+        "goal_51",
+        "goal_6",
+        "goal_40",
+        "goal_9",
+        "goal_35",
+        "goal_325",
+        "goal_282",
+        "goal_19",
+        "goal_107",
+        "goal_287",
+        "goal_53",
+        "goal_67",
+        "goal_8",
+        "goal_494",
+        "goal_26",
+        "goal_82",
+        "goal_170",
+        "goal_271"
+      ],
+      "train": [
+        "goal_4733",
+        "goal_5892",
+        "goal_2472",
+        "goal_2657",
+        "goal_3884"
+      ],
+      "validation": [
+        "goal_1195",
+        "goal_1362",
+        "goal_735",
+        "goal_994",
+        "goal_1036"
+      ]
+    },
+    "reachable_target_asins": true,
+    "train_batch_sizes": [
+      5
+    ],
+    "unique_normalized_queries": true,
+    "validation_headroom": {
+      "successes": 2,
+      "total": 5
+    }
+  }
+}

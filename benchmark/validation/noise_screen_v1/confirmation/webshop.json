@@ -1,0 +1,804 @@
+{
+  "benchmark": "webshop",
+  "confirmation_test": [
+    {
+      "artifact_path": null,
+      "benchmark": "webshop",
+      "domain": "interactive",
+      "gold_answers": [],
+      "metadata": {
+        "constraint_count": 3,
+        "goal_idx": 70,
+        "normalized_query": "women s fragrance",
+        "option_count": 0,
+        "query": "women's fragrance",
+        "retrieval_rank": 0,
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        },
+        "target_asin": "B0936C6MBM",
+        "target_reachable": true
+      },
+      "prompt": "Find me fragrance free women's fragrance for sensitive skin, and price lower than 20.00 dollars",
+      "source_hash": "1287f18afbcf17059d9c5616e2eaaaff480e419e4196792a99b3d1cf0c6d7988",
+      "task_id": "goal_70",
+      "verifier": "webshop_official_reward_v1"
+    },
+    {
+      "artifact_path": null,
+      "benchmark": "webshop",
+      "domain": "interactive",
+      "gold_answers": [],
+      "metadata": {
+        "constraint_count": 3,
+        "goal_idx": 374,
+        "normalized_query": "makeup remover",
+        "option_count": 0,
+        "query": "makeup remover",
+        "retrieval_rank": 6,
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        },
+        "target_asin": "B09CTMLF8X",
+        "target_reachable": true
+      },
+      "prompt": "Find me anti aging makeup remover for sensitive skin, and price lower than 20.00 dollars",
+      "source_hash": "4b0f99a6c87804843a4e5e5e250504215cb8c85ef060905683f574311fec4a3f",
+      "task_id": "goal_374",
+      "verifier": "webshop_official_reward_v1"
+    },
+    {
+      "artifact_path": null,
+      "benchmark": "webshop",
+      "domain": "interactive",
+      "gold_answers": [],
+      "metadata": {
+        "constraint_count": 5,
+        "goal_idx": 208,
+        "normalized_query": "living room sets",
+        "option_count": 1,
+        "query": "living room sets",
+        "retrieval_rank": 0,
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        },
+        "target_asin": "B09B7G7P58",
+        "target_reachable": true
+      },
+      "prompt": "Find me space saving, easy assemble living room sets for dining room with color: gray-1, and price lower than 320.00 dollars",
+      "source_hash": "c1200fb1dd7cc5f21963e1a003fc055db1578375507912d5f3b61faf782266a9",
+      "task_id": "goal_208",
+      "verifier": "webshop_official_reward_v1"
+    },
+    {
+      "artifact_path": null,
+      "benchmark": "webshop",
+      "domain": "interactive",
+      "gold_answers": [],
+      "metadata": {
+        "constraint_count": 6,
+        "goal_idx": 226,
+        "normalized_query": "vanities",
+        "option_count": 1,
+        "query": "vanities",
+        "retrieval_rank": 5,
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        },
+        "target_asin": "B0957XW92M",
+        "target_reachable": true
+      },
+      "prompt": "Find me high density, white item vanities with metal legs for living room with color: white, and price lower than 60.00 dollars",
+      "source_hash": "65d826681d77bda0a08f5d68e649a2b65464be2f6334319c6400833abd9f2951",
+      "task_id": "goal_226",
+      "verifier": "webshop_official_reward_v1"
+    },
+    {
+      "artifact_path": null,
+      "benchmark": "webshop",
+      "domain": "interactive",
+      "gold_answers": [],
+      "metadata": {
+        "constraint_count": 5,
+        "goal_idx": 457,
+        "normalized_query": "mattresses",
+        "option_count": 1,
+        "query": "mattresses",
+        "retrieval_rank": 6,
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        },
+        "target_asin": "B08R9QHFPC",
+        "target_reachable": true
+      },
+      "prompt": "Find me high density, space saving, easy clean mattresses with size: twin, and price lower than 100.00 dollars",
+      "source_hash": "dcb188f5de74d28d8c756ff03ea0c03042e9b1fa1988af8ba9ea5f6da5ffd5de",
+      "task_id": "goal_457",
+      "verifier": "webshop_official_reward_v1"
+    },
+    {
+      "artifact_path": null,
+      "benchmark": "webshop",
+      "domain": "interactive",
+      "gold_answers": [],
+      "metadata": {
+        "constraint_count": 5,
+        "goal_idx": 86,
+        "normalized_query": "flashes",
+        "option_count": 2,
+        "query": "flashes",
+        "retrieval_rank": 2,
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        },
+        "target_asin": "B09QMPV75P",
+        "target_reachable": true
+      },
+      "prompt": "Find me high speed flashes with usb port with color: eausb512-dark blue, and size: 256gb, and price lower than 30.00 dollars",
+      "source_hash": "d2b6bef3bc362e938be0c1b6f97db7614a9c250989e256e40f3e208541c29f4a",
+      "task_id": "goal_86",
+      "verifier": "webshop_official_reward_v1"
+    },
+    {
+      "artifact_path": null,
+      "benchmark": "webshop",
+      "domain": "interactive",
+      "gold_answers": [],
+      "metadata": {
+        "constraint_count": 7,
+        "goal_idx": 5,
+        "normalized_query": "men s dress shirts",
+        "option_count": 2,
+        "query": "men's dress shirts",
+        "retrieval_rank": 4,
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        },
+        "target_asin": "B07HRFSNL4",
+        "target_reachable": true
+      },
+      "prompt": "Find me machine wash men's dress shirts with cotton spandex, classic fit, short sleeve with color: black, and size: xx-large tall, and price lower than 20.00 dollars",
+      "source_hash": "ee80b1a51832d9cd20baa0099f9f5082d61e52c628faa6bdaa50fe287577cb36",
+      "task_id": "goal_5",
+      "verifier": "webshop_official_reward_v1"
+    },
+    {
+      "artifact_path": null,
+      "benchmark": "webshop",
+      "domain": "interactive",
+      "gold_answers": [],
+      "metadata": {
+        "constraint_count": 6,
+        "goal_idx": 295,
+        "normalized_query": "women s swimsuits cover ups",
+        "option_count": 2,
+        "query": "women's swimsuits & cover ups",
+        "retrieval_rank": 6,
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        },
+        "target_asin": "B0861GWJV2",
+        "target_reachable": true
+      },
+      "prompt": "Find me quick drying women's swimsuits & cover ups with nylon spandex, long sleeve with color: yellow, and size: tag xl = us 10, and price lower than 110.00 dollars",
+      "source_hash": "080f9d415e37e286dc4028c1bebb8fdd745290f61568f67d847cc9f290f542f3",
+      "task_id": "goal_295",
+      "verifier": "webshop_official_reward_v1"
+    },
+    {
+      "artifact_path": null,
+      "benchmark": "webshop",
+      "domain": "interactive",
+      "gold_answers": [],
+      "metadata": {
+        "constraint_count": 7,
+        "goal_idx": 366,
+        "normalized_query": "women s bodysuit tops",
+        "option_count": 1,
+        "query": "women's bodysuit tops",
+        "retrieval_rank": 1,
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        },
+        "target_asin": "B089K79PQ1",
+        "target_reachable": true
+      },
+      "prompt": "Find me hand wash, wash cold women's bodysuit tops with polyester spandex for tumble dry, daily wear with size: x-large, and price lower than 20.00 dollars",
+      "source_hash": "f30046d88e35d66008f39ee79225ac7d2693530ae6da728a19b215c914bd2be3",
+      "task_id": "goal_366",
+      "verifier": "webshop_official_reward_v1"
+    },
+    {
+      "artifact_path": null,
+      "benchmark": "webshop",
+      "domain": "interactive",
+      "gold_answers": [],
+      "metadata": {
+        "constraint_count": 4,
+        "goal_idx": 215,
+        "normalized_query": "sconces",
+        "option_count": 1,
+        "query": "sconces",
+        "retrieval_rank": 4,
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        },
+        "target_asin": "B08GY1VWPH",
+        "target_reachable": true
+      },
+      "prompt": "Find me sconces for dining room, living room with color: gold, and price lower than 70.00 dollars",
+      "source_hash": "a7bf93430725dbedcf04a27cb56fcd6531db8009efa687fdddc93897b981fbf7",
+      "task_id": "goal_215",
+      "verifier": "webshop_official_reward_v1"
+    },
+    {
+      "artifact_path": null,
+      "benchmark": "webshop",
+      "domain": "interactive",
+      "gold_answers": [],
+      "metadata": {
+        "constraint_count": 6,
+        "goal_idx": 246,
+        "normalized_query": "women s sandals",
+        "option_count": 2,
+        "query": "women's sandals",
+        "retrieval_rank": 1,
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        },
+        "target_asin": "B07XDRVVYM",
+        "target_reachable": true
+      },
+      "prompt": "Find me women's sandals with arch support, rubber outsole, rubber sole with color: taupe metallic combi, and size: 6.5 wide, and price lower than 40.00 dollars",
+      "source_hash": "3045259aa0a4bfdbc78c742ec40bdad7fe581fae38a55cf33c311381a728aa72",
+      "task_id": "goal_246",
+      "verifier": "webshop_official_reward_v1"
+    },
+    {
+      "artifact_path": null,
+      "benchmark": "webshop",
+      "domain": "interactive",
+      "gold_answers": [],
+      "metadata": {
+        "constraint_count": 5,
+        "goal_idx": 461,
+        "normalized_query": "deodorants antiperspirants",
+        "option_count": 2,
+        "query": "deodorants & antiperspirants",
+        "retrieval_rank": 5,
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        },
+        "target_asin": "B005X7IXTK",
+        "target_reachable": true
+      },
+      "prompt": "Find me anti perspirant, cruelty free deodorants & antiperspirants with scent: floral, and size: 1.6 ounce (pack of 1), and price lower than 40.00 dollars",
+      "source_hash": "66c5285fbfcd2fce312bdf7662264a62ae327a80c61cce94139397a55f6c67ad",
+      "task_id": "goal_461",
+      "verifier": "webshop_official_reward_v1"
+    },
+    {
+      "artifact_path": null,
+      "benchmark": "webshop",
+      "domain": "interactive",
+      "gold_answers": [],
+      "metadata": {
+        "constraint_count": 5,
+        "goal_idx": 74,
+        "normalized_query": "window coverings",
+        "option_count": 2,
+        "query": "window coverings",
+        "retrieval_rank": 6,
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        },
+        "target_asin": "B096RV56XP",
+        "target_reachable": true
+      },
+      "prompt": "Find me machine washable window coverings for living room with color: sea mist, and size: 52\"w x 108\"l, and price lower than 20.00 dollars",
+      "source_hash": "f3be6a2a6daa022bf32e119651ea927337c68c0bd6aee2251d3612f71d8f8e42",
+      "task_id": "goal_74",
+      "verifier": "webshop_official_reward_v1"
+    },
+    {
+      "artifact_path": null,
+      "benchmark": "webshop",
+      "domain": "interactive",
+      "gold_answers": [],
+      "metadata": {
+        "constraint_count": 6,
+        "goal_idx": 300,
+        "normalized_query": "hair cutting tools",
+        "option_count": 1,
+        "query": "hair cutting tools",
+        "retrieval_rank": 2,
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        },
+        "target_asin": "B09GP6G1MT",
+        "target_reachable": true
+      },
+      "prompt": "Find me high quality, non slip hair cutting tools with stainless steel for hair cutting with color: scissors white, and price lower than 110.00 dollars",
+      "source_hash": "c1fa69da9cf6119e9a6d5c7fbfd69065c3f16e3c5d279cff114579041e223eee",
+      "task_id": "goal_300",
+      "verifier": "webshop_official_reward_v1"
+    },
+    {
+      "artifact_path": null,
+      "benchmark": "webshop",
+      "domain": "interactive",
+      "gold_answers": [],
+      "metadata": {
+        "constraint_count": 5,
+        "goal_idx": 455,
+        "normalized_query": "meat substitutes",
+        "option_count": 1,
+        "query": "meat substitutes",
+        "retrieval_rank": 4,
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        },
+        "target_asin": "B004PCJTR4",
+        "target_reachable": true
+      },
+      "prompt": "Find me old fashioned, protein serving, keto friendly meat substitutes with flavor name: teriyaki, and price lower than 30.00 dollars",
+      "source_hash": "fc22d4fd76f3183fa99582679f0f34d362976784373a834dbda1f0faf8e13ee9",
+      "task_id": "goal_455",
+      "verifier": "webshop_official_reward_v1"
+    },
+    {
+      "artifact_path": null,
+      "benchmark": "webshop",
+      "domain": "interactive",
+      "gold_answers": [],
+      "metadata": {
+        "constraint_count": 6,
+        "goal_idx": 90,
+        "normalized_query": "men s fashion sneakers",
+        "option_count": 2,
+        "query": "men's fashion sneakers",
+        "retrieval_rank": 0,
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        },
+        "target_asin": "B08T84R7V2",
+        "target_reachable": true
+      },
+      "prompt": "Find me men's fashion sneakers with lace closure, rubber outsole, rubber sole with color: white | black, and size: 11, and price lower than 30.00 dollars",
+      "source_hash": "02f40dd7ed2842218a598f5be6c77246ffbb1e9ee45a872be28f226b8a699960",
+      "task_id": "goal_90",
+      "verifier": "webshop_official_reward_v1"
+    },
+    {
+      "artifact_path": null,
+      "benchmark": "webshop",
+      "domain": "interactive",
+      "gold_answers": [],
+      "metadata": {
+        "constraint_count": 6,
+        "goal_idx": 278,
+        "normalized_query": "women s pants",
+        "option_count": 2,
+        "query": "women's pants",
+        "retrieval_rank": 3,
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        },
+        "target_asin": "B08BC7JRLQ",
+        "target_reachable": true
+      },
+      "prompt": "Find me machine wash women's pants with high waist, elastic closure with color: a-grey, and size: xx-large, and price lower than 20.00 dollars",
+      "source_hash": "8f505e759e6717a06b67d41905e8cf3ff13c088a47491dba5ee8eaf4289bbc26",
+      "task_id": "goal_278",
+      "verifier": "webshop_official_reward_v1"
+    },
+    {
+      "artifact_path": null,
+      "benchmark": "webshop",
+      "domain": "interactive",
+      "gold_answers": [],
+      "metadata": {
+        "constraint_count": 5,
+        "goal_idx": 181,
+        "normalized_query": "home office chairs",
+        "option_count": 1,
+        "query": "home office chairs",
+        "retrieval_rank": 1,
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        },
+        "target_asin": "B09L44298X",
+        "target_reachable": true
+      },
+      "prompt": "Find me height adjustable home office chairs with stainless steel for living room with color: classic grey, and price lower than 180.00 dollars",
+      "source_hash": "6a80cf242401c4010c7230215682973a310c2f1c87b4eefb4055160715c27271",
+      "task_id": "goal_181",
+      "verifier": "webshop_official_reward_v1"
+    },
+    {
+      "artifact_path": null,
+      "benchmark": "webshop",
+      "domain": "interactive",
+      "gold_answers": [],
+      "metadata": {
+        "constraint_count": 4,
+        "goal_idx": 103,
+        "normalized_query": "decorative mirrors",
+        "option_count": 1,
+        "query": "decorative mirrors",
+        "retrieval_rank": 3,
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        },
+        "target_asin": "B07S2Z9KGP",
+        "target_reachable": true
+      },
+      "prompt": "Find me space saving decorative mirrors for living room with color: ridge bronze, and price lower than 150.00 dollars",
+      "source_hash": "9011454ba1840e9ab127325e2728bfeda8dc43770ae038255e5ec7b4e12e54cf",
+      "task_id": "goal_103",
+      "verifier": "webshop_official_reward_v1"
+    },
+    {
+      "artifact_path": null,
+      "benchmark": "webshop",
+      "domain": "interactive",
+      "gold_answers": [],
+      "metadata": {
+        "constraint_count": 6,
+        "goal_idx": 2,
+        "normalized_query": "wall art",
+        "option_count": 2,
+        "query": "wall art",
+        "retrieval_rank": 2,
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        },
+        "target_asin": "B099WH1RTM",
+        "target_reachable": true
+      },
+      "prompt": "Find me ready hang wall art with solid wood for living room with color: turtles and african american couple, and size: 8x10 inch, and price lower than 40.00 dollars",
+      "source_hash": "e5ec061cffea996e6b03746e80c386c34a6be6dd566821e1765abde94f114411",
+      "task_id": "goal_2",
+      "verifier": "webshop_official_reward_v1"
+    }
+  ],
+  "domain": "interactive",
+  "metadata": {
+    "qualification_version": "noise-screen-v1",
+    "reserved_before_screening": true,
+    "selection_version": "noise-screen-v1",
+    "static_audit": {
+      "noise_applicability": {
+        "N1": {
+          "coverage": 1.0,
+          "status": "pass"
+        },
+        "N2": {
+          "coverage": 1.0,
+          "status": "pass"
+        },
+        "N3": {
+          "coverage": null,
+          "status": "pending"
+        },
+        "N4": {
+          "coverage": null,
+          "status": "pending"
+        }
+      },
+      "ordered_task_ids": {
+        "test": [
+          "goal_70",
+          "goal_374",
+          "goal_208",
+          "goal_226",
+          "goal_457",
+          "goal_86",
+          "goal_5",
+          "goal_295",
+          "goal_366",
+          "goal_215",
+          "goal_246",
+          "goal_461",
+          "goal_74",
+          "goal_300",
+          "goal_455",
+          "goal_90",
+          "goal_278",
+          "goal_181",
+          "goal_103",
+          "goal_2"
+        ],
+        "train": [
+          "goal_2335",
+          "goal_5775",
+          "goal_6058",
+          "goal_3522",
+          "goal_2656"
+        ],
+        "validation": [
+          "goal_788",
+          "goal_1251",
+          "goal_1302",
+          "goal_1268",
+          "goal_502"
+        ]
+      },
+      "reachable_target_asins": true,
+      "train_batch_sizes": [
+        5
+      ],
+      "unique_normalized_queries": true,
+      "validation_headroom": {
+        "status": "pending"
+      }
+    }
+  },
+  "schema_version": "rsebench.confirmation-split.v1",
+  "selection_hash": "fb700b3cd6738ed53bc3b0e80433b4c60daade457a28aad60dae3c55789c01e4",
+  "source_hash": "19d8212241d1ed1c8d89ac010f8f234da62c26adc9e316c72de606c6efe7c4b4",
+  "train": [
+    {
+      "artifact_path": null,
+      "benchmark": "webshop",
+      "domain": "interactive",
+      "gold_answers": [],
+      "metadata": {
+        "constraint_count": 3,
+        "goal_idx": 2335,
+        "normalized_query": "toothpicks",
+        "option_count": 0,
+        "query": "toothpicks",
+        "retrieval_rank": 0,
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        },
+        "target_asin": "B09PNJC838",
+        "target_reachable": true
+      },
+      "prompt": "Find me toothpicks for valentine day, baby shower, and price lower than 110.00 dollars",
+      "source_hash": "1516c4ac32c0cfc53c49fd1bae1e3df7e83e9446ba38e8eee0b5de5dfc90053a",
+      "task_id": "goal_2335",
+      "verifier": "webshop_official_reward_v1"
+    },
+    {
+      "artifact_path": null,
+      "benchmark": "webshop",
+      "domain": "interactive",
+      "gold_answers": [],
+      "metadata": {
+        "constraint_count": 3,
+        "goal_idx": 5775,
+        "normalized_query": "virtual reality",
+        "option_count": 0,
+        "query": "virtual reality",
+        "retrieval_rank": 4,
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        },
+        "target_asin": "B07H5GWRL4",
+        "target_reachable": true
+      },
+      "prompt": "Find me fast charging, high speed virtual reality, and price lower than 20.00 dollars",
+      "source_hash": "0844ad028a33632a9ca8fd52291af1dbe26edff27470e3f7be27ad77c896672b",
+      "task_id": "goal_5775",
+      "verifier": "webshop_official_reward_v1"
+    },
+    {
+      "artifact_path": null,
+      "benchmark": "webshop",
+      "domain": "interactive",
+      "gold_answers": [],
+      "metadata": {
+        "constraint_count": 4,
+        "goal_idx": 6058,
+        "normalized_query": "bluetooth headsets",
+        "option_count": 0,
+        "query": "bluetooth headsets",
+        "retrieval_rank": 0,
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        },
+        "target_asin": "B06XQYN77L",
+        "target_reachable": true
+      },
+      "prompt": "Find me plug play, light weight, hands free bluetooth headsets, and price lower than 20.00 dollars",
+      "source_hash": "e49641a3767bd47dd5ec64297e600a30e1b6fe031782cd856be33e9482c2b795",
+      "task_id": "goal_6058",
+      "verifier": "webshop_official_reward_v1"
+    },
+    {
+      "artifact_path": null,
+      "benchmark": "webshop",
+      "domain": "interactive",
+      "gold_answers": [],
+      "metadata": {
+        "constraint_count": 4,
+        "goal_idx": 3522,
+        "normalized_query": "surround sound systems",
+        "option_count": 0,
+        "query": "surround sound systems",
+        "retrieval_rank": 3,
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        },
+        "target_asin": "B074PBDJG9",
+        "target_reachable": true
+      },
+      "prompt": "Find me high performance, high speed, easy install surround sound systems, and price lower than 10.00 dollars",
+      "source_hash": "700839ab4d3fe516980469a038aaf78be24b49d88212bd9e3de5b3b2248679a4",
+      "task_id": "goal_3522",
+      "verifier": "webshop_official_reward_v1"
+    },
+    {
+      "artifact_path": null,
+      "benchmark": "webshop",
+      "domain": "interactive",
+      "gold_answers": [],
+      "metadata": {
+        "constraint_count": 4,
+        "goal_idx": 2656,
+        "normalized_query": "candles",
+        "option_count": 0,
+        "query": "candles",
+        "retrieval_rank": 6,
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        },
+        "target_asin": "B08JQ5TLQV",
+        "target_reachable": true
+      },
+      "prompt": "Find me long lasting, lead free candles with soy wax, and price lower than 20.00 dollars",
+      "source_hash": "967d84be213de2287219bfd220eee19c51c5ff55c84164dd6f0eac7386d0213a",
+      "task_id": "goal_2656",
+      "verifier": "webshop_official_reward_v1"
+    }
+  ],
+  "validation": [
+    {
+      "artifact_path": null,
+      "benchmark": "webshop",
+      "domain": "interactive",
+      "gold_answers": [],
+      "metadata": {
+        "constraint_count": 3,
+        "goal_idx": 788,
+        "normalized_query": "men s fragrance",
+        "option_count": 0,
+        "query": "men's fragrance",
+        "retrieval_rank": 0,
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        },
+        "target_asin": "B08XQWJX8P",
+        "target_reachable": true
+      },
+      "prompt": "Find me long lasting men's fragrance with natural ingredients, and price lower than 30.00 dollars",
+      "source_hash": "5cdc056dd9c8140becdd2d3ee2f9953112ab856c07bae0a430422926d0373260",
+      "task_id": "goal_788",
+      "verifier": "webshop_official_reward_v1"
+    },
+    {
+      "artifact_path": null,
+      "benchmark": "webshop",
+      "domain": "interactive",
+      "gold_answers": [],
+      "metadata": {
+        "constraint_count": 3,
+        "goal_idx": 1251,
+        "normalized_query": "floor lamps",
+        "option_count": 0,
+        "query": "floor lamps",
+        "retrieval_rank": 4,
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        },
+        "target_asin": "B09GBF12CY",
+        "target_reachable": true
+      },
+      "prompt": "Find me floor lamps for living room, dining room, and price lower than 70.00 dollars",
+      "source_hash": "c0cded77f5cff35532ca9124210200401572caa7338a24d3c72f811e9e5ca10a",
+      "task_id": "goal_1251",
+      "verifier": "webshop_official_reward_v1"
+    },
+    {
+      "artifact_path": null,
+      "benchmark": "webshop",
+      "domain": "interactive",
+      "gold_answers": [],
+      "metadata": {
+        "constraint_count": 3,
+        "goal_idx": 1302,
+        "normalized_query": "meat seafood",
+        "option_count": 0,
+        "query": "meat & seafood",
+        "retrieval_rank": 8,
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        },
+        "target_asin": "B09NX4RGK7",
+        "target_reachable": true
+      },
+      "prompt": "Find me plant based meat & seafood with artificial flavors, and price lower than 110.00 dollars",
+      "source_hash": "ba863fd1a78e0a116638c51c2d57d2e6ec34b438711350b584576aa9724acdcf",
+      "task_id": "goal_1302",
+      "verifier": "webshop_official_reward_v1"
+    },
+    {
+      "artifact_path": null,
+      "benchmark": "webshop",
+      "domain": "interactive",
+      "gold_answers": [],
+      "metadata": {
+        "constraint_count": 4,
+        "goal_idx": 1268,
+        "normalized_query": "table lamps",
+        "option_count": 0,
+        "query": "table lamps",
+        "retrieval_rank": 0,
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        },
+        "target_asin": "B096G437B4",
+        "target_reachable": true
+      },
+      "prompt": "Find me mid century table lamps with bronze finish, steel frame, and price lower than 80.00 dollars",
+      "source_hash": "69ecccccd18270160d2bd557dfafcf32aebfd041d214872ad88c2a9652602d5e",
+      "task_id": "goal_1268",
+      "verifier": "webshop_official_reward_v1"
+    },
+    {
+      "artifact_path": null,
+      "benchmark": "webshop",
+      "domain": "interactive",
+      "gold_answers": [],
+      "metadata": {
+        "constraint_count": 4,
+        "goal_idx": 502,
+        "normalized_query": "underwater photography",
+        "option_count": 0,
+        "query": "underwater photography",
+        "retrieval_rank": 4,
+        "static_applicability": {
+          "N1": true,
+          "N2": true
+        },
+        "target_asin": "B09PKHJN8P",
+        "target_reachable": true
+      },
+      "prompt": "Find me light weight, easy carry underwater photography with aluminum alloy, and price lower than 20.00 dollars",
+      "source_hash": "505eb05438554e86e3679349e667ce4964687c3ce758b11ff0cece56d398fee1",
+      "task_id": "goal_502",
+      "verifier": "webshop_official_reward_v1"
+    }
+  ]
+}

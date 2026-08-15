@@ -25,6 +25,7 @@ if str(PROJECT_ROOT) not in sys.path:
 from rsebench.contracts import TaskManifest  # noqa: E402
 from rsebench.core1.dataset import (  # noqa: E402
     make_candidate_paths_portable,
+    make_clean_split_paths_portable,
     make_confirmation_paths_portable,
     rehash_task,
     resolve_clean_split_paths,
@@ -43,6 +44,7 @@ from rsebench.selection.splits import (  # noqa: E402
     build_selection_candidates,
     build_skilllearn_selection_candidates,
 )
+from scripts.build_clean_skilllearn_qualification import _family_split  # noqa: E402
 
 
 def _load_json(path: Path) -> Any:
@@ -512,6 +514,7 @@ def _webshop_bundle(
 def _skilllearn_bundle(
     *,
     exposure_registry: ExposureRegistry,
+    data_root: Path,
     methods_root: Path,
 ) -> SelectionCandidateBundle:
     root = PROJECT_ROOT / "benchmark/validation/clean_qualification_v2/skilllearnbench"
@@ -522,8 +525,15 @@ def _skilllearn_bundle(
         for family in SCREENING_SKILLLEARN_FAMILIES
     }
     confirmation = {
-        family: CleanEvolutionSplitManifest.model_validate(
-            _load_json(root / f"{family}.json")
+        family: make_clean_split_paths_portable(
+            _family_split(
+                family,
+                qualification_version="noise-screen-v1",
+                methods_root=methods_root,
+            ),
+            project_root=PROJECT_ROOT,
+            data_root=data_root,
+            methods_root=methods_root,
         )
         for family in CONFIRMATION_SKILLLEARN_FAMILIES
     }
@@ -565,6 +575,7 @@ def load_repository_bundles(
         ),
         "skilllearnbench": _skilllearn_bundle(
             exposure_registry=exposure_registry,
+            data_root=data_root,
             methods_root=methods_root,
         ),
     }

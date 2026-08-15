@@ -72,10 +72,12 @@ Spreadsheet 保持 `7/7/6` 三个 SkillOpt 更新批次。OfficeQA 保持 `4/4/4
 
 独立确认保留另外四个 family：
 
-1. `github-repo-analytics`；
-2. `financial-analysis`；
-3. `stock-data-visualization`；
-4. `enterprise-information-search`。
+1. `court-form-filling`；
+2. `earthquake-plate-calculation`；
+3. `dbscan-parameter-tuning`；
+4. `travel-planning`。
+
+这四个 family 是在冻结前根据历史暴露登记确定的固定集合：均未产生历史执行证据，实例规模均满足 `2/1/2–3`，并覆盖文档、科学计算、数据分析与规划。原拟集合中的 `github-repo-analytics` 和 `stock-data-visualization` 已有真实历史运行，导致原四族整体不能作为预注册的独立确认集合；`financial-analysis` 与 `enterprise-information-search` 只有 preflight 记录，但为避免保留一个混合历史集合，本次一并替换。此次替换发生在任何新 clean/noisy 筛选结果产生之前，后续仍禁止动态替补。
 
 family 不得在看到 clean 或 noisy 结果后互换或替补。
 
@@ -88,6 +90,8 @@ family 不得在看到 clean 或 noisy 结果后互换或替补。
 - 是否已经产生模型输出或正式分数；
 - 首次和最近一次暴露的实验 ID；
 - 暴露级别：`manifest_only`、`executed` 或 `score_observed`。
+
+暴露级别由实际 artifact 语义约束：preflight、镜像预构建和 dry-run 中仅声明的 task ID 只能记为 `manifest_only`；只有真实 task timing/执行记录才能提升为 `executed`，真实逐题分数才能提升为 `score_observed`。当前 `noise_screen_v1` 输出子树必须从自己的历史扫描中排除，以保证重复生成不会自污染。
 
 规则如下：
 

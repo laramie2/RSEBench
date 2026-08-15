@@ -1,0 +1,106 @@
+{
+  "benchmark": "spreadsheetbench_verified",
+  "candidate_index": 3,
+  "schema_version": "rsebench.selection-candidate-audit.v1",
+  "selection_hash": "dd40035ef7092a6789919284cfc6fb30c736b421dedc0ef2da6aea45364d9b0b",
+  "static_gates": {
+    "keyword_map_version": "spreadsheet-operation-keywords-v1",
+    "noise_applicability": {
+      "N1": {
+        "coverage": 1.0,
+        "status": "pass"
+      },
+      "N2": {
+        "coverage": 1.0,
+        "status": "pass"
+      },
+      "N3": {
+        "coverage": null,
+        "status": "pending"
+      },
+      "N4": {
+        "coverage": null,
+        "status": "pending"
+      }
+    },
+    "operation_categories": [
+      "aggregation_formula",
+      "lookup_join",
+      "other",
+      "text_date_cleaning"
+    ],
+    "ordered_task_ids": {
+      "test": [
+        "254-34",
+        "59902",
+        "41691",
+        "120-24",
+        "52220",
+        "56915",
+        "47827",
+        "48257",
+        "42198",
+        "177-6",
+        "97-36",
+        "531-18",
+        "54638",
+        "547-43",
+        "353-6",
+        "51-12",
+        "59595",
+        "23-24",
+        "3911",
+        "32438",
+        "52917",
+        "333-29",
+        "48975",
+        "343-20",
+        "59129",
+        "6698",
+        "203-15",
+        "50952",
+        "32093",
+        "54196"
+      ],
+      "train": [
+        "57117",
+        "80-42",
+        "42902",
+        "147-48",
+        "59160",
+        "496-34",
+        "55817",
+        "47798",
+        "31628",
+        "49300",
+        "304-35",
+        "38462",
+        "40478",
+        "51556",
+        "39903",
+        "178-22",
+        "55976",
+        "13-1",
+        "79-7",
+        "496-15"
+      ],
+      "validation": [
+        "57113",
+        "24-23",
+        "55965",
+        "535-20",
+        "10747",
+        "9391",
+        "31746",
+        "44296",
+        "236-22",
+        "45707"
+      ]
+    },
+    "train_batch_sizes": [
+      7,
+      7,
+      6
+    ]
+  }
+}

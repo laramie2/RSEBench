@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
@@ -45,13 +46,15 @@ _LOCATOR_KEYS = {
 def _hash_metadata(value: Any, *, key: str | None = None) -> Any:
     if key in _LOCATOR_KEYS or (key is not None and key.endswith("_path")):
         return None
-    if isinstance(value, dict):
+    if isinstance(value, Mapping):
         return {
             child_key: _hash_metadata(child, key=child_key)
             for child_key, child in value.items()
             if child_key not in _LOCATOR_KEYS and not child_key.endswith("_path")
         }
-    if isinstance(value, list):
+    if isinstance(value, Sequence) and not isinstance(
+        value, (str, bytes, bytearray)
+    ):
         return [_hash_metadata(child) for child in value]
     return value
 
@@ -86,9 +89,11 @@ def _root_mapping(
 
 
 def _portable_reference(value: Any, roots: dict[str, Path]) -> Any:
-    if isinstance(value, dict):
+    if isinstance(value, Mapping):
         return {key: _portable_reference(child, roots) for key, child in value.items()}
-    if isinstance(value, list):
+    if isinstance(value, Sequence) and not isinstance(
+        value, (str, bytes, bytearray)
+    ):
         return [_portable_reference(child, roots) for child in value]
     if not isinstance(value, str) or not Path(value).is_absolute():
         return value
@@ -110,9 +115,11 @@ def _portable_reference(value: Any, roots: dict[str, Path]) -> Any:
 
 
 def _resolved_reference(value: Any, roots: dict[str, Path]) -> Any:
-    if isinstance(value, dict):
+    if isinstance(value, Mapping):
         return {key: _resolved_reference(child, roots) for key, child in value.items()}
-    if isinstance(value, list):
+    if isinstance(value, Sequence) and not isinstance(
+        value, (str, bytes, bytearray)
+    ):
         return [_resolved_reference(child, roots) for child in value]
     if not isinstance(value, str):
         return value

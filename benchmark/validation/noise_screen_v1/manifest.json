@@ -1,0 +1,58 @@
+{
+  "candidate_audits": {
+    "officeqa_full": [
+      "candidate_audits/officeqa_full/candidate_1.json",
+      "candidate_audits/officeqa_full/candidate_2.json",
+      "candidate_audits/officeqa_full/candidate_3.json"
+    ],
+    "skilllearnbench": [
+      "candidate_audits/skilllearnbench/candidate_1.json"
+    ],
+    "spreadsheetbench_verified": [
+      "candidate_audits/spreadsheetbench_verified/candidate_1.json",
+      "candidate_audits/spreadsheetbench_verified/candidate_2.json",
+      "candidate_audits/spreadsheetbench_verified/candidate_3.json"
+    ],
+    "webshop": [
+      "candidate_audits/webshop/candidate_1.json",
+      "candidate_audits/webshop/candidate_2.json",
+      "candidate_audits/webshop/candidate_3.json"
+    ]
+  },
+  "candidates": {
+    "officeqa_full": [
+      "candidates/officeqa_full/candidate_1.json",
+      "candidates/officeqa_full/candidate_2.json",
+      "candidates/officeqa_full/candidate_3.json"
+    ],
+    "skilllearnbench": [
+      "candidates/skilllearnbench/candidate_1.json"
+    ],
+    "spreadsheetbench_verified": [
+      "candidates/spreadsheetbench_verified/candidate_1.json",
+      "candidates/spreadsheetbench_verified/candidate_2.json",
+      "candidates/spreadsheetbench_verified/candidate_3.json"
+    ],
+    "webshop": [
+      "candidates/webshop/candidate_1.json",
+      "candidates/webshop/candidate_2.json",
+      "candidates/webshop/candidate_3.json"
+    ]
+  },
+  "confirmation": {
+    "officeqa_full": "confirmation/officeqa_full.json",
+    "skilllearnbench": "confirmation/skilllearnbench.json",
+    "spreadsheetbench_verified": "confirmation/spreadsheetbench_verified.json",
+    "webshop": "confirmation/webshop.json"
+  },
+  "confirmation_seal": "confirmation_seal.json",
+  "exposure_registry_hash": "adb8c69904e820b5ebedab9d4957223b8a97aa38fd6fd52101fb689fbc69ff15",
+  "ordered_benchmarks": [
+    "officeqa_full",
+    "skilllearnbench",
+    "spreadsheetbench_verified",
+    "webshop"
+  ],
+  "schema_version": "rsebench.selection-candidate-index.v1",
+  "selection_version": "noise-screen-v1"
+}

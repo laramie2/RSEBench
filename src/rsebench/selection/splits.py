@@ -31,10 +31,10 @@ SCREENING_SKILLLEARN_FAMILIES = (
     "dependency-vulnerability-check",
 )
 CONFIRMATION_SKILLLEARN_FAMILIES = (
-    "github-repo-analytics",
-    "financial-analysis",
-    "stock-data-visualization",
-    "enterprise-information-search",
+    "court-form-filling",
+    "earthquake-plate-calculation",
+    "dbscan-parameter-tuning",
+    "travel-planning",
 )
 DEFAULT_SKILLLEARN_TASKS_ROOT = (
     Path(__file__).resolve().parents[3]

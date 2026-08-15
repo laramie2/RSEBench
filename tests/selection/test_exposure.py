@@ -181,6 +181,65 @@ def test_scanner_recognizes_skilllearn_instance_id_records(tmp_path: Path) -> No
     assert registry.records[0].roles == ["skilllearn_instance"]
 
 
+def test_preflight_ids_are_manifest_only_but_real_scores_remain_observed(
+    tmp_path: Path,
+) -> None:
+    output_root = tmp_path / "outputs"
+    preflight = output_root / "preflight/skilllearn"
+    run = output_root / "runs/paired/skilllearn"
+    preflight.mkdir(parents=True)
+    run.mkdir(parents=True)
+    (preflight / "image_manifest.json").write_text(
+        json.dumps(
+            {
+                "benchmark": "skilllearnbench",
+                "instances": [
+                    {"task_id": "court-form-filling-1"},
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    (preflight / "dry_run.json").write_text(
+        json.dumps(
+            {
+                "benchmark": "skilllearnbench",
+                "train": [{"task_id": "earthquake-plate-calculation-1"}],
+            }
+        ),
+        encoding="utf-8",
+    )
+    (run / "trajectory.json").write_text(
+        json.dumps(
+            {
+                "benchmark": "skilllearnbench",
+                "per_task_scores": {"github-repo-analytics-1": 0.5},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    registry = build_exposure_registry(
+        [
+            ExposureSource(
+                label="pilot-results",
+                root=output_root,
+                level=ExposureLevel.score_observed,
+            )
+        ]
+    )
+    by_id = {record.task_id: record for record in registry.records}
+
+    assert by_id["court-form-filling-1"].level == ExposureLevel.manifest_only
+    assert (
+        by_id["earthquake-plate-calculation-1"].level
+        == ExposureLevel.manifest_only
+    )
+    assert (
+        by_id["github-repo-analytics-1"].level == ExposureLevel.score_observed
+    )
+
+
 def test_experiment_bounds_and_source_partition_are_merged(tmp_path: Path) -> None:
     manifest = tmp_path / "manifest.json"
     result = tmp_path / "result.json"

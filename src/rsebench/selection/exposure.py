@@ -9,6 +9,7 @@ from typing import Any
 
 from rsebench.evidence import canonical_hash
 from rsebench.selection.contracts import (
+    ExposureLevel,
     ExposureRecord,
     ExposureRegistry,
     ExposureSource,
@@ -164,15 +165,29 @@ def _scan_payload(
             yield from _scan_payload(child, inherited_benchmark=benchmark)
 
 
-def _source_files(root: Path) -> list[Path]:
+def _is_excluded(path: Path, excluded_roots: Sequence[Path]) -> bool:
+    resolved = path.resolve()
+    return any(
+        resolved == excluded or resolved.is_relative_to(excluded)
+        for excluded in excluded_roots
+    )
+
+
+def _source_files(
+    root: Path,
+    *,
+    excluded_roots: Sequence[Path] = (),
+) -> list[Path]:
     if not root.exists():
         raise FileNotFoundError(f"exposure source does not exist: {root}")
     if root.is_file():
-        return [root]
+        return [] if _is_excluded(root, excluded_roots) else [root]
     return sorted(
         path
         for path in root.rglob("*")
-        if path.is_file() and path.suffix.lower() in {".json", ".jsonl"}
+        if path.is_file()
+        and path.suffix.lower() in {".json", ".jsonl"}
+        and not _is_excluded(path, excluded_roots)
     )
 
 
@@ -193,6 +208,30 @@ def _read_payloads(path: Path) -> Iterator[Any]:
         yield json.loads(path.read_text(encoding="utf-8"))
     except json.JSONDecodeError as exc:
         raise ValueError(f"invalid JSON in {path}") from exc
+
+
+def _artifact_level(
+    source: ExposureSource,
+    *,
+    path: Path,
+    role: str,
+) -> ExposureLevel:
+    """Cap planning-only artifacts without hiding real execution evidence."""
+
+    if role == "per_task_scores":
+        return ExposureLevel.score_observed
+    if role == "task_timing":
+        return ExposureLevel.executed
+    planning_names = {
+        "dry_run.json",
+        "image_manifest.json",
+        "image_manifest.verify.json",
+        "image_record.json",
+    }
+    planning_parts = {"preflight", "dry-run"}
+    if path.name in planning_names or planning_parts.intersection(path.parts):
+        return ExposureLevel.manifest_only
+    return source.level
 
 
 def merge_record(
@@ -233,6 +272,8 @@ def merge_record(
 
 def build_exposure_registry(
     sources: Sequence[ExposureSource],
+    *,
+    exclude_roots: Sequence[Path] = (),
 ) -> ExposureRegistry:
     """Scan only declared ID-bearing fields and merge by level precedence."""
 
@@ -240,18 +281,22 @@ def build_exposure_registry(
     if len(labels) != len(set(labels)):
         raise ValueError("exposure source labels must be unique")
 
+    excluded = tuple(Path(path).resolve() for path in exclude_roots)
     merged: dict[tuple[str, str], ExposureRecord] = {}
     for source in sources:
-        for path in _source_files(source.root):
+        for path in _source_files(source.root, excluded_roots=excluded):
             for payload in _read_payloads(path):
                 for benchmark, task_id, role in _scan_payload(payload):
+                    effective_source = source.model_copy(
+                        update={"level": _artifact_level(source, path=path, role=role)}
+                    )
                     key = (benchmark, task_id)
                     merged[key] = merge_record(
                         merged.get(key),
                         benchmark=benchmark,
                         task_id=task_id,
                         role=role,
-                        source=source,
+                        source=effective_source,
                     )
 
     records = [merged[key] for key in sorted(merged)]

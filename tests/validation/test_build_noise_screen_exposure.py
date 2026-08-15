@@ -67,3 +67,36 @@ def test_cli_builds_portable_byte_stable_registry(tmp_path: Path) -> None:
     assert str(result_root.resolve()) not in serialized
     assert first.stdout == second.stdout
     assert "1 exposure records" in first.stdout
+
+
+def test_cli_excludes_its_selection_output_subtree_from_history(
+    tmp_path: Path,
+) -> None:
+    benchmark_root = tmp_path / "benchmark"
+    selection_root = benchmark_root / "validation/noise_screen_v1"
+    selection_root.mkdir(parents=True)
+    (benchmark_root / "historical.json").write_text(
+        json.dumps({"benchmark": "webshop", "train": ["goal_history"]}),
+        encoding="utf-8",
+    )
+    (selection_root / "candidate.json").write_text(
+        json.dumps({"benchmark": "webshop", "train": ["goal_self"]}),
+        encoding="utf-8",
+    )
+    output = selection_root / "exposure_registry.json"
+    command = [
+        sys.executable,
+        str(PROJECT_ROOT / "scripts/build_noise_screen_exposure.py"),
+        "--source",
+        f"main-manifests={benchmark_root}:manifest_only",
+        "--output",
+        str(output),
+    ]
+
+    subprocess.run(command, cwd=PROJECT_ROOT, check=True)
+    first_bytes = output.read_bytes()
+    subprocess.run(command, cwd=PROJECT_ROOT, check=True)
+
+    assert output.read_bytes() == first_bytes
+    records = json.loads(first_bytes)["records"]
+    assert [record["task_id"] for record in records] == ["goal_history"]

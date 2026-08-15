@@ -1,0 +1,86 @@
+{
+  "benchmark": "skilllearnbench",
+  "candidate_index": 1,
+  "schema_version": "rsebench.selection-candidate-audit.v1",
+  "selection_hash": "69fb49a8529ead368e7cbba6e284bf135e632ea725f1fdbd25f344d4b20f73ce",
+  "static_gates": {
+    "family_allocations": {
+      "dependency-vulnerability-check": {
+        "screening_test": [
+          "dependency-vulnerability-check-4",
+          "dependency-vulnerability-check-5"
+        ],
+        "train": [
+          "dependency-vulnerability-check-1",
+          "dependency-vulnerability-check-2"
+        ],
+        "validation": [
+          "dependency-vulnerability-check-3"
+        ]
+      },
+      "offer-letter-generator": {
+        "screening_test": [
+          "offer-letter-generator-4",
+          "offer-letter-generator-5",
+          "offer-letter-generator-6"
+        ],
+        "train": [
+          "offer-letter-generator-1",
+          "offer-letter-generator-2"
+        ],
+        "validation": [
+          "offer-letter-generator-3"
+        ]
+      },
+      "organize-messy-files": {
+        "screening_test": [
+          "organize-messy-files-4",
+          "organize-messy-files-5",
+          "organize-messy-files-6"
+        ],
+        "train": [
+          "organize-messy-files-1",
+          "organize-messy-files-2"
+        ],
+        "validation": [
+          "organize-messy-files-3"
+        ]
+      },
+      "schedule-planning": {
+        "screening_test": [
+          "schedule-planning-4",
+          "schedule-planning-5"
+        ],
+        "train": [
+          "schedule-planning-1",
+          "schedule-planning-2"
+        ],
+        "validation": [
+          "schedule-planning-3"
+        ]
+      }
+    },
+    "noise_applicability": {
+      "N1": {
+        "applicable": 8,
+        "coverage": 1.0,
+        "denominator": 8,
+        "status": "pass"
+      },
+      "N2": {
+        "applicable": 8,
+        "coverage": 1.0,
+        "denominator": 8,
+        "status": "pass"
+      },
+      "N3": {
+        "coverage": null,
+        "status": "pending"
+      },
+      "N4": {
+        "coverage": null,
+        "status": "pending"
+      }
+    }
+  }
+}

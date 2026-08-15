@@ -134,10 +134,10 @@ def _candidate(benchmark: str, domain: str, index: int = 1) -> StableSplitCandid
 def _confirmation(benchmark: str, domain: str) -> ConfirmationSplit:
     if benchmark == "skilllearnbench":
         families = (
-            "github-repo-analytics",
-            "financial-analysis",
-            "stock-data-visualization",
-            "enterprise-information-search",
+            "court-form-filling",
+            "earthquake-plate-calculation",
+            "dbscan-parameter-tuning",
+            "travel-planning",
         )
         roles = {
             role: [] for role in ("train", "validation", "confirmation_test")
