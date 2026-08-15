@@ -2,6 +2,7 @@ import copy
 import json
 import operator
 from collections.abc import Callable
+from pathlib import Path, PosixPath
 from typing import Any
 
 import pytest
@@ -18,6 +19,7 @@ from rsebench.selection import (
     ExposureLevel,
     ExposureRecord,
     ExposureRegistry,
+    ExposureSource,
     ResourceLock,
     ResourceReference,
     ScreeningGeneralizationDecision,
@@ -35,6 +37,26 @@ HASH = "a" * 64
 class _MutableMetadataValue:
     def __init__(self) -> None:
         self.values: list[str] = []
+
+
+class _StatefulStr(str):
+    state: list[str]
+
+
+class _StatefulInt(int):
+    state: list[str]
+
+
+class _StatefulPath(PosixPath):
+    rendered: str
+
+    def __new__(cls, value: str) -> "_StatefulPath":
+        instance = super().__new__(cls, value)
+        instance.rendered = value
+        return instance
+
+    def __str__(self) -> str:
+        return self.rendered
 
 
 def _task(
@@ -478,6 +500,87 @@ def test_supported_metadata_is_unaliased_and_canonical_output_remains_stable() -
 
     assert candidate.model_dump(mode="json") == original_dump
     assert canonical_hash(candidate) == original_hash
+
+
+def test_scalar_and_path_subclasses_are_normalized_without_aliases() -> None:
+    candidate_text = _StatefulStr("candidate")
+    candidate_text.state = []
+    candidate_number = _StatefulInt(7)
+    candidate_number.state = []
+    candidate_path = _StatefulPath("/candidate/original")
+    task_text = _StatefulStr("task")
+    task_text.state = []
+    task_number = _StatefulInt(11)
+    task_number.state = []
+    task_path = _StatefulPath("/task/original")
+    candidate = _candidate(
+        metadata={
+            "text": candidate_text,
+            "number": candidate_number,
+            "path": candidate_path,
+        },
+        train=[
+            _task(
+                "train",
+                metadata={
+                    "text": task_text,
+                    "number": task_number,
+                    "path": task_path,
+                },
+            )
+        ],
+    )
+    original_dump = candidate.model_dump(mode="json")
+    original_hash = canonical_hash(candidate)
+
+    assert type(candidate.metadata["text"]) is str
+    assert type(candidate.metadata["number"]) is int
+    assert type(candidate.metadata["path"]) is type(Path())
+    assert candidate.metadata["text"] is not candidate_text
+    assert candidate.metadata["number"] is not candidate_number
+    assert candidate.metadata["path"] is not candidate_path
+    assert type(candidate.train[0].metadata["text"]) is str
+    assert type(candidate.train[0].metadata["number"]) is int
+    assert type(candidate.train[0].metadata["path"]) is type(Path())
+    assert candidate.train[0].metadata["text"] is not task_text
+    assert candidate.train[0].metadata["number"] is not task_number
+    assert candidate.train[0].metadata["path"] is not task_path
+    candidate_text.state.append("changed")
+    candidate_number.state.append("changed")
+    candidate_path.rendered = "/candidate/changed"
+    task_text.state.append("changed")
+    task_number.state.append("changed")
+    task_path.rendered = "/task/changed"
+
+    assert candidate.model_dump(mode="json") == original_dump
+    assert canonical_hash(candidate) == original_hash
+
+
+def test_exposure_source_normalizes_path_subclass_and_preserves_typed_enum() -> None:
+    source_path = _StatefulPath("/source/original")
+    source = ExposureSource(
+        label="history",
+        root=source_path,
+        level=ExposureLevel.executed,
+    )
+    original_dump = source.model_dump(mode="json")
+    original_hash = canonical_hash(source)
+
+    assert type(source.root) is type(Path())
+    assert source.root is not source_path
+    assert source.level is ExposureLevel.executed
+    source_path.rendered = "/source/changed"
+
+    assert str(source.root) == "/source/original"
+    assert source.model_dump(mode="json") == original_dump
+    assert canonical_hash(source) == original_hash
+
+
+def test_finite_float_metadata_remains_supported() -> None:
+    candidate = _candidate(metadata={"ratio": 0.125})
+
+    assert type(candidate.metadata["ratio"]) is float
+    assert candidate.model_dump(mode="json")["metadata"]["ratio"] == 0.125
 
 
 def test_nested_model_dump_honors_exclude_none() -> None:

@@ -170,10 +170,22 @@ def _deep_freeze(value: Any) -> Any:
         )
     if isinstance(value, (list, tuple)):
         return _ImmutableSequence(_deep_freeze(child) for child in value)
-    if value is None or isinstance(value, (str, bool, int, Path)):
-        return value
-    if isinstance(value, float) and math.isfinite(value):
-        return value
+    if isinstance(value, ExposureLevel):
+        return ExposureLevel(value.value)
+    if isinstance(value, Enum):
+        return _deep_freeze(value.value)
+    if isinstance(value, Path):
+        return Path(str(value))
+    if value is None:
+        return None
+    if isinstance(value, bool):
+        return bool(value)
+    if isinstance(value, str):
+        return str(value)
+    if isinstance(value, int):
+        return int(value)
+    if isinstance(value, float) and math.isfinite(normalized := float(value)):
+        return normalized
     raise ValueError(
         "selection contracts require stable canonical values; "
         f"unsupported type: {type(value).__name__}"
