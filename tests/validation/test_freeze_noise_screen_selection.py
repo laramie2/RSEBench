@@ -284,6 +284,27 @@ def test_root_mode_refuses_companion_that_differs_from_owned_evidence(
         )
 
 
+def test_root_mode_requires_final_resource_lock_not_preflight_alias(
+    root_release_fixture: tuple[Path, Path, Path],
+) -> None:
+    selection_root, run_root, destination = root_release_fixture
+    (selection_root / "resource_lock.json").rename(
+        selection_root / "resource_lock.preflight.json"
+    )
+
+    with pytest.raises(FileNotFoundError, match="resource_lock.json"):
+        main(
+            [
+                "--selection-root",
+                str(selection_root),
+                "--run-root",
+                str(run_root),
+                "--release-root",
+                str(destination),
+            ]
+        )
+
+
 def test_script_parser_rejects_unowned_input_bypass() -> None:
     from scripts.freeze_noise_screen_selection import build_parser
 

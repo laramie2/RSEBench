@@ -1220,7 +1220,6 @@ Expected: release and CLI tests pass with no absolute paths.
 - Generate: benchmark/validation/noise_screen_v1/exposure_registry.json
 - Generate: benchmark/validation/noise_screen_v1/candidates/
 - Generate: benchmark/validation/noise_screen_v1/confirmation_seal.json
-- Generate: benchmark/validation/noise_screen_v1/resource_lock.preflight.json
 - Generate: outputs/preflight/noise-screen-v1/
 
 **Interfaces:**
@@ -1253,7 +1252,10 @@ PYTHONPATH=src python scripts/build_noise_screen_candidates.py \
   --output benchmark/validation/noise_screen_v1
 ~~~
 
-Expected: three candidates per non-SkillLearn benchmark, eight fixed SkillLearn family manifests, one confirmation seal, and zero provider calls.
+Expected: three candidates per non-SkillLearn benchmark, one aggregate
+SkillLearn `StableSplitCandidate` covering the four screening families, one aggregate
+SkillLearn `ConfirmationSplit` covering the four sealed confirmation families, one
+confirmation seal, and zero provider calls.
 
 - [ ] **Step 3: Run baseline and experiment preflight**
 
@@ -1315,7 +1317,7 @@ During provider-active work, mutable selection_status.json stays under the ignor
 
 ~~~bash
 PYTHONPATH=src python scripts/prebuild_clean_skilllearn_images.py \
-  --manifest-root benchmark/validation/noise_screen_v1/candidates/skilllearnbench \
+  --selection-root benchmark/validation/noise_screen_v1 \
   --output outputs/preflight/noise-screen-v1/skilllearn_image_manifest.json
 ~~~
 

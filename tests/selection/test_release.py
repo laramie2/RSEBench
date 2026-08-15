@@ -645,6 +645,12 @@ def test_release_requires_exact_passing_decisions_and_matching_seal(
     [
         ("absolute.json", b'{"path":"/home/user/data.json"}\n', "absolute path"),
         ("embedded.json", b'{"path":"prefix=/home/user/data"}\n', "absolute path"),
+        ("etc.json", b'{"path":"prefix=/etc/passwd"}\n', "absolute path"),
+        (
+            "windows.json",
+            b'{"path":"prefix=C:\\\\Users\\\\person\\\\data"}\n',
+            "absolute path",
+        ),
         ("worktree.json", b'{"path":"repo/.worktrees/run"}\n', "worktree"),
         ("secret.json", b'{"token":"sk-secret-value"}\n', "secret"),
         ("locator.json", b'{"path":"file:///tmp/data.json"}\n', "unresolved"),
@@ -662,6 +668,19 @@ def test_portability_barrier_rejects_forbidden_content(
         reject_secrets_and_absolute_paths({name: content})
 
 
+def test_portability_barrier_allows_non_path_slashes_and_https_urls() -> None:
+    reject_secrets_and_absolute_paths(
+        {
+            "portable.json": json.dumps(
+                {
+                    "prompt": "Compute 10 / 2 and cite https://example.com/reference",
+                    "uri": "rsebench-data://portable/task.json",
+                }
+            ).encode()
+        }
+    )
+
+
 def test_atomic_writer_rejects_unsafe_relative_names(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="repository-relative"):
         atomic_content_addressed_write(
@@ -671,7 +690,19 @@ def test_atomic_writer_rejects_unsafe_relative_names(tmp_path: Path) -> None:
 
 @pytest.mark.parametrize(
     "credential_field",
-    ["apiKey", "api-key", "accessToken", "secret_key", "privateKey", "password"],
+    [
+        "apiKey",
+        "api-key",
+        "accessToken",
+        "secret_key",
+        "privateKey",
+        "password",
+        "token",
+        "auth_token",
+        "secret",
+        "credential",
+        "authorization",
+    ],
 )
 def test_portability_barrier_rejects_credential_field_variants(
     credential_field: str,
@@ -730,6 +761,27 @@ def test_resource_reference_rejects_reviewer_uri_probes(uri: str) -> None:
             kind=kind,
             sha256="a" * 64,
             materialization="fixture",
+        )
+
+
+@pytest.mark.parametrize(
+    "uri",
+    [
+        "git+https://example.com/repository.git?token=value@" + "a" * 40,
+        "git+https://example.com/repository.git#fragment@" + "a" * 40,
+        "git+https://example.com/repository%2egit@" + "a" * 40,
+        "git+https://example.com/%75ser/repository.git@" + "a" * 40,
+    ],
+)
+def test_resource_reference_rejects_non_repository_git_uri_characters(
+    uri: str,
+) -> None:
+    with pytest.raises(ValidationError):
+        ResourceReference(
+            uri=uri,
+            kind="git",
+            sha256="a" * 64,
+            materialization="rsebench-methods://skillopt",
         )
 
 

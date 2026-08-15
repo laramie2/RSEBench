@@ -47,6 +47,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         data_root=args.data_root,
         methods_root=args.methods_root,
         methods_registry=args.methods_registry,
+        image_manifest=args.image_manifest,
     )
     write_resource_lock(args.output, lock)
     print(f"resources={len(lock.resources)} provider_calls=0")

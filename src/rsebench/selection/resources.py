@@ -102,7 +102,20 @@ def _materialized_path(uri: str, *, data_root: Path, methods_root: Path) -> Path
 
 
 def _path_hash(path: Path) -> str:
+    _reject_descendant_symlinks(path)
     return sha256_file(path) if path.is_file() else sha256_tree(path)
+
+
+def _reject_descendant_symlinks(path: Path) -> None:
+    if path.is_symlink():
+        raise ValueError(f"materialization is a symlink: {path}")
+    if not path.is_dir():
+        return
+    for descendant in path.rglob("*"):
+        if descendant.is_symlink():
+            raise ValueError(
+                f"materialization contains a descendant symlink: {descendant}"
+            )
 
 
 def _git_output(repository: Path, *args: str) -> str:
@@ -131,6 +144,10 @@ def _git_tree_hash(repository: Path) -> str:
     digest = hashlib.sha256()
     for name in sorted(names):
         path = repository / name
+        if path.is_symlink():
+            raise ValueError(
+                f"git materialization contains a descendant symlink: {path}"
+            )
         if not path.is_file():
             raise ValueError(f"tracked git materialization is missing: {path}")
         encoded = name.encode("utf-8")
@@ -201,6 +218,11 @@ def _image_references(
             not isinstance(task_id, str) for task_id in task_ids
         ):
             raise ValueError("SkillLearn image task coverage is malformed")
+        overlap = covered & set(task_ids)
+        if overlap:
+            raise ValueError(
+                f"SkillLearn image task maps to multiple contexts: {sorted(overlap)}"
+            )
         covered.update(task_ids)
         if any(task_to_context.get(task_id) != context for task_id in task_ids):
             raise ValueError("SkillLearn image context mapping differs from image row")
@@ -280,6 +302,7 @@ def validate_resource_lock_materializations(
     data_root: Path,
     methods_root: Path,
     methods_registry: Path,
+    image_manifest: Path,
 ) -> None:
     """Verify local hashes, baseline revisions, and OCI digest bindings."""
 
@@ -292,6 +315,22 @@ def validate_resource_lock_materializations(
         )
         for baseline in BASELINE_METHODS
     }
+    locked_images = [
+        resource for resource in lock.resources if resource.kind == "external-image"
+    ]
+    required_image_tasks = {
+        task_id for resource in locked_images for task_id in resource.task_ids
+    }
+    expected_images = _image_references(
+        image_manifest,
+        required_task_ids=required_image_tasks,
+    )
+    if sorted(locked_images, key=lambda row: row.uri) != sorted(
+        expected_images, key=lambda row: row.uri
+    ):
+        raise ValueError(
+            "external-image resources differ from the prebuilt image manifest"
+        )
     for resource in lock.resources:
         if resource.kind in {"rsebench-data", "rsebench-methods"}:
             path = _materialized_path(

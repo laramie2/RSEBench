@@ -148,6 +148,7 @@ def test_build_resource_lock_covers_and_verifies_materializations(
         data_root=data_root,
         methods_root=methods_root,
         methods_registry=registry,
+        image_manifest=image_manifest,
     )
     data_ref = next(resource for resource in lock.resources if resource.kind == "rsebench-data")
     assert data_ref.sha256 == sha256_file(
@@ -190,6 +191,7 @@ def test_resource_lock_detects_local_hash_drift(
             data_root=data_root,
             methods_root=methods_root,
             methods_registry=registry,
+            image_manifest=image_manifest,
         )
 
 
@@ -215,6 +217,7 @@ def test_resource_lock_detects_git_revision_drift(
             data_root=data_root,
             methods_root=methods_root,
             methods_registry=registry,
+            image_manifest=image_manifest,
         )
 
 
@@ -239,4 +242,138 @@ def test_resource_lock_detects_untracked_baseline_materialization_drift(
             data_root=data_root,
             methods_root=methods_root,
             methods_registry=registry,
+            image_manifest=image_manifest,
+        )
+
+
+def test_resource_lock_rejects_image_manifest_digest_drift(
+    resource_fixture: tuple[Path, Path, Path, Path, Path],
+) -> None:
+    selection_root, data_root, methods_root, registry, image_manifest = resource_fixture
+    lock = build_resource_lock(
+        selection_root=selection_root,
+        data_root=data_root,
+        methods_root=methods_root,
+        methods_registry=registry,
+        image_manifest=image_manifest,
+    )
+    payload = json.loads(image_manifest.read_text(encoding="utf-8"))
+    payload["images"][0]["image_id"] = "sha256:" + "9" * 64
+    image_manifest.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="external-image.*manifest"):
+        validate_resource_lock_materializations(
+            lock,
+            data_root=data_root,
+            methods_root=methods_root,
+            methods_registry=registry,
+            image_manifest=image_manifest,
+        )
+
+
+def test_resource_lock_rejects_nonunique_image_task_context_mapping(
+    resource_fixture: tuple[Path, Path, Path, Path, Path],
+) -> None:
+    selection_root, data_root, methods_root, registry, image_manifest = resource_fixture
+    payload = json.loads(image_manifest.read_text(encoding="utf-8"))
+    task_id = next(iter(payload["task_to_context_hash"]))
+    payload["task_to_context_hash"][task_id] = "9" * 64
+    image_manifest.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="context mapping"):
+        build_resource_lock(
+            selection_root=selection_root,
+            data_root=data_root,
+            methods_root=methods_root,
+            methods_registry=registry,
+            image_manifest=image_manifest,
+        )
+
+
+def test_resource_lock_rejects_task_repeated_across_image_rows(
+    resource_fixture: tuple[Path, Path, Path, Path, Path],
+) -> None:
+    selection_root, data_root, methods_root, registry, image_manifest = resource_fixture
+    payload = json.loads(image_manifest.read_text(encoding="utf-8"))
+    duplicate = dict(payload["images"][0])
+    duplicate["context_hash"] = "9" * 64
+    duplicate["image_id"] = "sha256:" + "9" * 64
+    payload["images"].append(duplicate)
+    image_manifest.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="multiple contexts"):
+        build_resource_lock(
+            selection_root=selection_root,
+            data_root=data_root,
+            methods_root=methods_root,
+            methods_registry=registry,
+            image_manifest=image_manifest,
+        )
+
+
+def test_resource_lock_fails_closed_without_image_manifest(
+    resource_fixture: tuple[Path, Path, Path, Path, Path],
+) -> None:
+    selection_root, data_root, methods_root, registry, image_manifest = resource_fixture
+    lock = build_resource_lock(
+        selection_root=selection_root,
+        data_root=data_root,
+        methods_root=methods_root,
+        methods_registry=registry,
+        image_manifest=image_manifest,
+    )
+
+    missing_manifest = image_manifest.with_name("missing.json")
+    with pytest.raises(FileNotFoundError):
+        validate_resource_lock_materializations(
+            lock,
+            data_root=data_root,
+            methods_root=methods_root,
+            methods_registry=registry,
+            image_manifest=missing_manifest,
+        )
+    assert not missing_manifest.exists()
+
+
+def test_resource_lock_rejects_descendant_local_symlink(
+    resource_fixture: tuple[Path, Path, Path, Path, Path],
+) -> None:
+    selection_root, data_root, methods_root, registry, image_manifest = resource_fixture
+    first_task = RELEASE_FIXTURES.make_release_inputs()["candidates"][
+        "webshop"
+    ].train[0]
+    materialized = data_root / first_task.artifact_path.removeprefix(
+        "rsebench-data://"
+    )
+    materialized.unlink()
+    materialized.mkdir()
+    outside = data_root.parent / "outside.txt"
+    outside.write_text("outside", encoding="utf-8")
+    (materialized / "escape").symlink_to(outside)
+
+    with pytest.raises(ValueError, match="descendant symlink"):
+        build_resource_lock(
+            selection_root=selection_root,
+            data_root=data_root,
+            methods_root=methods_root,
+            methods_registry=registry,
+            image_manifest=image_manifest,
+        )
+
+
+def test_resource_lock_rejects_descendant_git_symlink(
+    resource_fixture: tuple[Path, Path, Path, Path, Path],
+) -> None:
+    selection_root, data_root, methods_root, registry, image_manifest = resource_fixture
+    outside = methods_root / "outside.txt"
+    outside.write_text("outside", encoding="utf-8")
+    (methods_root / "skillopt" / "escape").symlink_to(outside)
+
+    with pytest.raises(ValueError, match="descendant symlink"):
+        build_resource_lock(
+            selection_root=selection_root,
+            data_root=data_root,
+            methods_root=methods_root,
+            methods_registry=registry,
+            image_manifest=image_manifest,
         )

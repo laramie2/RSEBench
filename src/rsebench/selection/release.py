@@ -48,8 +48,9 @@ EXPECTED_BASELINES = frozenset(
 _HASH_PATTERN = re.compile(r"^[0-9a-f]{64}$")
 _WINDOWS_ABSOLUTE = re.compile(r"^[A-Za-z]:[\\/]")
 _EMBEDDED_ABSOLUTE = re.compile(
-    r"(?:^|[^A-Za-z0-9])/(?:home|Users|workspace|workspaces|mnt|tmp|var|opt|root)(?:/|\b)"
+    r"(?:^|[^A-Za-z0-9/])/(?!/)(?=[^\s/])[^\s]*"
 )
+_EMBEDDED_WINDOWS_ABSOLUTE = re.compile(r"(?:^|[^A-Za-z0-9])[A-Za-z]:[\\/]")
 _URL_USERINFO = re.compile(r"(?:git\+)?https?://[^/\s@]+@")
 _SECRET_PATTERNS = (
     re.compile(r"sk-[A-Za-z0-9_-]{8,}"),
@@ -78,6 +79,11 @@ _NORMALIZED_CREDENTIAL_NAMES = frozenset(
         "accessToken",
         "secretKey",
         "privateKey",
+        "token",
+        "authToken",
+        "secret",
+        "credential",
+        "authorization",
     }
 )
 _UNRESOLVED_MARKERS = (
@@ -806,6 +812,7 @@ def _walk_values(value: Any, *, key: str | None = None) -> None:
         value.startswith("/")
         or _WINDOWS_ABSOLUTE.match(value)
         or _EMBEDDED_ABSOLUTE.search(value)
+        or _EMBEDDED_WINDOWS_ABSOLUTE.search(value)
     ):
         raise ValueError(f"absolute path detected in {key or 'value'}")
 
@@ -1094,12 +1101,7 @@ def freeze_selection_release_roots(
     confirmation_seal = ConfirmationSeal.model_validate(
         _read_json_object(_owned_path(selection, seal_locator))
     )
-    lock_locator = (
-        "resource_lock.json"
-        if (selection / "resource_lock.json").is_file()
-        else "resource_lock.preflight.json"
-    )
-    lock_path = _owned_path(selection, lock_locator)
+    lock_path = _owned_path(selection, "resource_lock.json")
     resource_lock = ResourceLock.model_validate(_read_json_object(lock_path))
     from rsebench.selection.resources import validate_resource_lock_materializations
 
@@ -1117,6 +1119,13 @@ def freeze_selection_release_roots(
         data_root=data_root,
         methods_root=methods_root,
         methods_registry=project_root / "benchmark/registry/methods.yaml",
+        image_manifest=Path(
+            os.environ.get(
+                "RSEBENCH_SKILLLEARN_IMAGE_MANIFEST",
+                project_root
+                / "outputs/preflight/noise-screen-v1/skilllearn_image_manifest.json",
+            )
+        ).resolve(),
     )
     return freeze_selection_release(
         destination=destination,

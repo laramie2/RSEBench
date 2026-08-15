@@ -1,9 +1,25 @@
+import hashlib
+import importlib.util
 import json
 from pathlib import Path
+from types import ModuleType
 import pytest
 
 from rsebench.evolution.skilllearn_executor import SkillLearnImageRecord
 from scripts import prebuild_clean_skilllearn_images as prebuild
+
+
+def _release_test_module() -> ModuleType:
+    path = Path(__file__).parents[1] / "selection/test_release.py"
+    spec = importlib.util.spec_from_file_location("prebuild_release_fixtures", path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"cannot load release fixtures: {path}")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+RELEASE_FIXTURES = _release_test_module()
 
 
 def _manifest(
@@ -177,3 +193,97 @@ def test_prebuild_derives_v2_version_and_supports_external_record_root(
 
     assert payload["qualification_version"] == "clean-qualification-v2"
     assert all(path.is_relative_to(record_root) for path in record_roots)
+
+
+def test_prebuild_selection_root_consumes_aggregate_candidate_and_confirmation(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    inputs = RELEASE_FIXTURES.make_release_inputs()
+    candidate = inputs["candidates"]["skilllearnbench"]
+    confirmation = inputs["confirmations"]["skilllearnbench"]
+    selection_root = tmp_path / "selection"
+    candidate_path = selection_root / "candidates/skilllearnbench/candidate_1.json"
+    confirmation_path = selection_root / "confirmation/skilllearnbench.json"
+    candidate_path.parent.mkdir(parents=True)
+    confirmation_path.parent.mkdir(parents=True)
+    candidate_path.write_text(candidate.model_dump_json(), encoding="utf-8")
+    confirmation_path.write_text(confirmation.model_dump_json(), encoding="utf-8")
+    (selection_root / "manifest.json").write_text(
+        json.dumps(
+            {
+                "selection_version": "noise-screen-v1",
+                "candidates": {
+                    "skilllearnbench": [
+                        candidate_path.relative_to(selection_root).as_posix()
+                    ]
+                },
+                "confirmation": {
+                    "skilllearnbench": confirmation_path.relative_to(
+                        selection_root
+                    ).as_posix()
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    calls: list[str] = []
+
+    class FakeBackend:
+        def __init__(self, **kwargs):
+            assert kwargs["require_prebuilt"] is True
+
+        def prepare(self, task, output_dir):
+            del output_dir
+            calls.append(task.task_id)
+            context_hash = hashlib.sha256(
+                task.metadata["task_family"].encode()
+            ).hexdigest()
+            return SkillLearnImageRecord(
+                task_id=task.task_id,
+                context_hash=context_hash,
+                image_tag=f"image:{context_hash[:8]}",
+                image_id="sha256:" + context_hash,
+                workdir="/workspace",
+            )
+
+    monkeypatch.setattr(prebuild, "DockerSkillLearnBackend", FakeBackend)
+    output = tmp_path / "images.json"
+
+    payload = prebuild.prebuild_selection_images(
+        selection_root=selection_root,
+        output=output,
+        data_root=tmp_path / "data",
+        methods_root_path=tmp_path / "methods",
+        require_existing=True,
+    )
+
+    expected_ids = {
+        task.task_id
+        for split in (candidate, confirmation)
+        for role in (
+            ("train", "validation", "confirmation_test")
+            if hasattr(split, "confirmation_test")
+            else ("train", "validation", "qualification_test", "screening_test")
+        )
+        for task in getattr(split, role)
+    }
+    assert set(calls) == expected_ids
+    assert set(payload["task_to_context_hash"]) == expected_ids
+    assert payload["families"] == [
+        *candidate.metadata["families"],
+        *confirmation.metadata["families"],
+    ]
+    assert payload["selection_hashes"] == {
+        "candidate": candidate.selection_hash,
+        "confirmation": confirmation.selection_hash,
+    }
+    assert payload["provider_calls"] == 0
+    assert payload["all_ready"] is True
+
+
+def test_prebuild_cli_exposes_selection_root_without_provider_input() -> None:
+    help_text = prebuild.build_parser().format_help()
+    assert "--selection-root" in help_text
+    assert "--manifest-root" in help_text
+    assert "--input" not in help_text

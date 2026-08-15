@@ -646,7 +646,8 @@ class ResourceReference(_ImmutableSelectionModel):
             r"(?!.*(?:^|/)\.(?:/|$))[^\\\s]+$"
         )
         git = re.compile(
-            r"^git\+https://(?![^/]*@)[A-Za-z0-9.-]+/[^\s@]+@[0-9a-f]{40}$"
+            r"^git\+https://(?![^/]*@)[A-Za-z0-9.-]+/"
+            r"(?:[A-Za-z0-9._-]+/)*[A-Za-z0-9._-]+\.git@[0-9a-f]{40}$"
         )
         oci = re.compile(
             r"^oci://[A-Za-z0-9.-]+(?:/[A-Za-z0-9._-]+)+@sha256:[0-9a-f]{64}$"
