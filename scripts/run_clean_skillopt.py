@@ -31,6 +31,8 @@ from rsebench.hashing import sha256_file  # noqa: E402
 from rsebench.experiments.runtime import load_runtime_identity  # noqa: E402
 from rsebench.experiments.preflight import (  # noqa: E402
     SUPPORTED_QUALIFICATION_VERSIONS,
+    TaskCounts,
+    expected_skillopt_task_counts,
 )
 from rsebench.selection.clean_view import load_clean_runtime_view  # noqa: E402
 from scripts.baselines.common_env import combined_method_env, methods_root  # noqa: E402
@@ -194,6 +196,21 @@ def run_manifest(
     if qualification_version not in SUPPORTED_QUALIFICATION_VERSIONS:
         raise ValueError(
             f"unsupported SkillOpt qualification version: {qualification_version}"
+        )
+    actual_counts = TaskCounts(
+        train=len(split.train),
+        validation=len(split.validation),
+        clean_test=len(split.clean_test),
+    )
+    expected_counts = expected_skillopt_task_counts(
+        split.benchmark,
+        qualification_version,
+    )
+    if expected_counts is None or actual_counts != expected_counts:
+        raise ValueError(
+            f"{split.benchmark} task counts differ from formal settings: "
+            f"{actual_counts.model_dump()} != "
+            f"{expected_counts.model_dump() if expected_counts is not None else None}"
         )
     identity, attempt = load_runtime_identity(
         required=(

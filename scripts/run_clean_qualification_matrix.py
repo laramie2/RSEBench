@@ -9,7 +9,7 @@ import sys
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, get_args
+from typing import Any
 
 import yaml
 
@@ -31,6 +31,11 @@ from rsebench.selection import SelectionAction, SelectionStatus  # noqa: E402
 
 DEFAULT_CONFIG = PROJECT_ROOT / "configs/validation/clean_qualification_v1.yaml"
 DEFAULT_OUTPUT_ROOT = PROJECT_ROOT / "outputs/runs/clean-qualification-20260813"
+CLEAN_MATRIX_RUNNABLE_ACTIONS: dict[SelectionAction, int] = {
+    "rerun_candidate_1": 1,
+    "run_candidate_2": 2,
+    "run_candidate_3": 3,
+}
 
 
 @dataclass(frozen=True)
@@ -332,10 +337,14 @@ def select_units_from_status(
     status = SelectionStatus.model_validate_json(status_path.read_text(encoding="utf-8"))
     if status.schema_version != "rsebench.selection-status.v1":
         raise ValueError(f"unsupported selection status schema: {status.schema_version}")
-    expected_suffix = f"candidate_{matrix_candidate_index}"
-    if required_action.startswith(("run_candidate_", "rerun_candidate_")):
-        if not required_action.endswith(expected_suffix):
-            raise ValueError("selection action differs from matrix candidate index")
+    try:
+        action_candidate_index = CLEAN_MATRIX_RUNNABLE_ACTIONS[required_action]
+    except KeyError as exc:
+        raise ValueError(
+            f"required action is not runnable by clean matrix: {required_action}"
+        ) from exc
+    if action_candidate_index != matrix_candidate_index:
+        raise ValueError("selection action differs from matrix candidate index")
     requested = {
         benchmark
         for benchmark, row in status.domains.items()
@@ -389,10 +398,18 @@ def run_matrix(
         raise ValueError("max_new_units must be positive")
     if stop_on_failure:
         raise ValueError("stop_on_failure conflicts with failure-isolated scheduling")
-    if (selection_status is None) != (required_action is None):
-        raise ValueError("selection_status and required_action must be provided together")
     config_path = config_path.resolve()
     config = load_config(config_path)
+    if (
+        execute
+        and config.get("qualification_version") == "noise-screen-v1"
+        and (selection_status is None or required_action is None)
+    ):
+        raise ValueError(
+            "noise-screen execution requires selection_status and required_action"
+        )
+    if (selection_status is None) != (required_action is None):
+        raise ValueError("selection_status and required_action must be provided together")
     root = (
         output_root.resolve()
         if output_root is not None
@@ -461,7 +478,7 @@ def main() -> None:
     parser.add_argument("--selection-status", type=Path)
     parser.add_argument(
         "--required-action",
-        choices=get_args(SelectionAction),
+        choices=tuple(CLEAN_MATRIX_RUNNABLE_ACTIONS),
     )
     args = parser.parse_args()
     units = run_matrix(

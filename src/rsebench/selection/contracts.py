@@ -487,6 +487,16 @@ class SelectionStatus(_ImmutableSelectionModel):
     schema_version: str = "rsebench.selection-status.v1"
     domains: dict[str, DomainSelectionStatus]
 
+    @model_validator(mode="after")
+    def validate_domain_keys(self) -> "SelectionStatus":
+        for domain_key, row in self.domains.items():
+            if domain_key != row.benchmark:
+                raise ValueError(
+                    "selection status domain key must equal row benchmark: "
+                    f"{domain_key} != {row.benchmark}"
+                )
+        return self
+
 
 def _validate_hash_mapping(values: dict[str, str], field_name: str) -> None:
     for key, value in values.items():

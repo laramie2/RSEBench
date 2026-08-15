@@ -35,6 +35,18 @@ EXPECTED = {
         max_completion_tokens=4096,
     ),
 }
+EXPECTED_TASK_COUNTS = {
+    "spreadsheetbench_verified": {
+        "clean-qualification-v1": (20, 10, 30),
+        "clean-qualification-v2": (20, 10, 30),
+        "noise-screen-v1": (20, 10, 30),
+    },
+    "officeqa_full": {
+        "clean-qualification-v1": (12, 6, 20),
+        "clean-qualification-v2": (12, 12, 20),
+        "noise-screen-v1": (12, 12, 20),
+    },
+}
 
 
 def _task(task_id: str, benchmark: str) -> TaskManifest:
@@ -54,6 +66,7 @@ def _manifest(
     benchmark: str,
     *,
     qualification_version: str | None = None,
+    task_counts: tuple[int, int, int] | None = None,
 ) -> Path:
     budget = EXPECTED[benchmark]
     domain = "spreadsheet" if benchmark == "spreadsheetbench_verified" else "document"
@@ -75,14 +88,20 @@ def _manifest(
             )
         return result
 
+    version = qualification_version or "clean-qualification-v1"
+    train_count, validation_count, clean_test_count = (
+        task_counts or EXPECTED_TASK_COUNTS[benchmark][version]
+    )
     split = CleanEvolutionSplitManifest(
         benchmark=benchmark,
         domain=domain,
         seed=7,
         source_hash="a" * 64,
-        train=[task("train")],
-        validation=[task("validation")],
-        clean_test=[task("test")],
+        train=[task(f"train-{index}") for index in range(train_count)],
+        validation=[
+            task(f"validation-{index}") for index in range(validation_count)
+        ],
+        clean_test=[task(f"test-{index}") for index in range(clean_test_count)],
         metadata={
             "runtime": {
                 "max_steps": budget.max_steps,
@@ -103,11 +122,17 @@ def _manifest(
     return path
 
 
-def _candidate_manifest(tmp_path: Path, benchmark: str) -> Path:
+def _candidate_manifest(
+    tmp_path: Path,
+    benchmark: str,
+    *,
+    task_counts: tuple[int, int, int] | None = None,
+) -> Path:
     path = _manifest(
         tmp_path,
         benchmark,
         qualification_version="noise-screen-v1",
+        task_counts=task_counts,
     )
     split = CleanEvolutionSplitManifest.model_validate_json(path.read_text())
     roles = {
@@ -252,6 +277,52 @@ def test_noise_screen_skillopt_requires_runtime_identity(
     assert captured["benchmark"] == "officeqa_full"
 
 
+@pytest.mark.parametrize(
+    ("benchmark", "qualification_version", "task_counts"),
+    [
+        ("spreadsheetbench_verified", "noise-screen-v1", (19, 10, 30)),
+        ("officeqa_full", None, (12, 12, 20)),
+        ("officeqa_full", "clean-qualification-v2", (12, 6, 20)),
+        ("officeqa_full", "noise-screen-v1", (12, 6, 20)),
+    ],
+)
+def test_clean_skillopt_rejects_wrong_task_counts_before_runtime_identity(
+    tmp_path: Path,
+    monkeypatch,
+    benchmark: str,
+    qualification_version: str | None,
+    task_counts: tuple[int, int, int],
+) -> None:
+    boundary_calls: list[str] = []
+
+    def forbidden_identity(**kwargs):
+        del kwargs
+        boundary_calls.append("identity")
+        raise AssertionError("wrong counts reached runtime identity boundary")
+
+    monkeypatch.setattr(run_clean_skillopt, "load_runtime_identity", forbidden_identity)
+    manifest = (
+        _candidate_manifest(tmp_path, benchmark, task_counts=task_counts)
+        if qualification_version == "noise-screen-v1"
+        else _manifest(
+            tmp_path,
+            benchmark,
+            qualification_version=qualification_version,
+            task_counts=task_counts,
+        )
+    )
+
+    with pytest.raises(ValueError, match="task counts differ from formal settings"):
+        run_clean_skillopt.run_manifest(
+            manifest,
+            method_seed=20260813,
+            output_root=tmp_path / "runs",
+            dry_run=False,
+        )
+
+    assert boundary_calls == []
+
+
 def test_clean_skillopt_launcher_rejects_runtime_drift(
     tmp_path: Path,
 ) -> None:
@@ -316,9 +387,9 @@ def test_clean_skillopt_dry_run_renders_only_clean_native_command(
     payload = json.loads(raw)
     assert payload["arm_manifest"]["arm"] == "clean"
     assert payload["task_counts"] == {
-        "train": 1,
-        "validation": 1,
-        "clean_test": 1,
+        "train": 20,
+        "validation": 10,
+        "clean_test": 30,
     }
     assert "noisy" not in raw
     assert "--eval_test" in payload["native_command"]

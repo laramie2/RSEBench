@@ -71,10 +71,12 @@ def test_candidate_matrices_expand_exact_preregistered_unit_counts() -> None:
 
     for path, counts in expected.items():
         config = matrix.load_config(path)
+        formal = load_experiment_matrix(path)
         units = matrix.expand_units(config)
         assert Counter(unit.benchmark for unit in units) == counts
         assert len(units) == sum(counts.values())
-        assert config["candidate_index"] in {1, 2, 3}
+        assert formal.candidate_index == config["candidate_index"]
+        assert all(cell.manifest_candidate_index is not None for cell in formal.cells)
 
 
 def test_matrix_uses_declared_skilllearn_manifests() -> None:
@@ -125,6 +127,26 @@ def test_candidate_matrix_default_dry_run_uses_formal_config_without_calls(
     assert not (tmp_path / "matrix_status.json").exists()
 
 
+def test_noise_screen_execute_requires_selection_gate_before_worktree(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    def forbidden() -> str:
+        raise AssertionError("missing selection gate reached clean-worktree boundary")
+
+    monkeypatch.setattr(matrix, "_ensure_clean_worktree", forbidden)
+
+    with pytest.raises(
+        ValueError,
+        match="noise-screen execution requires selection_status and required_action",
+    ):
+        matrix.run_matrix(
+            CANDIDATE_2_CONFIG,
+            execute=True,
+            output_root=tmp_path / "runs",
+        )
+
+
 def _selection_status(tmp_path: Path, actions: dict[str, str]) -> Path:
     path = tmp_path / "selection_status.json"
     path.write_text(
@@ -166,6 +188,14 @@ def test_status_filter_starts_only_requested_candidate_cells(tmp_path: Path) -> 
 
     assert {row.benchmark for row in selected} == {"officeqa_full"}
     assert len(selected) == 3
+
+
+def test_clean_matrix_runnable_action_mapping_is_exact() -> None:
+    assert matrix.CLEAN_MATRIX_RUNNABLE_ACTIONS == {
+        "rerun_candidate_1": 1,
+        "run_candidate_2": 2,
+        "run_candidate_3": 3,
+    }
 
 
 @pytest.mark.parametrize(
@@ -219,6 +249,66 @@ def test_status_filter_rejects_unknown_typed_action(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="next_action"):
         matrix.select_units_from_status(
             matrix.expand_units(config),
+            status_path=status,
+            required_action="run_candidate_2",
+            matrix_candidate_index=2,
+        )
+
+
+@pytest.mark.parametrize(
+    "required_action",
+    [
+        "replay_candidate_1",
+        "freeze_candidate",
+        "extend_replay_to_5",
+        "clean_blocked_after_three_candidates",
+        "clean_blocked_skilllearn_families",
+    ],
+)
+def test_noise_screen_execute_rejects_nonrunnable_action_before_worktree(
+    monkeypatch,
+    tmp_path: Path,
+    required_action: str,
+) -> None:
+    status = _selection_status(tmp_path, {"officeqa_full": required_action})
+
+    def forbidden() -> str:
+        raise AssertionError("nonrunnable action reached clean-worktree boundary")
+
+    monkeypatch.setattr(matrix, "_ensure_clean_worktree", forbidden)
+
+    with pytest.raises(ValueError, match="required action is not runnable"):
+        matrix.run_matrix(
+            CANDIDATE_2_CONFIG,
+            execute=True,
+            output_root=tmp_path / "runs",
+            selection_status=status,
+            required_action=required_action,
+        )
+
+
+def test_status_filter_rejects_domain_key_row_benchmark_mismatch(
+    tmp_path: Path,
+) -> None:
+    status = tmp_path / "selection_status.json"
+    status.write_text(
+        json.dumps(
+            {
+                "schema_version": "rsebench.selection-status.v1",
+                "domains": {
+                    "officeqa_full": {
+                        "benchmark": "webshop",
+                        "next_action": "run_candidate_2",
+                    }
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="domain key must equal row benchmark"):
+        matrix.select_units_from_status(
+            matrix.expand_units(matrix.load_config(CANDIDATE_2_CONFIG)),
             status_path=status,
             required_action="run_candidate_2",
             matrix_candidate_index=2,

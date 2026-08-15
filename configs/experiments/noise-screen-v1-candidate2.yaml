@@ -15,6 +15,7 @@ cells:
     baseline: skillopt
     launcher: scripts/run_clean_skillopt.py
     manifest: benchmark/validation/noise_screen_v1/candidates/spreadsheetbench_verified/candidate_2.json
+    manifest_candidate_index: 2
     seed_skill: methods://skillopt/skillopt/envs/spreadsheetbench/skills/initial.md
     seed_skill_argument: false
     task_counts: {train: 20, validation: 10, clean_test: 30}
@@ -33,6 +34,7 @@ cells:
     baseline: skillopt
     launcher: scripts/run_clean_skillopt.py
     manifest: benchmark/validation/noise_screen_v1/candidates/officeqa_full/candidate_2.json
+    manifest_candidate_index: 2
     seed_skill: methods://skillopt/skillopt/envs/officeqa/skills/initial.md
     seed_skill_argument: false
     task_counts: {train: 12, validation: 12, clean_test: 20}
@@ -51,6 +53,7 @@ cells:
     baseline: skilladaptor
     launcher: scripts/run_clean_skilladaptor.py
     manifest: benchmark/validation/noise_screen_v1/candidates/webshop/candidate_2.json
+    manifest_candidate_index: 2
     seed_skill: benchmark/core1/seeds/skilladaptor_webshop.json
     task_counts: {train: 5, validation: 5, clean_test: 20}
     runtime:
@@ -67,6 +70,7 @@ cells:
     family: organize-messy-files
     launcher: scripts/run_clean_skilllearn.py
     manifest: benchmark/validation/noise_screen_v1/candidates/skilllearnbench/candidate_1.json
+    manifest_candidate_index: 1
     seed_skill: benchmark/core1/seeds/skilllearn.md
     image_manifest: outputs/preflight/noise-screen-v1/skilllearn_image_manifest.json
     task_counts: {train: 2, validation: 1, clean_test: 0}
@@ -86,6 +90,7 @@ cells:
     family: offer-letter-generator
     launcher: scripts/run_clean_skilllearn.py
     manifest: benchmark/validation/noise_screen_v1/candidates/skilllearnbench/candidate_1.json
+    manifest_candidate_index: 1
     seed_skill: benchmark/core1/seeds/skilllearn.md
     image_manifest: outputs/preflight/noise-screen-v1/skilllearn_image_manifest.json
     task_counts: {train: 2, validation: 1, clean_test: 0}
@@ -101,6 +106,7 @@ cells:
     family: schedule-planning
     launcher: scripts/run_clean_skilllearn.py
     manifest: benchmark/validation/noise_screen_v1/candidates/skilllearnbench/candidate_1.json
+    manifest_candidate_index: 1
     seed_skill: benchmark/core1/seeds/skilllearn.md
     image_manifest: outputs/preflight/noise-screen-v1/skilllearn_image_manifest.json
     task_counts: {train: 2, validation: 1, clean_test: 0}
@@ -116,6 +122,7 @@ cells:
     family: dependency-vulnerability-check
     launcher: scripts/run_clean_skilllearn.py
     manifest: benchmark/validation/noise_screen_v1/candidates/skilllearnbench/candidate_1.json
+    manifest_candidate_index: 1
     seed_skill: benchmark/core1/seeds/skilllearn.md
     image_manifest: outputs/preflight/noise-screen-v1/skilllearn_image_manifest.json
     task_counts: {train: 2, validation: 1, clean_test: 0}

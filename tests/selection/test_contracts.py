@@ -451,7 +451,7 @@ def _registry() -> ExposureRegistry:
 def _status() -> SelectionStatus:
     return SelectionStatus(
         domains={
-            "document": DomainSelectionStatus(
+            "officeqa_full": DomainSelectionStatus(
                 benchmark="officeqa_full",
                 selected_candidate_index=1,
                 next_action="freeze_candidate",
@@ -459,6 +459,18 @@ def _status() -> SelectionStatus:
             )
         }
     )
+
+
+def test_selection_status_domain_keys_must_equal_row_benchmarks() -> None:
+    with pytest.raises(ValidationError, match="domain key must equal row benchmark"):
+        SelectionStatus(
+            domains={
+                "document": DomainSelectionStatus(
+                    benchmark="officeqa_full",
+                    next_action="run_candidate_2",
+                )
+            }
+        )
 
 
 def _seal() -> ConfirmationSeal:
@@ -498,16 +510,16 @@ def _release() -> SelectionReleaseManifest:
         ),
         pytest.param(
             _status,
-            lambda status: operator.setitem(
-                status.domains,
-                "spreadsheet",
-                status.domains["document"],
-            ),
+                lambda status: operator.setitem(
+                    status.domains,
+                    "spreadsheet",
+                    status.domains["officeqa_full"],
+                ),
             id="status-domain-dict",
         ),
         pytest.param(
             _status,
-            lambda status: status.domains["document"].reasons.append("changed"),
+            lambda status: status.domains["officeqa_full"].reasons.append("changed"),
             id="status-nested-reason-list",
         ),
         pytest.param(
@@ -839,7 +851,7 @@ def test_decision_and_release_contracts_use_exact_literals_and_ranges() -> None:
     )
     status = SelectionStatus(
         domains={
-            "document": DomainSelectionStatus(
+            "officeqa_full": DomainSelectionStatus(
                 benchmark="officeqa_full",
                 selected_candidate_index=1,
                 next_action="freeze_candidate",
@@ -876,7 +888,7 @@ def test_decision_and_release_contracts_use_exact_literals_and_ranges() -> None:
     assert candidate_evidence.replay_count == screening_evidence.replay_count == 3
     assert generalization.status == "clean_generalization_ready"
     assert decision.next_action == "freeze_candidate"
-    assert status.domains["document"].benchmark == "officeqa_full"
+    assert status.domains["officeqa_full"].benchmark == "officeqa_full"
     assert seal.split_hashes == {"document": HASH}
     assert lock.resources[0].kind == "git"
     assert release.selection_version == "noise-screen-v1"

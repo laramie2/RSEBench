@@ -163,15 +163,20 @@ def test_preflight_builds_three_identities_without_provider_calls(
     assert not (root / "outputs/fixture").exists()
 
 
-def test_preflight_accepts_matrix_declared_noise_screen_version(
-    monkeypatch,
-    tmp_path: Path,
+def _convert_fixture_to_noise_candidate(
+    root: Path,
+    matrix_path: Path,
+    *,
+    matrix_candidate_index: int,
+    manifest_candidate_index: int,
+    declared_manifest_candidate_index: int,
 ) -> None:
-    root, matrix_path, fingerprint = _fixture_project(tmp_path)
-    monkeypatch.setenv("FIXTURE_API_KEY", "declared")
     matrix_payload = yaml.safe_load(matrix_path.read_text(encoding="utf-8"))
     matrix_payload["qualification_version"] = "noise-screen-v1"
-    matrix_payload["candidate_index"] = 2
+    matrix_payload["candidate_index"] = matrix_candidate_index
+    matrix_payload["cells"][0]["manifest_candidate_index"] = (
+        declared_manifest_candidate_index
+    )
     matrix_path.write_text(
         yaml.safe_dump(matrix_payload, sort_keys=False),
         encoding="utf-8",
@@ -183,7 +188,7 @@ def test_preflight_accepts_matrix_declared_noise_screen_version(
     manifest_payload.update(
         {
             "schema_version": "rsebench.stable-split-candidate.v1",
-            "candidate_index": 2,
+            "candidate_index": manifest_candidate_index,
             "qualification_test": qualification_test,
             "screening_test": [
                 {
@@ -207,6 +212,21 @@ def test_preflight_accepts_matrix_declared_noise_screen_version(
         }
     )
     manifest_path.write_text(json.dumps(manifest_payload), encoding="utf-8")
+
+
+def test_preflight_accepts_matrix_declared_noise_screen_version(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    root, matrix_path, fingerprint = _fixture_project(tmp_path)
+    monkeypatch.setenv("FIXTURE_API_KEY", "declared")
+    _convert_fixture_to_noise_candidate(
+        root,
+        matrix_path,
+        matrix_candidate_index=2,
+        manifest_candidate_index=2,
+        declared_manifest_candidate_index=2,
+    )
     _git(root, "add", ".")
     _git(root, "commit", "-q", "-m", "noise screen fixture")
 
@@ -219,6 +239,81 @@ def test_preflight_accepts_matrix_declared_noise_screen_version(
 
     assert result.provider_calls == 0
     assert result.units[0].identity.inputs.stage == "clean"
+
+
+@pytest.mark.parametrize(
+    ("matrix_candidate_index", "manifest_candidate_index"),
+    [(2, 3), (3, 2)],
+)
+def test_preflight_rejects_swapped_candidate_manifest_before_identity_generation(
+    monkeypatch,
+    tmp_path: Path,
+    matrix_candidate_index: int,
+    manifest_candidate_index: int,
+) -> None:
+    root, matrix_path, fingerprint = _fixture_project(tmp_path)
+    monkeypatch.setenv("FIXTURE_API_KEY", "declared")
+    _convert_fixture_to_noise_candidate(
+        root,
+        matrix_path,
+        matrix_candidate_index=matrix_candidate_index,
+        manifest_candidate_index=manifest_candidate_index,
+        declared_manifest_candidate_index=matrix_candidate_index,
+    )
+    _git(root, "add", ".")
+    _git(root, "commit", "-q", "-m", "swapped candidate fixture")
+
+    with pytest.raises(ValueError, match="manifest candidate index differs"):
+        preflight_matrix(
+            matrix_path,
+            project_root=root,
+            package_file=root / "src/rsebench/__init__.py",
+            fingerprint_resolver=lambda baseline: fingerprint,
+        )
+
+
+def test_noise_screen_matrix_requires_manifest_candidate_index_per_cell(
+    tmp_path: Path,
+) -> None:
+    _, matrix_path, _ = _fixture_project(tmp_path)
+    matrix_payload = yaml.safe_load(matrix_path.read_text(encoding="utf-8"))
+    matrix_payload["qualification_version"] = "noise-screen-v1"
+    matrix_payload["candidate_index"] = 2
+    matrix_path.write_text(
+        yaml.safe_dump(matrix_payload, sort_keys=False),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="manifest_candidate_index"):
+        load_experiment_matrix(matrix_path)
+
+
+@pytest.mark.parametrize(
+    ("cell_index", "manifest_candidate_index"),
+    [(0, 3), (3, 3)],
+)
+def test_candidate2_matrix_rejects_undeclared_manifest_candidate_exceptions(
+    tmp_path: Path,
+    cell_index: int,
+    manifest_candidate_index: int,
+) -> None:
+    matrix_path = tmp_path / "matrix.yaml"
+    payload = yaml.safe_load(
+        (
+            PROJECT_ROOT
+            / "configs/experiments/noise-screen-v1-candidate2.yaml"
+        ).read_text(encoding="utf-8")
+    )
+    payload["cells"][cell_index]["manifest_candidate_index"] = (
+        manifest_candidate_index
+    )
+    matrix_path.write_text(yaml.safe_dump(payload, sort_keys=False), encoding="utf-8")
+
+    with pytest.raises(
+        ValueError,
+        match="manifest_candidate_index differs from matrix candidate_index",
+    ):
+        load_experiment_matrix(matrix_path)
 
 
 def test_preflight_rejects_manifest_version_different_from_matrix(
@@ -270,6 +365,31 @@ def test_preflight_rejects_zero_clean_test_outside_skilllearn_validation(
     )
 
     with pytest.raises(ValueError, match="zero clean_test is only valid"):
+        load_experiment_matrix(matrix_path)
+
+
+@pytest.mark.parametrize(
+    ("cell_index", "wrong_counts"),
+    [
+        (0, {"train": 20, "validation": 11, "clean_test": 30}),
+        (1, {"train": 12, "validation": 6, "clean_test": 20}),
+    ],
+)
+def test_matrix_rejects_wrong_declared_skillopt_task_counts(
+    tmp_path: Path,
+    cell_index: int,
+    wrong_counts: dict[str, int],
+) -> None:
+    matrix_path = tmp_path / "matrix.yaml"
+    payload = yaml.safe_load(
+        (PROJECT_ROOT / "configs/experiments/clean-v2.yaml").read_text(
+            encoding="utf-8"
+        )
+    )
+    payload["cells"][cell_index]["task_counts"] = wrong_counts
+    matrix_path.write_text(yaml.safe_dump(payload, sort_keys=False), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="SkillOpt task counts differ"):
         load_experiment_matrix(matrix_path)
 
 
@@ -392,6 +512,17 @@ def test_noise_screen_candidate_matrix_declares_candidate_index() -> None:
     assert matrix.qualification_version == "noise-screen-v1"
     assert matrix.candidate_index == 2
     assert len(matrix.cells) == 7
+    assert {
+        cell.key: cell.manifest_candidate_index for cell in matrix.cells
+    } == {
+        "spreadsheet-candidate2-skillopt": 2,
+        "officeqa-candidate2-skillopt": 2,
+        "webshop-candidate2-skilladaptor": 2,
+        "skilllearn-organize-messy-files": 1,
+        "skilllearn-offer-letter-generator": 1,
+        "skilllearn-schedule-planning": 1,
+        "skilllearn-dependency-vulnerability-check": 1,
+    }
 
 
 def test_clean_v2_canary_matrix_selects_one_preregistered_seed_per_cell() -> None:

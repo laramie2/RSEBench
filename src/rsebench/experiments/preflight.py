@@ -53,12 +53,25 @@ class TaskCounts(StrictModel):
     clean_test: int = Field(ge=0)
 
 
+def expected_skillopt_task_counts(
+    benchmark: str,
+    qualification_version: str,
+) -> TaskCounts | None:
+    if benchmark == "spreadsheetbench_verified":
+        return TaskCounts(train=20, validation=10, clean_test=30)
+    if benchmark == "officeqa_full":
+        validation = 6 if qualification_version == "clean-qualification-v1" else 12
+        return TaskCounts(train=12, validation=validation, clean_test=20)
+    return None
+
+
 class ExperimentCell(StrictModel):
     key: str = Field(min_length=1)
     benchmark: str = Field(min_length=1)
     baseline: str = Field(min_length=1)
     launcher: str = Field(min_length=1)
     manifest: str = Field(min_length=1)
+    manifest_candidate_index: int | None = Field(default=None, ge=1, le=3)
     seed_skill: str = Field(min_length=1)
     seed_skill_argument: bool = True
     image_manifest: str | None = None
@@ -119,6 +132,34 @@ class ExperimentMatrix(StrictModel):
             raise ValueError("experiment cell keys must be unique")
         formal_seeds = set(self.method_seeds)
         for cell in self.cells:
+            if cell.baseline == "skillopt":
+                expected_counts = expected_skillopt_task_counts(
+                    cell.benchmark,
+                    self.qualification_version,
+                )
+                if expected_counts is None or cell.task_counts != expected_counts:
+                    raise ValueError(
+                        f"SkillOpt task counts differ from formal settings: {cell.key}"
+                    )
+            if self.qualification_version == "noise-screen-v1":
+                if self.candidate_index is None:
+                    raise ValueError("noise-screen matrix requires candidate_index")
+                if cell.manifest_candidate_index is None:
+                    raise ValueError(
+                        "noise-screen cells require manifest_candidate_index: "
+                        f"{cell.key}"
+                    )
+                matches_matrix = cell.manifest_candidate_index == self.candidate_index
+                skilllearn_candidate_one_exception = (
+                    cell.benchmark == "skilllearnbench"
+                    and self.candidate_index == 2
+                    and cell.manifest_candidate_index == 1
+                )
+                if not (matches_matrix or skilllearn_candidate_one_exception):
+                    raise ValueError(
+                        "manifest_candidate_index differs from matrix candidate_index: "
+                        f"{cell.key}"
+                    )
             if cell.task_counts.clean_test == 0 and not (
                 self.qualification_version == "noise-screen-v1"
                 and cell.benchmark == "skilllearnbench"
@@ -409,6 +450,14 @@ def preflight_matrix(
             actual=str(split.metadata.get("qualification_version") or ""),
             cell_key=cell.key,
         )
+        if cell.manifest_candidate_index is not None:
+            actual_candidate_index = split.metadata.get("candidate_index")
+            if actual_candidate_index != cell.manifest_candidate_index:
+                raise ValueError(
+                    "manifest candidate index differs from matrix cell: "
+                    f"{cell.key}: {actual_candidate_index} != "
+                    f"{cell.manifest_candidate_index}"
+                )
         actual_counts = TaskCounts(
             train=len(split.train),
             validation=len(split.validation),
@@ -515,6 +564,7 @@ __all__ = [
     "ProviderConfiguration",
     "SUPPORTED_QUALIFICATION_VERSIONS",
     "TaskCounts",
+    "expected_skillopt_task_counts",
     "load_experiment_matrix",
     "preflight_matrix",
     "require_manifest_version",

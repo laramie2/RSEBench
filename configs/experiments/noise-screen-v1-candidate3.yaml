@@ -15,6 +15,7 @@ cells:
     baseline: skillopt
     launcher: scripts/run_clean_skillopt.py
     manifest: benchmark/validation/noise_screen_v1/candidates/spreadsheetbench_verified/candidate_3.json
+    manifest_candidate_index: 3
     seed_skill: methods://skillopt/skillopt/envs/spreadsheetbench/skills/initial.md
     seed_skill_argument: false
     task_counts: {train: 20, validation: 10, clean_test: 30}
@@ -33,6 +34,7 @@ cells:
     baseline: skillopt
     launcher: scripts/run_clean_skillopt.py
     manifest: benchmark/validation/noise_screen_v1/candidates/officeqa_full/candidate_3.json
+    manifest_candidate_index: 3
     seed_skill: methods://skillopt/skillopt/envs/officeqa/skills/initial.md
     seed_skill_argument: false
     task_counts: {train: 12, validation: 12, clean_test: 20}
@@ -51,6 +53,7 @@ cells:
     baseline: skilladaptor
     launcher: scripts/run_clean_skilladaptor.py
     manifest: benchmark/validation/noise_screen_v1/candidates/webshop/candidate_3.json
+    manifest_candidate_index: 3
     seed_skill: benchmark/core1/seeds/skilladaptor_webshop.json
     task_counts: {train: 5, validation: 5, clean_test: 20}
     runtime:
