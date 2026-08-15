@@ -1,0 +1,335 @@
+"""Typed contracts for deterministic benchmark sample selection."""
+
+from __future__ import annotations
+
+from enum import Enum
+from pathlib import Path
+from typing import Any, Literal
+
+from pydantic import ConfigDict, Field, model_validator
+
+from rsebench.contracts import StrictModel, TaskManifest
+from rsebench.evidence import canonical_hash
+
+
+_HASH_PATTERN = r"^[0-9a-f]{64}$"
+
+
+class _ImmutableSelectionModel(StrictModel):
+    model_config = ConfigDict(frozen=True)
+
+
+class ExposureLevel(str, Enum):
+    manifest_only = "manifest_only"
+    executed = "executed"
+    score_observed = "score_observed"
+
+    @property
+    def rank(self) -> int:
+        return {
+            ExposureLevel.manifest_only: 0,
+            ExposureLevel.executed: 1,
+            ExposureLevel.score_observed: 2,
+        }[self]
+
+
+class ExposureSource(_ImmutableSelectionModel):
+    label: str
+    root: Path
+    level: ExposureLevel
+    experiment_id: str | None = None
+
+
+class ExposureRecord(_ImmutableSelectionModel):
+    benchmark: str
+    task_id: str
+    source_partition: str | None = None
+    level: ExposureLevel
+    roles: list[str]
+    sources: list[str]
+    first_experiment_id: str | None = None
+    last_experiment_id: str | None = None
+
+    @model_validator(mode="after")
+    def validate_labels(self) -> "ExposureRecord":
+        if len(self.roles) != len(set(self.roles)):
+            raise ValueError("exposure roles must be unique")
+        if len(self.sources) != len(set(self.sources)):
+            raise ValueError("exposure sources must be unique")
+        return self
+
+
+class ExposureRegistry(_ImmutableSelectionModel):
+    schema_version: str = "rsebench.exposure-registry.v1"
+    records: list[ExposureRecord]
+    registry_hash: str = Field(pattern=_HASH_PATTERN)
+
+    @model_validator(mode="after")
+    def validate_unique_records(self) -> "ExposureRegistry":
+        identities = [(record.benchmark, record.task_id) for record in self.records]
+        if len(identities) != len(set(identities)):
+            raise ValueError("exposure record IDs must be unique within each benchmark")
+        return self
+
+
+def _validate_task_roles(
+    *,
+    benchmark: str,
+    domain: str,
+    roles: dict[str, list[TaskManifest]],
+) -> None:
+    role_ids: dict[str, set[str]] = {}
+    for role, tasks in roles.items():
+        task_ids = [task.task_id for task in tasks]
+        if len(task_ids) != len(set(task_ids)):
+            raise ValueError(f"{role} task IDs must be unique")
+        for task in tasks:
+            if task.benchmark != benchmark:
+                raise ValueError(
+                    f"{role} task {task.task_id} benchmark must match {benchmark}"
+                )
+            if task.domain != domain:
+                raise ValueError(
+                    f"{role} task {task.task_id} domain must match {domain}"
+                )
+        role_ids[role] = set(task_ids)
+
+    role_names = list(role_ids)
+    for index, left in enumerate(role_names):
+        for right in role_names[index + 1 :]:
+            overlap = role_ids[left] & role_ids[right]
+            if overlap:
+                raise ValueError(
+                    f"candidate roles must be disjoint; {left} and {right} overlap: "
+                    f"{sorted(overlap)}"
+                )
+
+
+class StableSplitCandidate(_ImmutableSelectionModel):
+    schema_version: str = "rsebench.stable-split-candidate.v1"
+    benchmark: str
+    domain: str
+    candidate_index: int = Field(ge=1, le=3)
+    train: list[TaskManifest]
+    validation: list[TaskManifest]
+    qualification_test: list[TaskManifest]
+    screening_test: list[TaskManifest]
+    source_hash: str = Field(pattern=_HASH_PATTERN)
+    selection_hash: str = Field(pattern=_HASH_PATTERN)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def validate_tasks(self) -> "StableSplitCandidate":
+        _validate_task_roles(
+            benchmark=self.benchmark,
+            domain=self.domain,
+            roles={
+                "train": self.train,
+                "validation": self.validation,
+                "qualification_test": self.qualification_test,
+                "screening_test": self.screening_test,
+            },
+        )
+        return self
+
+
+class ConfirmationSplit(_ImmutableSelectionModel):
+    schema_version: str = "rsebench.confirmation-split.v1"
+    benchmark: str
+    domain: str
+    train: list[TaskManifest]
+    validation: list[TaskManifest]
+    confirmation_test: list[TaskManifest]
+    source_hash: str = Field(pattern=_HASH_PATTERN)
+    selection_hash: str = Field(pattern=_HASH_PATTERN)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def validate_tasks(self) -> "ConfirmationSplit":
+        _validate_task_roles(
+            benchmark=self.benchmark,
+            domain=self.domain,
+            roles={
+                "train": self.train,
+                "validation": self.validation,
+                "confirmation_test": self.confirmation_test,
+            },
+        )
+        return self
+
+
+class CandidateSeedEvidence(_ImmutableSelectionModel):
+    method_seed: int
+    accepted_update_count: int = Field(ge=0)
+    artifact_changed: bool
+    mean_delta_vs_seed: float
+    execution_complete: bool
+    replay_count: int = Field(ge=3)
+
+
+class ScreeningSeedEvidence(_ImmutableSelectionModel):
+    method_seed: int
+    mean_delta_vs_seed: float
+    execution_complete: bool
+    replay_count: int = Field(ge=3)
+
+
+class ScreeningGeneralizationDecision(_ImmutableSelectionModel):
+    status: Literal["clean_generalization_ready", "clean_generalization_failed"]
+    nondegrading_seed_count: int = Field(ge=0, le=3)
+    mean_clean_gain: float
+    execution_coverage: float = Field(ge=0.0, le=1.0)
+    failure_reasons: list[str]
+
+
+class CandidateDecision(_ImmutableSelectionModel):
+    schema_version: str = "rsebench.candidate-decision.v1"
+    candidate_index: int = Field(ge=1, le=3)
+    passed: bool
+    accepted_seed_count: int = Field(ge=0, le=3)
+    nondegrading_seed_count: int = Field(ge=0, le=3)
+    mean_clean_gain: float
+    execution_coverage: float = Field(ge=0.0, le=1.0)
+    noise_applicability: float = Field(ge=0.0, le=1.0)
+    next_action: Literal[
+        "freeze_candidate",
+        "run_candidate_2",
+        "run_candidate_3",
+        "extend_replay_to_5",
+        "clean_blocked_after_three_candidates",
+    ]
+    failure_reasons: list[str]
+
+
+SelectionAction = Literal[
+    "replay_candidate_1",
+    "rerun_candidate_1",
+    "run_candidate_2",
+    "run_candidate_3",
+    "extend_replay_to_5",
+    "freeze_candidate",
+    "clean_blocked_after_three_candidates",
+    "clean_blocked_skilllearn_families",
+]
+
+
+class DomainSelectionStatus(_ImmutableSelectionModel):
+    benchmark: str
+    selected_candidate_index: int | None = Field(default=None, ge=1, le=3)
+    next_action: SelectionAction
+    reasons: list[str] = Field(default_factory=list)
+
+
+class SelectionStatus(_ImmutableSelectionModel):
+    schema_version: str = "rsebench.selection-status.v1"
+    domains: dict[str, DomainSelectionStatus]
+
+
+def _validate_hash_mapping(values: dict[str, str], field_name: str) -> None:
+    for key, value in values.items():
+        if len(value) != 64 or any(character not in "0123456789abcdef" for character in value):
+            raise ValueError(f"{field_name}[{key!r}] must be a lowercase SHA-256 hash")
+
+
+class ConfirmationSeal(_ImmutableSelectionModel):
+    schema_version: str = "rsebench.confirmation-seal.v1"
+    created_before_screening: bool
+    split_hashes: dict[str, str]
+    task_ids: dict[str, list[str]]
+    exposure_registry_hash: str = Field(pattern=_HASH_PATTERN)
+
+    @model_validator(mode="after")
+    def validate_maps(self) -> "ConfirmationSeal":
+        _validate_hash_mapping(self.split_hashes, "split_hashes")
+        all_task_ids: set[str] = set()
+        for role, task_ids in self.task_ids.items():
+            if len(task_ids) != len(set(task_ids)):
+                raise ValueError(f"task_ids[{role!r}] must contain unique IDs")
+            overlap = all_task_ids & set(task_ids)
+            if overlap:
+                raise ValueError(
+                    f"confirmation task ID roles must be disjoint: {sorted(overlap)}"
+                )
+            all_task_ids.update(task_ids)
+        return self
+
+
+class ResourceReference(_ImmutableSelectionModel):
+    uri: str
+    kind: Literal["git", "rsebench-data", "rsebench-methods", "external-image"]
+    sha256: str = Field(pattern=_HASH_PATTERN)
+    materialization: str
+
+
+class ResourceLock(_ImmutableSelectionModel):
+    schema_version: str = "rsebench.resource-lock.v1"
+    resources: list[ResourceReference]
+
+
+class SelectionReleaseManifest(_ImmutableSelectionModel):
+    schema_version: str = "rsebench.selection-release.v1"
+    selection_version: Literal["noise-screen-v1"]
+    selected_candidate_indices: dict[str, int]
+    screening_split_hashes: dict[str, str]
+    confirmation_split_hashes: dict[str, str]
+    exposure_registry_hash: str = Field(pattern=_HASH_PATTERN)
+    resource_lock_hash: str = Field(pattern=_HASH_PATTERN)
+    baseline_fingerprints: dict[str, str]
+    domain_statuses: dict[str, Literal["clean_generalization_ready"]]
+
+    @model_validator(mode="after")
+    def validate_maps(self) -> "SelectionReleaseManifest":
+        for domain, candidate_index in self.selected_candidate_indices.items():
+            if not 1 <= candidate_index <= 3:
+                raise ValueError(
+                    f"selected_candidate_indices[{domain!r}] must be between 1 and 3"
+                )
+        _validate_hash_mapping(self.screening_split_hashes, "screening_split_hashes")
+        _validate_hash_mapping(
+            self.confirmation_split_hashes,
+            "confirmation_split_hashes",
+        )
+        _validate_hash_mapping(self.baseline_fingerprints, "baseline_fingerprints")
+        return self
+
+
+def selection_key(
+    *,
+    benchmark: str,
+    role: str,
+    candidate_index: int,
+    stratum: str,
+    task_id: str,
+) -> str:
+    return canonical_hash(
+        [
+            "noise-screen-v1",
+            benchmark,
+            role,
+            candidate_index,
+            stratum,
+            task_id,
+        ]
+    )
+
+
+__all__ = [
+    "CandidateDecision",
+    "CandidateSeedEvidence",
+    "ConfirmationSeal",
+    "ConfirmationSplit",
+    "DomainSelectionStatus",
+    "ExposureLevel",
+    "ExposureRecord",
+    "ExposureRegistry",
+    "ExposureSource",
+    "ResourceLock",
+    "ResourceReference",
+    "ScreeningGeneralizationDecision",
+    "ScreeningSeedEvidence",
+    "SelectionAction",
+    "SelectionReleaseManifest",
+    "SelectionStatus",
+    "StableSplitCandidate",
+    "selection_key",
+]

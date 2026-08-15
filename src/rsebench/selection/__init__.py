@@ -1,0 +1,46 @@
+"""Stable public interface for benchmark sample selection."""
+
+from rsebench.selection.contracts import (
+    CandidateDecision,
+    CandidateSeedEvidence,
+    ConfirmationSeal,
+    ConfirmationSplit,
+    DomainSelectionStatus,
+    ExposureLevel,
+    ExposureRecord,
+    ExposureRegistry,
+    ExposureSource,
+    ResourceLock,
+    ResourceReference,
+    ScreeningGeneralizationDecision,
+    ScreeningSeedEvidence,
+    SelectionAction,
+    SelectionReleaseManifest,
+    SelectionStatus,
+    StableSplitCandidate,
+    selection_key,
+)
+from rsebench.selection.exposure import build_exposure_registry, merge_record
+
+__all__ = [
+    "CandidateDecision",
+    "CandidateSeedEvidence",
+    "ConfirmationSeal",
+    "ConfirmationSplit",
+    "DomainSelectionStatus",
+    "ExposureLevel",
+    "ExposureRecord",
+    "ExposureRegistry",
+    "ExposureSource",
+    "ResourceLock",
+    "ResourceReference",
+    "ScreeningGeneralizationDecision",
+    "ScreeningSeedEvidence",
+    "SelectionAction",
+    "SelectionReleaseManifest",
+    "SelectionStatus",
+    "StableSplitCandidate",
+    "build_exposure_registry",
+    "merge_record",
+    "selection_key",
+]
