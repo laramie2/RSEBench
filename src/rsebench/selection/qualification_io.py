@@ -3,16 +3,35 @@
 from __future__ import annotations
 
 import json
+import math
+import os
 import re
 import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
 
-from pydantic import Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from rsebench.contracts import StrictModel, TaskManifest
-from rsebench.evidence import canonical_hash
+from rsebench.core1.dataset import _portable_reference
+from rsebench.evidence import (
+    FeedbackRecord,
+    HookContext,
+    RuntimeNoiseSpec,
+    TrajectoryRecord,
+    canonical_hash,
+    mutate_record,
+)
+from rsebench.evolution.skilladaptor_executor import (
+    SkillAdaptorOwnedFeedback,
+    SkillAdaptorOwnedTrajectory,
+)
+from rsebench.evolution.skillopt_evidence import (
+    SkillOptEvidenceAdapter,
+    _enrich_n3_spec,
+    _enrich_n4_spec,
+)
 from rsebench.experiments.contracts import ExperimentIdentity
 from rsebench.experiments.preflight import (
     _default_fingerprint_resolver,
@@ -100,6 +119,61 @@ class CleanRunEvidence(StrictModel):
     failure_reasons: list[str] = Field(default_factory=list)
 
 
+class ReuseRunIndex(StrictModel):
+    """Hash-bound provenance index; deliberately contains no run evidence."""
+
+    schema_version: Literal["rsebench.reuse-run-index.v1"]
+    source_root: str
+    source_root_identity: str = Field(pattern=r"^[0-9a-f]{64}$")
+    run_dirs: list[str]
+    index_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
+class SkillOptRolloutRow(BaseModel):
+    """Strict gate fields over a baseline row while preserving native extras."""
+
+    model_config = ConfigDict(extra="allow")
+
+    id: str = Field(min_length=1)
+    hard: bool | Literal[0, 1]
+    soft: float
+    predicted_answer: str | None = None
+    fail_reason: str | None = None
+    target_user_prompt: str | None = None
+    source_files: list[str] = Field(default_factory=list)
+    gold_document_ids: list[str] = Field(default_factory=list)
+
+    @field_validator("hard", mode="before")
+    @classmethod
+    def strict_hard(cls, value: Any) -> Any:
+        if isinstance(value, bool) or type(value) is int and value in {0, 1}:
+            return value
+        raise ValueError("hard must be a boolean or integer 0/1")
+
+    @field_validator("soft", mode="before")
+    @classmethod
+    def finite_soft(cls, value: Any) -> Any:
+        if (
+            isinstance(value, bool)
+            or not isinstance(value, (int, float))
+            or not math.isfinite(float(value))
+        ):
+            raise ValueError("soft must be finite")
+        return value
+
+
+class SkillOptConversationItem(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    type: str | None = None
+    role: str | None = None
+    content: str | None = None
+    cmd: str | None = None
+    obs: str | None = None
+    action: str | None = None
+    env_feedback: str | None = None
+
+
 def normalized_evolution_input_hash(
     *,
     candidate: StableSplitCandidate,
@@ -112,6 +186,27 @@ def normalized_evolution_input_hash(
     validation_tasks: list[TaskManifest] | None = None,
 ) -> str:
     """Hash current evolution inputs without path/commit/manifest-file coupling."""
+
+    def task_identity(task: TaskManifest) -> dict[str, Any]:
+        project = _project_root()
+        roots = {
+            "rsebench-project": project,
+            "rsebench-data": Path(
+                os.environ.get("RSEBENCH_DATA_ROOT", project / "data")
+            ).resolve(),
+            "rsebench-methods": _methods_root(project),
+        }
+        payload = task.model_dump(mode="json")
+        try:
+            payload["artifact_path"] = _portable_reference(
+                payload.get("artifact_path"), roots
+            )
+            payload["metadata"] = _portable_reference(payload["metadata"], roots)
+        except ValueError:
+            # Non-production test fixtures may sit outside declared roots.  They
+            # remain exact, but production identities always use root URIs.
+            pass
+        return payload
 
     if (train_tasks is None) != (validation_tasks is None):
         raise ValueError("train and validation task overrides must be supplied together")
@@ -135,30 +230,8 @@ def normalized_evolution_input_hash(
             "candidate_index": candidate.candidate_index,
             "selection_hash": candidate.selection_hash,
             "family": family,
-            "train": [
-                {
-                    "task_id": task.task_id,
-                    "benchmark": task.benchmark,
-                    "domain": task.domain,
-                    "prompt": task.prompt,
-                    "gold_answers": list(task.gold_answers),
-                    "source_hash": task.source_hash,
-                    "verifier": task.verifier,
-                }
-                for task in train
-            ],
-            "validation": [
-                {
-                    "task_id": task.task_id,
-                    "benchmark": task.benchmark,
-                    "domain": task.domain,
-                    "prompt": task.prompt,
-                    "gold_answers": list(task.gold_answers),
-                    "source_hash": task.source_hash,
-                    "verifier": task.verifier,
-                }
-                for task in validation
-            ],
+            "train": [task_identity(task) for task in train],
+            "validation": [task_identity(task) for task in validation],
             "runtime": runtime,
             "seed_skill_hash": seed_skill_hash,
             "provider": provider,
@@ -170,7 +243,7 @@ def normalized_evolution_input_hash(
 
 def _current_candidate_one_identities(
     repository: SelectionRepository,
-) -> dict[tuple[str, int], dict[str, Any]]:
+) -> dict[tuple[str, int, str | None], dict[str, Any]]:
     """Resolve Candidate-1 identity from the current fallback configuration."""
 
     project = _project_root()
@@ -180,7 +253,7 @@ def _current_candidate_one_identities(
     provider_config_hash = sha256_file(project / matrix.provider_config)
     resolve_fingerprint = _default_fingerprint_resolver(project)
     methods_root = _methods_root(project)
-    expected: dict[tuple[str, int], dict[str, Any]] = {}
+    expected: dict[tuple[str, int, str | None], dict[str, Any]] = {}
     for cell in matrix.cells:
         candidate = repository.candidates[cell.benchmark][1]
         seed_hash = sha256_file(
@@ -204,7 +277,7 @@ def _current_candidate_one_identities(
             model=matrix.model,
         )
         for seed in matrix.method_seeds:
-            expected[(cell.benchmark, seed)] = {
+            expected[(cell.benchmark, seed, cell.family)] = {
                 "baseline_fingerprint": fingerprint,
                 "evolution_input_hash": evolution_hash,
                 "provider": matrix.provider,
@@ -234,9 +307,20 @@ def _read_jsonl(path: Path) -> list[dict[str, Any]]:
 
 
 def _provenance(run_dir: Path, paths: list[Path]) -> dict[str, Any]:
+    def locator(path: Path) -> str:
+        resolved = path.resolve()
+        try:
+            return str(resolved.relative_to(run_dir.resolve()))
+        except ValueError:
+            project = _project_root()
+            try:
+                return f"rsebench-project://{resolved.relative_to(project).as_posix()}"
+            except ValueError:
+                return f"external-sha256://{canonical_hash(str(resolved))}"
+
     files = [
         {
-            "path": str(path.resolve().relative_to(run_dir.resolve())),
+            "path": locator(path),
             "sha256": sha256_file(path),
         }
         for path in sorted(set(paths))
@@ -268,6 +352,180 @@ def _missing_owned_audits(
     )
 
 
+def _runtime_spec(benchmark: str, stage: str) -> RuntimeNoiseSpec:
+    path = _project_root() / "benchmark/core1/runtime" / benchmark / f"{stage}.json"
+    return RuntimeNoiseSpec.model_validate(_read_object(path))
+
+
+def _runtime_trace_row(
+    *,
+    expected_ids: list[str],
+    applicable: dict[str, bool],
+    reasons: dict[str, str | None],
+    provenance: dict[str, Any],
+) -> dict[str, Any]:
+    covered = sum(applicable.get(task_id) is True for task_id in expected_ids)
+    coverage = covered / len(expected_ids) if expected_ids else 0.0
+    return {
+        "status": "pass" if coverage == 1.0 else "fail",
+        "coverage": coverage,
+        "applicable_task_ids": [
+            task_id for task_id in expected_ids if applicable.get(task_id) is True
+        ],
+        "inapplicable_reasons": {
+            task_id: reasons.get(task_id)
+            for task_id in expected_ids
+            if applicable.get(task_id) is not True
+        },
+        "operator_execution": "registered_runtime_mutate_record",
+        **provenance,
+    }
+
+
+def _skillopt_task_runtime_applicability(
+    *,
+    benchmark: str,
+    domain: str,
+    task_id: str,
+    native_row: dict[str, Any],
+    conversation: list[dict[str, Any]],
+    run_dir: Path,
+) -> tuple[Any, Any]:
+    """Execute the exact registered SkillOpt N3/N4 selectors provider-free."""
+
+    context = HookContext(
+        task_id=task_id,
+        benchmark=benchmark,
+        domain=domain,
+        method="skillopt",
+        arm="clean",
+        run_dir=run_dir,
+    )
+    adapter = SkillOptEvidenceAdapter()
+    trajectory = adapter.normalize_trajectory(conversation, context)
+    n3_result = mutate_record(
+        trajectory,
+        _enrich_n3_spec(_runtime_spec(benchmark, "N3"), native_row),
+    )
+    feedback = adapter.normalize_feedback(native_row, context)
+    n4_result = mutate_record(
+        feedback,
+        _enrich_n4_spec(
+            _runtime_spec(benchmark, "N4"),
+            native_row,
+            conversation,
+            context,
+        ),
+        trajectory=trajectory,
+    )
+    return n3_result.audit, n4_result.audit
+
+
+def _normalized_task_runtime_applicability(
+    *,
+    benchmark: str,
+    trajectory: TrajectoryRecord,
+    feedback: FeedbackRecord,
+) -> tuple[Any, Any]:
+    """Execute registered N3/N4 on already-normalized baseline evidence."""
+
+    n3_result = mutate_record(trajectory, _runtime_spec(benchmark, "N3"))
+    n4_result = mutate_record(
+        feedback, _runtime_spec(benchmark, "N4"), trajectory=trajectory
+    )
+    return n3_result.audit, n4_result.audit
+
+
+def _strict_trajectory(payload: dict[str, Any]) -> TrajectoryRecord:
+    if payload.get("success") is not None and not isinstance(
+        payload.get("success"), bool
+    ):
+        raise ValueError("trajectory success must be a strict boolean")
+    reward = payload.get("reward")
+    if reward is not None and (
+        isinstance(reward, bool)
+        or not isinstance(reward, (int, float))
+        or not math.isfinite(float(reward))
+    ):
+        raise ValueError("trajectory reward must be finite")
+    return TrajectoryRecord.model_validate(payload)
+
+
+def _strict_feedback(payload: dict[str, Any]) -> FeedbackRecord:
+    reward = payload.get("scalar_reward")
+    if reward is not None and (
+        isinstance(reward, bool)
+        or not isinstance(reward, (int, float))
+        or not math.isfinite(float(reward))
+    ):
+        raise ValueError("feedback scalar reward must be finite")
+    return FeedbackRecord.model_validate(payload)
+
+
+def _normalized_webshop_query(value: Any) -> str:
+    return " ".join(re.findall(r"[a-z0-9]+", str(value).casefold()))
+
+
+def _pinned_webshop_domain_inputs(
+    candidate: StableSplitCandidate,
+) -> tuple[list[bool], list[bool], list[Path]]:
+    """Recompute reachability/headroom from pinned resources, not task flags."""
+
+    project = _project_root()
+    goals_path = project / "benchmark/validation/clean_qualification_v1/webshop_source.json"
+    selection_path = (
+        project
+        / "benchmark/validation/clean_qualification_v1/webshop_validation_selection.json"
+    )
+    products_path = _methods_root(project) / "webshop/data/items_shuffle_1000.json"
+    goals_payload = _read_object(goals_path)
+    selection = _read_object(selection_path)
+    products = json.loads(products_path.read_text(encoding="utf-8"))
+    if not isinstance(products, list):
+        raise ValueError("pinned WebShop products must be a list")
+    query_groups: dict[str, list[str]] = {}
+    for product in products[:1000]:
+        if not isinstance(product, dict):
+            raise ValueError("pinned WebShop product row must be an object")
+        asin = product.get("asin")
+        query = _normalized_webshop_query(product.get("query"))
+        if isinstance(asin, str) and asin and asin != "nan" and len(asin) <= 10:
+            query_groups.setdefault(query, []).append(asin)
+    goals = goals_payload.get("goals")
+    scores = selection.get("candidate_seed_scores")
+    if not isinstance(goals, dict) or not isinstance(scores, dict):
+        raise ValueError("pinned WebShop audit resources are malformed")
+    all_tasks = [
+        *candidate.train,
+        *candidate.validation,
+        *candidate.qualification_test,
+    ]
+    reachable: list[bool] = []
+    for task in all_tasks:
+        raw_index = task.task_id.removeprefix("goal_")
+        goal = goals.get(raw_index)
+        if not isinstance(goal, dict):
+            raise ValueError(f"WebShop goal missing from pinned source: {task.task_id}")
+        target = goal.get("asin")
+        query = _normalized_webshop_query(goal.get("query"))
+        if not isinstance(target, str):
+            raise ValueError("pinned WebShop goal has malformed ASIN")
+        reachable.append(target in query_groups.get(query, [])[:10])
+    outcomes: list[bool] = []
+    for task in candidate.validation:
+        raw_score = scores.get(task.task_id.removeprefix("goal_"))
+        if (
+            isinstance(raw_score, bool)
+            or not isinstance(raw_score, (int, float))
+            or not math.isfinite(float(raw_score))
+        ):
+            raise ValueError(
+                f"WebShop validation score missing or malformed: {task.task_id}"
+            )
+        outcomes.append(float(raw_score) >= 0.999)
+    return reachable, outcomes, [goals_path, selection_path, products_path]
+
+
 def _skillopt_owned_audits(
     run_dir: Path,
     *,
@@ -282,92 +540,103 @@ def _skillopt_owned_audits(
             run_dir, "missing_owned_skillopt_trace", evidence_paths
         )
     try:
-        batches = [_read_jsonl(path) for path in rollout_paths]
+        batches = [
+            [
+                SkillOptRolloutRow.model_validate(row)
+                for row in _read_jsonl(path)
+            ]
+            for path in rollout_paths
+        ]
         summary = _read_object(summary_path)
     except (OSError, ValueError, json.JSONDecodeError):
         return _missing_owned_audits(
             run_dir, "unreadable_owned_skillopt_trace", evidence_paths
         )
     expected_ids = _ids(candidate.train)
-    actual_ids = [str(row.get("id") or "") for batch in batches for row in batch]
+    actual_ids = [row.id for batch in batches for row in batch]
     exact_tasks = _same_unique_ids(actual_ids, expected_ids)
-    outcomes = [[bool(row.get("hard")) for row in batch] for batch in batches]
-    n3_ids: set[str] = set()
-    n4_ids: set[str] = set()
+    outcomes = [[bool(row.hard) for row in batch] for batch in batches]
+    n3_applicable: dict[str, bool] = {}
+    n4_applicable: dict[str, bool] = {}
+    n3_reasons: dict[str, str | None] = {}
+    n4_reasons: dict[str, str | None] = {}
     patch_coverage = True
     for rollout_path, batch in zip(rollout_paths, batches, strict=True):
         step = rollout_path.parent.parent
         for row in batch:
-            task_id = str(row.get("id") or "")
+            task_id = row.id
             conversation_path = step / "rollout/predictions" / task_id / "conversation.json"
             evidence_paths.append(conversation_path)
             if not conversation_path.is_file():
                 continue
-            conversation = json.loads(conversation_path.read_text(encoding="utf-8"))
-            if not isinstance(conversation, list):
-                continue
-            if candidate.benchmark == "spreadsheetbench_verified":
-                assistant = "\n".join(
-                    str(item.get("content") or "")
-                    for item in conversation
-                    if isinstance(item, dict) and item.get("role") == "assistant"
+            raw_conversation = json.loads(
+                conversation_path.read_text(encoding="utf-8")
+            )
+            if not isinstance(raw_conversation, list):
+                raise ValueError("SkillOpt conversation must be a list")
+            conversation = [
+                SkillOptConversationItem.model_validate(item).model_dump(
+                    mode="python", exclude_none=True
                 )
-                if "load_workbook" in assistant and ".save(" in assistant:
-                    n3_ids.add(task_id)
-                attribution = str(row.get("target_user_prompt") or "")
-                if (
-                    "Expected answer position:" in attribution
-                    and "load_workbook" in assistant
-                    and any(token in assistant for token in ("wb[", ".cell(", "iter_rows"))
-                ):
-                    n4_ids.add(task_id)
-            else:
-                tool_rows = [
-                    item
-                    for item in conversation
-                    if isinstance(item, dict) and item.get("type") == "tool_call"
-                ]
-                if any(
-                    str(item.get("cmd") or "").startswith(("grep(", "read("))
-                    and bool(str(item.get("obs") or "").strip())
-                    for item in tool_rows
-                ):
-                    n3_ids.add(task_id)
-                    n4_ids.add(task_id)
+                for item in raw_conversation
+            ]
+            native_row = row.model_dump(mode="python")
+            n3_audit, n4_audit = _skillopt_task_runtime_applicability(
+                benchmark=candidate.benchmark,
+                domain=candidate.domain,
+                task_id=task_id,
+                native_row=native_row,
+                conversation=conversation,
+                run_dir=step,
+            )
+            n3_applicable[task_id] = n3_audit.applicable
+            n4_applicable[task_id] = n4_audit.applicable
+            n3_reasons[task_id] = n3_audit.reason
+            n4_reasons[task_id] = n4_audit.reason
         patch_paths = sorted((step / "patches").glob("minibatch_*.json"))
         evidence_paths.extend(patch_paths)
         patch_counts = {"success": 0, "failure": 0}
         for path in patch_paths:
             patch = _read_object(path)
-            source_type = str(patch.get("source_type") or "")
+            source_type = patch.get("source_type")
             body = patch.get("patch")
-            if source_type not in patch_counts or not isinstance(body, dict) or not body:
+            batch_size = patch.get("batch_size")
+            if (
+                source_type not in patch_counts
+                or not isinstance(body, dict)
+                or not body
+                or type(batch_size) is not int
+                or batch_size < 0
+            ):
                 patch_coverage = False
                 continue
-            patch_counts[source_type] += int(patch.get("batch_size", 0))
-        successes = sum(bool(row.get("hard")) for row in batch)
+            patch_counts[source_type] += batch_size
+        successes = sum(bool(row.hard) for row in batch)
         if patch_counts != {"success": successes, "failure": len(batch) - successes}:
             patch_coverage = False
-    n3_coverage = len(n3_ids & set(expected_ids)) / len(expected_ids)
-    n4_coverage = len(n4_ids & set(expected_ids)) / len(expected_ids)
     provenance = _provenance(run_dir, evidence_paths)
     trace = {
-        "N3": {
-            "status": "pass" if exact_tasks and n3_coverage == 1.0 else "fail",
-            "coverage": n3_coverage,
-            **provenance,
-        },
-        "N4": {
-            "status": (
-                "pass"
-                if exact_tasks and patch_coverage and n4_coverage == 1.0
-                else "fail"
-            ),
-            "coverage": n4_coverage if patch_coverage else 0.0,
-            **provenance,
-        },
+        "N3": _runtime_trace_row(
+            expected_ids=expected_ids,
+            applicable=n3_applicable if exact_tasks else {},
+            reasons=n3_reasons,
+            provenance=provenance,
+        ),
+        "N4": _runtime_trace_row(
+            expected_ids=expected_ids,
+            applicable=n4_applicable if exact_tasks and patch_coverage else {},
+            reasons=n4_reasons,
+            provenance=provenance,
+        ),
     }
-    validation_score = float(summary.get("baseline_selection_hard", -1.0))
+    raw_validation_score = summary.get("baseline_selection_hard")
+    if (
+        isinstance(raw_validation_score, bool)
+        or not isinstance(raw_validation_score, (int, float))
+        or not math.isfinite(float(raw_validation_score))
+    ):
+        raise ValueError("SkillOpt baseline selection score must be finite")
+    validation_score = float(raw_validation_score)
     if candidate.benchmark == "spreadsheetbench_verified":
         audit = audit_spreadsheet(
             validation_score=validation_score,
@@ -375,7 +644,7 @@ def _skillopt_owned_audits(
         )
     else:
         parseable = sum(
-            bool(str(row.get("predicted_answer") or "").strip())
+            bool(str(row.predicted_answer or "").strip())
             for batch in batches
             for row in batch
         ) / len(expected_ids)
@@ -401,64 +670,88 @@ def _webshop_owned_audits(
     candidate: StableSplitCandidate,
     runtime: dict[str, Any],
 ) -> tuple[dict[str, Any], dict[str, Any]]:
-    retrieval_path = run_dir / "clean/retrieval_audit/clean_evolution.jsonl"
-    fault_path = run_dir / "clean/native_train/reasoning_faults.log"
     manifest_path = run_dir / "clean/webshop_task_manifest.json"
-    evidence_paths = [retrieval_path, fault_path, manifest_path]
-    if not all(path.is_file() for path in evidence_paths):
+    owned_root = run_dir / "clean/owned_evidence"
+    evidence_paths = [manifest_path]
+    if not manifest_path.is_file():
         return _missing_owned_audits(
             run_dir, "missing_owned_webshop_trace", evidence_paths
         )
     try:
-        retrieval = _read_jsonl(retrieval_path)
         manifest = _read_object(manifest_path)
-        fault_text = fault_path.read_text(encoding="utf-8")
     except (OSError, ValueError, json.JSONDecodeError):
         return _missing_owned_audits(
             run_dir, "unreadable_owned_webshop_trace", evidence_paths
         )
     expected_ids = _ids(candidate.train)
-    manifest_ids = [f"goal_{value}" for value in manifest.get("input_tasks", [])]
+    input_tasks = manifest.get("input_tasks")
+    if not isinstance(input_tasks, list) or any(
+        type(value) is not int for value in input_tasks
+    ):
+        raise ValueError("WebShop task manifest input_tasks must be integer IDs")
+    manifest_ids = [f"goal_{value}" for value in input_tasks]
     exact_tasks = manifest_ids == expected_ids
-    events: dict[str, set[str]] = {task_id: set() for task_id in expected_ids}
-    for row in retrieval:
-        task_id = str(row.get("episode_id") or "")
-        if task_id in events:
-            events[task_id].add(str(row.get("event") or ""))
-    n3_ids = {
-        task_id
-        for task_id, kinds in events.items()
-        if {"retrieval", "prompt_injection"}.issubset(kinds)
-    }
-    fault_ids = set(
-        re.findall(r"Task:\s*(goal_\d+)\s*\|\s*Step:\s*\d+\s*\|\s*Obs:", fault_text)
-    )
-    n3_coverage = len(n3_ids) / len(expected_ids)
-    n4_coverage = len(fault_ids & set(expected_ids)) / len(expected_ids)
+    n3_applicable: dict[str, bool] = {}
+    n4_applicable: dict[str, bool] = {}
+    n3_reasons: dict[str, str | None] = {}
+    n4_reasons: dict[str, str | None] = {}
+    missing_owned_evidence = False
+    for task_id in expected_ids:
+        trajectory_path = owned_root / task_id / "trajectory.json"
+        feedback_path = owned_root / task_id / "feedback.json"
+        evidence_paths.extend([trajectory_path, feedback_path])
+        if not trajectory_path.is_file() or not feedback_path.is_file():
+            missing_owned_evidence = True
+            continue
+        trajectory_payload = _read_object(trajectory_path)
+        feedback_payload = _read_object(feedback_path)
+        trajectory_wrapper = SkillAdaptorOwnedTrajectory.model_validate(
+            trajectory_payload
+        )
+        feedback_wrapper = SkillAdaptorOwnedFeedback.model_validate(feedback_payload)
+        if trajectory_wrapper.task_id != task_id or feedback_wrapper.task_id != task_id:
+            raise ValueError("SkillAdaptor owned evidence task identity differs")
+        trajectory = _strict_trajectory(trajectory_payload["normalized"])
+        feedback = _strict_feedback(feedback_payload["normalized"])
+        n3_audit, n4_audit = _normalized_task_runtime_applicability(
+            benchmark=candidate.benchmark,
+            trajectory=trajectory,
+            feedback=feedback,
+        )
+        n3_applicable[task_id] = n3_audit.applicable
+        n4_applicable[task_id] = n4_audit.applicable
+        n3_reasons[task_id] = n3_audit.reason
+        n4_reasons[task_id] = n4_audit.reason
     provenance = _provenance(run_dir, evidence_paths)
     trace = {
-        "N3": {
-            "status": "pass" if exact_tasks and n3_coverage == 1.0 else "fail",
-            "coverage": n3_coverage,
-            **provenance,
-        },
-        "N4": {
-            "status": "pass" if exact_tasks and n4_coverage == 1.0 else "fail",
-            "coverage": n4_coverage,
-            **provenance,
-        },
+        "N3": _runtime_trace_row(
+            expected_ids=expected_ids,
+            applicable=n3_applicable if exact_tasks else {},
+            reasons=n3_reasons,
+            provenance=provenance,
+        ),
+        "N4": _runtime_trace_row(
+            expected_ids=expected_ids,
+            applicable=n4_applicable if exact_tasks else {},
+            reasons=n4_reasons,
+            provenance=provenance,
+        ),
     }
-    all_tasks = [
-        *candidate.train,
-        *candidate.validation,
-        *candidate.qualification_test,
-    ]
+    if missing_owned_evidence:
+        trace["N3"]["status"] = "missing"
+        trace["N4"]["status"] = "missing"
+    reachable, validation_outcomes, pinned_paths = _pinned_webshop_domain_inputs(
+        candidate
+    )
+    evidence_paths.extend(pinned_paths)
+    provenance = _provenance(run_dir, evidence_paths)
+    max_episode_steps = runtime.get("max_episode_steps")
+    if type(max_episode_steps) is not int:
+        raise ValueError("WebShop max_episode_steps must be an integer")
     audit = audit_webshop(
-        target_reachable=[task.metadata.get("target_reachable") is True for task in all_tasks],
-        validation_outcomes=[
-            task.metadata.get("seed_success") is True for task in candidate.validation
-        ],
-        max_episode_steps=int(runtime.get("max_episode_steps", 0)),
+        target_reachable=reachable,
+        validation_outcomes=validation_outcomes,
+        max_episode_steps=max_episode_steps,
     )
     domain = {
         **audit.model_dump(mode="json"),
@@ -484,8 +777,10 @@ def _skilllearn_owned_audits(
     round_dirs = sorted(path for path in evolution_root.glob("round-*") if path.is_dir())
     by_task = {path.name.split("-", maxsplit=2)[-1]: path for path in round_dirs}
     evidence_paths: list[Path] = []
-    n3_ids: set[str] = set()
-    n4_ids: set[str] = set()
+    n3_applicable: dict[str, bool] = {}
+    n4_applicable: dict[str, bool] = {}
+    n3_reasons: dict[str, str | None] = {}
+    n4_reasons: dict[str, str | None] = {}
     executions: list[dict[str, Any]] = []
     leak_markers = ("/tests/", "test_outputs.py::", "ctrf.json", "reference_solution")
     for task_id in train_ids:
@@ -501,23 +796,24 @@ def _skilllearn_owned_audits(
         )
         if not all(path.is_file() for path in evidence_paths[-4:]):
             continue
-        trajectory = _read_object(trajectory_path)
-        feedback = _read_object(feedback_path)
-        visible = json.dumps([trajectory, feedback], ensure_ascii=False).casefold()
-        if (
-            trajectory.get("task_id") == task_id
-            and isinstance(trajectory.get("events"), list)
-            and trajectory["events"]
-        ):
-            n3_ids.add(task_id)
-        blamed = feedback.get("blamed_event_ids")
-        if (
-            feedback.get("task_id") == task_id
-            and isinstance(blamed, list)
-            and blamed
-            and bool(str(feedback.get("recommendation") or "").strip())
-        ):
-            n4_ids.add(task_id)
+        trajectory_payload = _read_object(trajectory_path)
+        feedback_payload = _read_object(feedback_path)
+        trajectory = _strict_trajectory(trajectory_payload)
+        feedback = _strict_feedback(feedback_payload)
+        if trajectory.task_id != task_id or feedback.task_id != task_id:
+            raise ValueError("SkillLearn visible evidence task identity differs")
+        visible = json.dumps(
+            [trajectory_payload, feedback_payload], ensure_ascii=False
+        ).casefold()
+        n3_audit, n4_audit = _normalized_task_runtime_applicability(
+            benchmark=candidate.benchmark,
+            trajectory=trajectory,
+            feedback=feedback,
+        )
+        n3_applicable[task_id] = n3_audit.applicable
+        n4_applicable[task_id] = n4_audit.applicable
+        n3_reasons[task_id] = n3_audit.reason
+        n4_reasons[task_id] = n4_audit.reason
         executions.append(
             {
                 "container_started": bool(_read_object(image_path).get("image_id")),
@@ -546,20 +842,20 @@ def _skilllearn_owned_audits(
         return _missing_owned_audits(
             run_dir, "missing_owned_skilllearn_trace", evidence_paths
         )
-    n3_coverage = len(n3_ids) / len(train_ids)
-    n4_coverage = len(n4_ids) / len(train_ids)
     provenance = _provenance(run_dir, evidence_paths)
     trace = {
-        "N3": {
-            "status": "pass" if n3_coverage == 1.0 else "fail",
-            "coverage": n3_coverage,
-            **provenance,
-        },
-        "N4": {
-            "status": "pass" if n4_coverage == 1.0 else "fail",
-            "coverage": n4_coverage,
-            **provenance,
-        },
+        "N3": _runtime_trace_row(
+            expected_ids=train_ids,
+            applicable=n3_applicable,
+            reasons=n3_reasons,
+            provenance=provenance,
+        ),
+        "N4": _runtime_trace_row(
+            expected_ids=train_ids,
+            applicable=n4_applicable,
+            reasons=n4_reasons,
+            provenance=provenance,
+        ),
     }
     audit = audit_skilllearn(executions=executions)
     return trace, {
@@ -813,7 +1109,9 @@ def read_clean_run(
         "experiment_id"
     ) != identity.experiment_id:
         raise ValueError("clean result/runtime identity mismatch")
-    method_seed = int(result.get("method_seed", -1))
+    method_seed = result.get("method_seed")
+    if type(method_seed) is not int:
+        raise ValueError("clean result method seed must be an integer")
     if method_seed != identity.inputs.method_seed:
         raise ValueError("clean result method seed differs from runtime identity")
     seed_files = [path for path in (run_dir / "seed").iterdir() if path.is_file()]
@@ -842,7 +1140,9 @@ def read_clean_run(
         expected_train = _ids(candidate.train)
         expected_validation = _ids(candidate.validation)
     failures = _clean_accounting_failures(result)
-    accepted_update_count = int(execution.get("accepted_update_count", 0))
+    accepted_update_count = execution.get("accepted_update_count")
+    if type(accepted_update_count) is not int or accepted_update_count < 0:
+        raise ValueError("accepted_update_count must be a nonnegative integer")
     if qualification.get("accepted_update_count") != accepted_update_count:
         failures.append("qualification_update_count_differs")
     if qualification.get("artifact_updated") != (clean_hash != seed_hash):
@@ -1233,7 +1533,13 @@ def _pool_qualification_status(
                 next_action=action,
                 reasons=reasons,
             )
-        if action == "run_candidate_3" and index < 3:
+        if action == "run_candidate_3":
+            if index == 3:
+                return DomainSelectionStatus(
+                    benchmark=benchmark,
+                    next_action="run_candidate_3",
+                    reasons=reasons,
+                )
             if not _records_for(records, benchmark, 3):
                 return DomainSelectionStatus(
                     benchmark=benchmark,
@@ -1317,12 +1623,112 @@ def _legacy_replay_sources(root: Path | None) -> list[dict[str, Any]]:
     return sources
 
 
+def _reuse_index_payload(
+    source_root: Path, records: list[CleanRunEvidence]
+) -> dict[str, Any]:
+    root = source_root.resolve()
+    relative_dirs: list[str] = []
+    for record in records:
+        run_dir = Path(record.run_dir).resolve()
+        try:
+            relative = run_dir.relative_to(root)
+        except ValueError as exc:
+            raise ValueError(
+                f"historical clean run is outside declared clean_v2_root: {run_dir}"
+            ) from exc
+        relative_dirs.append(relative.as_posix())
+    relative_dirs = sorted(set(relative_dirs))
+    root_identity = canonical_hash(
+        {"source_root": str(root), "run_dirs": relative_dirs}
+    )
+    payload = {
+        "schema_version": "rsebench.reuse-run-index.v1",
+        "source_root": str(root),
+        "source_root_identity": root_identity,
+        "run_dirs": relative_dirs,
+    }
+    return {**payload, "index_hash": canonical_hash(payload)}
+
+
+def _rehydrate_reused_records(
+    run_root: Path, repository: SelectionRepository
+) -> list[CleanRunEvidence]:
+    """Recompute reusable evidence from immutable historical run directories."""
+
+    index_path = run_root / "reuse_audit_sources.json"
+    if not index_path.is_file():
+        return []
+    raw = _read_object(index_path)
+    index = ReuseRunIndex.model_validate(raw)
+    unsigned = index.model_dump(mode="json", exclude={"index_hash"})
+    if canonical_hash(unsigned) != index.index_hash:
+        raise ValueError("reuse run index hash differs")
+    source_root = Path(index.source_root).resolve()
+    if not source_root.is_dir():
+        raise FileNotFoundError(f"declared clean_v2_root is missing: {source_root}")
+    expected_root_identity = canonical_hash(
+        {"source_root": str(source_root), "run_dirs": index.run_dirs}
+    )
+    if expected_root_identity != index.source_root_identity:
+        raise ValueError("reuse source root identity differs")
+    if len(index.run_dirs) != len(set(index.run_dirs)):
+        raise ValueError("reuse run index contains duplicate run directories")
+
+    validated_dirs: list[Path] = []
+    for relative in index.run_dirs:
+        if Path(relative).is_absolute():
+            raise ValueError("reuse run index requires relative run directories")
+        run_dir = (source_root / relative).resolve()
+        try:
+            run_dir.relative_to(source_root)
+        except ValueError as exc:
+            raise ValueError(
+                f"historical clean run escapes declared clean_v2_root: {relative}"
+            ) from exc
+        if not run_dir.is_dir():
+            raise FileNotFoundError(f"historical clean run is missing: {run_dir}")
+        validated_dirs.append(run_dir)
+
+    expected_identities = _current_candidate_one_identities(repository)
+    records: list[CleanRunEvidence] = []
+    for run_dir in validated_dirs:
+        record = read_clean_run(
+            run_dir, repository=repository, boundary=source_root
+        )
+        expected = expected_identities.get(
+            (record.benchmark, record.method_seed, record.family)
+        )
+        if expected is not None:
+            actual = {
+                "baseline_fingerprint": record.baseline_fingerprint,
+                "evolution_input_hash": record.evolution_input_hash,
+                "provider": record.provider,
+                "model": record.model,
+                "provider_config_hash": record.provider_config_hash,
+                "method_seed": record.method_seed,
+                "artifact_hash": record.clean_artifact_hash,
+            }
+            failures = reuse_identity_failures(
+                actual, {**expected, "artifact_hash": record.clean_artifact_hash}
+            )
+            if record.seed_artifact_hash != expected["seed_artifact_hash"]:
+                failures.append("reuse_identity_mismatch:seed_artifact_hash")
+            # A stale historical row is never overlaid.  Qualification then
+            # reports missing evidence and replay discovery cannot schedule it.
+            if failures:
+                continue
+        records.append(record)
+    return records
+
+
 def _reuse_audit(
     repository: SelectionRepository,
     run_root: Path,
     clean_v2_root: Path | None,
     skillopt_replay_root: Path | None,
 ) -> SelectionStatus:
+    if clean_v2_root is None:
+        raise ValueError("reuse-audit requires a declared clean_v2_root")
     records = (
         discover_clean_runs(clean_v2_root, repository)
         if clean_v2_root is not None
@@ -1332,7 +1738,9 @@ def _reuse_audit(
     identity_audits: list[dict[str, Any]] = []
     current_failures: dict[str, list[str]] = {}
     for run in records:
-        expected = expected_identities.get((run.benchmark, run.method_seed))
+        expected = expected_identities.get(
+            (run.benchmark, run.method_seed, run.family)
+        )
         if expected is None:
             continue
         expected = {**expected, "artifact_hash": run.clean_artifact_hash}
@@ -1359,15 +1767,25 @@ def _reuse_audit(
                 "failure_reasons": failures,
             }
         )
-    source_payload = {
-        "schema_version": "rsebench.reuse-audit-sources.v1",
-        "runs": [record.model_dump(mode="json") for record in records],
+    report_payload = {
+        "schema_version": "rsebench.reuse-audit-report.v1",
         "legacy_replays": _legacy_replay_sources(skillopt_replay_root),
         "current_identity_audits": identity_audits,
     }
     run_root.mkdir(parents=True, exist_ok=True)
     (run_root / "reuse_audit_sources.json").write_text(
-        json.dumps(source_payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+        json.dumps(
+            _reuse_index_payload(Path(clean_v2_root), records),
+            ensure_ascii=False,
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (run_root / "reuse_audit_report.json").write_text(
+        json.dumps(report_payload, ensure_ascii=False, indent=2, sort_keys=True)
+        + "\n",
         encoding="utf-8",
     )
     domains: dict[str, DomainSelectionStatus] = {
@@ -1385,15 +1803,32 @@ def _reuse_audit(
     for benchmark in ("officeqa_full", "webshop"):
         candidate = repository.candidates[benchmark][1]
         runs = _records_for(records, benchmark, 1)
-        failures = _group_failures(candidate, runs, family=None)
+        group_failures = _group_failures(candidate, runs, family=None)
+        identity_failures: list[str] = []
         for run in runs:
-            failures.extend(
+            identity_failures.extend(
                 current_failures.get(f"{benchmark}:{run.method_seed}", [])
             )
-        failures = list(dict.fromkeys(failures))
+        retryable, deterministic = _selection_audit_failure_groups(
+            repository, candidate, runs
+        )
+        failures = list(
+            dict.fromkeys(
+                [*group_failures, *identity_failures, *retryable, *deterministic]
+            )
+        )
+        if (
+            deterministic
+            and not retryable
+            and not group_failures
+            and not identity_failures
+        ):
+            next_action = "run_candidate_2"
+        else:
+            next_action = "rerun_candidate_1" if failures else "replay_candidate_1"
         domains[benchmark] = DomainSelectionStatus(
             benchmark=benchmark,
-            next_action=("rerun_candidate_1" if failures else "replay_candidate_1"),
+            next_action=next_action,
             reasons=failures,
         )
     return SelectionStatus(domains=domains)
@@ -1404,16 +1839,9 @@ def _qualification(
     run_root: Path,
 ) -> SelectionStatus:
     records = discover_clean_runs(run_root, repository)
-    reuse_path = run_root / "reuse_audit_sources.json"
-    if reuse_path.is_file():
-        payload = _read_object(reuse_path)
-        records = _overlay_reused_records(
-            records,
-            [
-                CleanRunEvidence.model_validate(row)
-                for row in payload.get("runs", [])
-            ],
-        )
+    records = _overlay_reused_records(
+        records, _rehydrate_reused_records(run_root, repository)
+    )
     domains = {
         benchmark: _pool_qualification_status(
             repository, records, run_root, benchmark
@@ -1434,15 +1862,9 @@ def _screening(
         (run_root / "selection_status.json").read_text(encoding="utf-8")
     )
     records = discover_clean_runs(run_root, repository)
-    reuse_path = run_root / "reuse_audit_sources.json"
-    if reuse_path.is_file():
-        records = _overlay_reused_records(
-            records,
-            [
-                CleanRunEvidence.model_validate(row)
-                for row in _read_object(reuse_path).get("runs", [])
-            ],
-        )
+    records = _overlay_reused_records(
+        records, _rehydrate_reused_records(run_root, repository)
+    )
     domains: dict[str, DomainScreeningGeneralization] = {}
     for benchmark in POOL_BENCHMARKS:
         selected = status.domains[benchmark].selected_candidate_index
@@ -1634,15 +2056,9 @@ def discover_replay_jobs(
         raise ValueError(f"unknown replay role: {evaluation_role}")
     repository = load_selection_repository(selection_root)
     records = discover_clean_runs(run_root, repository)
-    reuse_path = run_root / "reuse_audit_sources.json"
-    if reuse_path.is_file():
-        records = _overlay_reused_records(
-            records,
-            [
-                CleanRunEvidence.model_validate(row)
-                for row in _read_object(reuse_path).get("runs", [])
-            ],
-        )
+    records = _overlay_reused_records(
+        records, _rehydrate_reused_records(run_root, repository)
+    )
     selected: dict[str, int] = {}
     if evaluation_role == "screening_test":
         status = SelectionStatus.model_validate_json(
@@ -1663,6 +2079,12 @@ def discover_replay_jobs(
         ),
     ):
         if run.failure_reasons:
+            continue
+        candidate = repository.candidates[run.benchmark][run.candidate_index]
+        retryable, deterministic = _selection_audit_failure_groups(
+            repository, candidate, [run]
+        )
+        if retryable or deterministic:
             continue
         if candidate_index is not None and run.candidate_index != candidate_index:
             continue

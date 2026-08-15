@@ -11,10 +11,14 @@ import pytest
 
 from rsebench.evidence import HookContext, RuntimeNoiseSpec
 from rsebench.evolution.skilladaptor_executor import (
+    SkillAdaptorOwnedFeedback,
+    SkillAdaptorOwnedTrajectory,
     SkillAdaptorBudget,
     SkillAdaptorEvidenceAdapter,
     SkillAdaptorExecutor,
     _execution_audit_from_report,
+    apply_skilladaptor_fault_from_env,
+    apply_skilladaptor_trajectory_from_env,
     canonicalize_skill_bank_artifact,
     mutate_skilladaptor_fault,
     mutate_skilladaptor_trajectory,
@@ -105,6 +109,44 @@ def test_clean_trajectory_path_is_exact_native_identity(tmp_path: Path) -> None:
     )
 
     assert output is trajectory
+
+
+def test_external_hooks_persist_actual_native_and_normalized_owned_evidence(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    trajectory = _trajectory()
+    fault = LocalizedFault(
+        task_id=trajectory.task_id,
+        step_index=2,
+        fault_type=FaultType.REASONING_WRONG,
+        observation=trajectory.steps[2].observation,
+        wrong_action=trajectory.steps[2].action,
+        skills_at_fault=[],
+        improvement_principle="Verify required options.",
+        fault_chain=[3],
+    )
+    monkeypatch.setenv("RSEBENCH_OWNED_EVIDENCE_ROOT", str(tmp_path / "owned"))
+    monkeypatch.setenv("RSEBENCH_EVIDENCE_ARM", "clean")
+    monkeypatch.delenv("RSEBENCH_EVIDENCE_SPEC", raising=False)
+
+    assert apply_skilladaptor_trajectory_from_env(trajectory) is trajectory
+    assert apply_skilladaptor_fault_from_env(fault, trajectory) is fault
+
+    root = tmp_path / "owned/goal_17"
+    trajectory_record = SkillAdaptorOwnedTrajectory.model_validate_json(
+        (root / "trajectory.json").read_text(encoding="utf-8")
+    )
+    feedback_record = SkillAdaptorOwnedFeedback.model_validate_json(
+        (root / "feedback.json").read_text(encoding="utf-8")
+    )
+    assert trajectory_record.native["steps"][1]["action"] == "click[red]"
+    assert [event.event_id for event in trajectory_record.normalized.events] == [
+        "step-0",
+        "step-1",
+        "step-2",
+    ]
+    assert feedback_record.native["step_index"] == 2
+    assert feedback_record.normalized.blamed_event_ids == ["step-2"]
 
 
 def test_n3_omits_required_option_before_localizer_and_preserves_reward(tmp_path: Path) -> None:

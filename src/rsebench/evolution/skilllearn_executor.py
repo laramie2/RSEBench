@@ -933,6 +933,7 @@ class SkillLearnExecutor:
                 skill=skill,
                 output_dir=output_dir / task.task_id,
                 arm=stage if stage in {"clean", "noisy"} else "seed",
+                usage_stage=stage,
             )
         score = sum(scores.values()) / len(scores) if scores else 0.0
         return EvaluationResult(

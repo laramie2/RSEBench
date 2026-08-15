@@ -138,7 +138,9 @@ class SkillOptEvidenceAdapter:
         return FeedbackRecord(
             task_id=context.task_id,
             benchmark=context.benchmark,
-            blamed_resource_refs=resources[:1],
+            # Preserve path aliases together so the same physical source cannot
+            # be selected as its own N4 decoy via basename/full-path spelling.
+            blamed_resource_refs=resources,
             diagnosis=diagnosis,
             scalar_reward=(
                 float(native["soft"])

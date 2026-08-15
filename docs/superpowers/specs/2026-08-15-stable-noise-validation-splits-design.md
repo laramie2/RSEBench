@@ -202,7 +202,7 @@ sha256(canonical_json(["noise-screen-v1", benchmark, role,
 
 SkillLearn family clean-ready 要求三颗 seed 中至少两颗接受更新且 validation 合法执行；四个 family 中至少三个 clean-ready，领域才通过。
 
-三个候选均失败时，该领域标记为 `clean_blocked_after_three_candidates`，停止样本冻结，不继续更换数据。
+三个候选均以完整、确定性的证据失败时，该领域标记为 `clean_blocked_after_three_candidates`，停止样本冻结，不继续更换数据。Candidate 3 证据缺失或不可读时仍返回 `run_candidate_3` 以重试同一候选，不能把不完整执行误记为三次确定性失败。
 
 ## 8. Screening test 首次评测后的约束
 

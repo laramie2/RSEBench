@@ -118,7 +118,7 @@ SkillLearnBench 以 task family 为 self-evolution 单位。方法只能使用 a
 
 **SkillOpt** 让 target model 执行任务，把 success/failure trajectory 按 minibatch 交给 optimizer 分析，再生成 skill edit；候选必须通过 native selection/validation gate 才会成为新 artifact。SpreadsheetBench 和 OfficeQA 共用其核心更新算法，但使用不同 environment adapter、工具和 verifier。RSEBench 的 patch 只处理 provider、数据/工具接口、bounded recovery、evidence hook、日志和可复现性，不应静默改变 SkillOpt 的核心优化规则。
 
-**SkillAdaptor** 在 WebShop episode 后依次执行 Localizer、Linker 和 Reviser：先定位 actionable fault，再连接已有 skill/candidate，最后生成候选 skill bank；候选需通过原生 validation/adoption 逻辑。RSEBench 适配负责 DeepSeek provider、task ID 边界、action parser recovery、候选隔离、retrieval audit 和 N3/N4 hook。
+**SkillAdaptor** 在 WebShop episode 后依次执行 Localizer、Linker 和 Reviser：先定位 actionable fault，再连接已有 skill/candidate，最后生成候选 skill bank；候选需通过原生 validation/adoption 逻辑。RSEBench 适配负责 DeepSeek provider、task ID 边界、action parser recovery、候选隔离、retrieval audit 和 N3/N4 hook，并在该 hook 边界保存原生及归一化 ordered trajectory/localized feedback，供 provider-free 资格审计重放 exact selector。
 
 **SkillLearnBench Self-Feedback** 先生成 skill，使用它完成 acquisition task，再根据自己的 trajectory 识别问题并修订，当前 clean-v2 使用两轮 separated execution/revision。**Teacher-Feedback** 在失败后提供方向性指导，但不能泄露 ground-truth skill 或 hidden verifier details；它主要用于验证 N4 的 feedback corruption boundary。
 

@@ -213,6 +213,7 @@ def sequential_incomplete_action(
 ) -> Literal[
     "rerun_candidate_1",
     "run_candidate_2",
+    "run_candidate_3",
     "clean_blocked_after_three_candidates",
 ]:
     """Return the only legal action for incomplete evidence at one candidate."""
@@ -222,7 +223,7 @@ def sequential_incomplete_action(
     if candidate_index == 2:
         return "run_candidate_2"
     if candidate_index == 3:
-        return "clean_blocked_after_three_candidates"
+        return "run_candidate_3"
     raise ValueError("candidate index must be one of 1, 2, or 3")
 
 

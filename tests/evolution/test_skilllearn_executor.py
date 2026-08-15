@@ -400,6 +400,40 @@ def test_clean_arm_uses_identity_evidence_and_clean_sibling_evaluation(tmp_path:
     assert not (tmp_path / "round/mutation_audit").exists()
 
 
+def test_production_evaluate_propagates_replay_stage_to_usage_context(
+    tmp_path: Path,
+) -> None:
+    class StageBackend(FakeBackend):
+        def __init__(self) -> None:
+            super().__init__()
+            self.stages: list[str | None] = []
+
+        def evaluate(self, task: TaskManifest, skill: str, output_dir: Path) -> float:
+            self.stages.append(os.environ.get("RSEBENCH_TOKEN_STAGE"))
+            return 1.0
+
+    backend = StageBackend()
+    executor = SkillLearnExecutor(
+        client=ScriptedClient([]),
+        backend=backend,
+        evidence_spec=None,
+        ledger_dir=tmp_path / "tokens",
+        run_id="replay-stage",
+    )
+    skill = tmp_path / "skill.md"
+    skill.write_text("skill\n", encoding="utf-8")
+
+    result = executor.evaluate(
+        skill_path=skill,
+        clean_test=[task(tmp_path)],
+        output_dir=tmp_path / "replay",
+        stage="qualification_test_clean_artifact_repeat_1",
+    )
+
+    assert result.score == 1.0
+    assert backend.stages == ["qualification_test_clean_artifact_repeat_1"]
+
+
 def test_evolve_uses_family_validation_to_accept_revised_skills(tmp_path: Path) -> None:
     client = ScriptedClient(
         ["diagnosis one", "revised skill one", "diagnosis two", "revised skill two"]

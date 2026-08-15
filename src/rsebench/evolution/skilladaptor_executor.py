@@ -10,14 +10,16 @@ from __future__ import annotations
 
 import copy
 import json
+import math
 import os
 import re
 import subprocess
 import sys
 from contextlib import ExitStack, contextmanager
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass, is_dataclass
+from enum import Enum
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, Literal
 
 from rsebench.evidence import (
     EvidenceNoiseHook,
@@ -29,6 +31,7 @@ from rsebench.evidence import (
     TrajectoryRecord,
 )
 from rsebench.contracts import TaskManifest
+from rsebench.contracts import StrictModel
 from rsebench.evolution.clean_contracts import EvolutionExecutionAudit
 from rsebench.evolution.contracts import EvolutionArmManifest, EvolutionSplitManifest
 from rsebench.evolution.runner import EvaluationResult, EvolutionArtifact
@@ -81,6 +84,92 @@ def canonicalize_skill_bank_artifact(path: Path | str) -> str:
 class SkillAdaptorBudget:
     max_iterations: int = 1
     max_episode_steps: int = 8
+
+
+class SkillAdaptorOwnedTrajectory(StrictModel):
+    schema_version: Literal["rsebench.skilladaptor-owned-trajectory.v1"] = (
+        "rsebench.skilladaptor-owned-trajectory.v1"
+    )
+    task_id: str
+    native: dict[str, Any]
+    normalized: TrajectoryRecord
+
+
+class SkillAdaptorOwnedFeedback(StrictModel):
+    schema_version: Literal["rsebench.skilladaptor-owned-feedback.v1"] = (
+        "rsebench.skilladaptor-owned-feedback.v1"
+    )
+    task_id: str
+    native: dict[str, Any]
+    normalized: FeedbackRecord
+
+
+def _json_native(value: Any) -> Any:
+    if is_dataclass(value):
+        return _json_native(asdict(value))
+    if isinstance(value, Enum):
+        return value.value
+    if isinstance(value, dict):
+        return {str(key): _json_native(child) for key, child in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_json_native(child) for child in value]
+    if isinstance(value, float) and not math.isfinite(value):
+        raise ValueError("SkillAdaptor native evidence contains a non-finite float")
+    if value is None or isinstance(value, (str, int, float, bool)):
+        return value
+    raise TypeError(f"unsupported SkillAdaptor native evidence value: {type(value)!r}")
+
+
+def _persist_owned_trajectory(trajectory: Any) -> None:
+    raw_root = os.environ.get("RSEBENCH_OWNED_EVIDENCE_ROOT", "").strip()
+    if not raw_root:
+        return
+    root = Path(raw_root).resolve() / str(trajectory.task_id)
+    root.mkdir(parents=True, exist_ok=True)
+    context = HookContext(
+        task_id=str(trajectory.task_id),
+        benchmark="webshop",
+        domain="interactive",
+        method="skilladaptor",
+        arm=os.environ.get("RSEBENCH_EVIDENCE_ARM", "clean"),
+        run_dir=root,
+    )
+    record = SkillAdaptorOwnedTrajectory(
+        task_id=context.task_id,
+        native=_json_native(trajectory),
+        normalized=SkillAdaptorEvidenceAdapter(trajectory=trajectory).normalize_trajectory(
+            trajectory, context
+        ),
+    )
+    (root / "trajectory.json").write_text(
+        record.model_dump_json(indent=2) + "\n", encoding="utf-8"
+    )
+
+
+def _persist_owned_feedback(fault: Any, trajectory: Any) -> None:
+    raw_root = os.environ.get("RSEBENCH_OWNED_EVIDENCE_ROOT", "").strip()
+    if not raw_root:
+        return
+    root = Path(raw_root).resolve() / str(trajectory.task_id)
+    root.mkdir(parents=True, exist_ok=True)
+    context = HookContext(
+        task_id=str(trajectory.task_id),
+        benchmark="webshop",
+        domain="interactive",
+        method="skilladaptor",
+        arm=os.environ.get("RSEBENCH_EVIDENCE_ARM", "clean"),
+        run_dir=root,
+    )
+    record = SkillAdaptorOwnedFeedback(
+        task_id=context.task_id,
+        native=_json_native(fault),
+        normalized=SkillAdaptorEvidenceAdapter(trajectory=trajectory).normalize_feedback(
+            fault, context
+        ),
+    )
+    (root / "feedback.json").write_text(
+        record.model_dump_json(indent=2) + "\n", encoding="utf-8"
+    )
 
 
 def _execution_audit_from_report(
@@ -321,6 +410,7 @@ def _spec_and_context(task_id: str) -> tuple[RuntimeNoiseSpec, HookContext] | No
 def apply_skilladaptor_trajectory_from_env(trajectory: Any) -> Any:
     """External-checkout hook immediately after rollout, before Localizer."""
 
+    _persist_owned_trajectory(trajectory)
     configured = _spec_and_context(str(trajectory.task_id))
     if configured is None:
         return trajectory
@@ -331,6 +421,7 @@ def apply_skilladaptor_trajectory_from_env(trajectory: Any) -> Any:
 def apply_skilladaptor_fault_from_env(fault: Any, trajectory: Any) -> Any:
     """External-checkout hook after Localizer, before Linker/Reviser."""
 
+    _persist_owned_feedback(fault, trajectory)
     configured = _spec_and_context(str(trajectory.task_id))
     if configured is None:
         return fault
@@ -505,6 +596,10 @@ class SkillAdaptorExecutor:
         environment["RSEBENCH_SKILL_RETRIEVAL_AUDIT"] = str(
             (output_dir / "retrieval_audit" / f"{arm.arm}_evolution.jsonl").resolve()
         )
+        environment["RSEBENCH_OWNED_EVIDENCE_ROOT"] = str(
+            (output_dir / "owned_evidence").resolve()
+        )
+        environment["RSEBENCH_EVIDENCE_ARM"] = arm.arm
         # SkillAdaptor defaults to five validation samples.  Core-1's bounded
         # pilot uses one (smoke) or three (efficacy), so retaining the default
         # would make skill adoption impossible by construction.

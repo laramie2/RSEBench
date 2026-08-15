@@ -1,12 +1,14 @@
 from __future__ import annotations
 
+import json
 from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
+import rsebench.selection.qualification_io as qualification_io
 
 from rsebench.contracts import TaskManifest
-from rsebench.evidence import canonical_hash
+from rsebench.evidence import FeedbackRecord, TraceEvent, TrajectoryRecord, canonical_hash
 from rsebench.selection.contracts import (
     CandidateSeedEvidence,
     ScreeningSeedEvidence,
@@ -31,11 +33,145 @@ from rsebench.selection.qualification_io import (
     CleanRunEvidence,
     SelectionRepository,
     _group_failures,
+    _normalized_task_runtime_applicability,
+    _rehydrate_reused_records,
+    _reuse_index_payload,
     _selection_audit_failure_groups,
+    _skillopt_task_runtime_applicability,
+    _strict_feedback,
+    _strict_trajectory,
     derive_owned_run_audits,
     normalized_evolution_input_hash,
+    SkillOptRolloutRow,
     validate_candidate_denominators,
 )
+
+
+@pytest.mark.parametrize(
+    ("benchmark", "domain", "row", "conversation", "negative_conversation"),
+    [
+        (
+            "spreadsheetbench_verified",
+            "spreadsheet",
+            {"id": "sheet-1", "hard": 0, "soft": 0.0, "fail_reason": "Wrong range A1"},
+            [
+                {
+                    "role": "assistant",
+                    "content": (
+                        "load_workbook('/tmp/book.xlsx'); ws['B2'].value = 1; "
+                        "wb.save('/tmp/book.xlsx')"
+                    ),
+                }
+            ],
+            [
+                {
+                    "role": "assistant",
+                    "content": (
+                        "load_workbook('/tmp/book.xlsx'); ws['A1'].value = 1; "
+                        "wb.save('/tmp/book.xlsx')"
+                    ),
+                }
+            ],
+        ),
+        (
+            "officeqa_full",
+            "document",
+            {
+                "id": "office-1",
+                "hard": 0,
+                "soft": 0.0,
+                "fail_reason": "Wrong source /docs/a.pdf",
+                "source_files": ["/docs/a.pdf"],
+            },
+            [
+                {"type": "tool_call", "cmd": "read('/docs/a.pdf')", "obs": "oracle"},
+                {"type": "tool_call", "cmd": "read('/docs/b.pdf')", "obs": "decoy"},
+            ],
+            [
+                {"type": "tool_call", "cmd": "read('/docs/a.pdf')", "obs": "oracle"}
+            ],
+        ),
+    ],
+)
+def test_skillopt_registered_runtime_applicability_requires_real_decoy(
+    tmp_path: Path,
+    benchmark: str,
+    domain: str,
+    row: dict[str, object],
+    conversation: list[dict[str, object]],
+    negative_conversation: list[dict[str, object]],
+) -> None:
+    n3, n4 = _skillopt_task_runtime_applicability(
+        benchmark=benchmark,
+        domain=domain,
+        task_id=str(row["id"]),
+        native_row=row,
+        conversation=conversation,
+        run_dir=tmp_path,
+    )
+    negative_n3, negative_n4 = _skillopt_task_runtime_applicability(
+        benchmark=benchmark,
+        domain=domain,
+        task_id=str(row["id"]),
+        native_row=row,
+        conversation=negative_conversation,
+        run_dir=tmp_path,
+    )
+
+    assert n3.applicable is True
+    assert n4.applicable is True
+    assert negative_n3.applicable is True
+    assert negative_n4.applicable is False
+
+
+@pytest.mark.parametrize(
+    ("benchmark", "n3_tag"),
+    [("webshop", "required_option"), ("skilllearnbench", "artifact_write")],
+)
+def test_normalized_domains_require_each_registered_n4_decoy(
+    benchmark: str, n3_tag: str
+) -> None:
+    trajectory = TrajectoryRecord(
+        task_id="task-1",
+        benchmark=benchmark,
+        events=[
+            TraceEvent(
+                event_id="e0",
+                step_index=0,
+                kind="action",
+                action="write or select",
+                tags=[n3_tag],
+            ),
+            TraceEvent(
+                event_id="e1",
+                step_index=1,
+                kind="action",
+                action="inspect",
+            ),
+        ],
+        reward=0.0,
+        success=False,
+    )
+    feedback = FeedbackRecord(
+        task_id="task-1",
+        benchmark=benchmark,
+        blamed_event_ids=["e0"],
+        diagnosis="first action failed",
+        scalar_reward=0.0,
+    )
+
+    n3, n4 = _normalized_task_runtime_applicability(
+        benchmark=benchmark, trajectory=trajectory, feedback=feedback
+    )
+    _, no_decoy = _normalized_task_runtime_applicability(
+        benchmark=benchmark,
+        trajectory=trajectory.model_copy(update={"events": trajectory.events[:1]}),
+        feedback=feedback,
+    )
+
+    assert n3.applicable is True
+    assert n4.applicable is True
+    assert no_decoy.applicable is False
 
 
 def seed_evidence(
@@ -262,6 +398,115 @@ def test_normalized_evolution_identity_includes_task_content_not_manifest_path()
     assert stale_content != current
 
 
+def test_normalized_identity_portabilizes_roots_and_binds_full_task_metadata(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    data_root = tmp_path / "data"
+    monkeypatch.setenv("RSEBENCH_DATA_ROOT", str(data_root))
+
+    def item(*, artifact: str, source: str, constraint: str, source_hash: str):
+        return TaskManifest(
+            task_id="office-1",
+            benchmark="officeqa_full",
+            domain="document",
+            prompt="question",
+            gold_answers=["answer"],
+            source_hash=source_hash,
+            artifact_path=artifact,
+            metadata={"source_files": [source], "goal_constraint": constraint},
+        )
+
+    portable = item(
+        artifact="rsebench-data://office/a/task.json",
+        source="rsebench-data://office/a/source.pdf",
+        constraint="Q1",
+        source_hash="a" * 64,
+    )
+    candidate = StableSplitCandidate(
+        benchmark="officeqa_full",
+        domain="document",
+        candidate_index=1,
+        train=[portable],
+        validation=[portable.model_copy(update={"task_id": "office-2"})],
+        qualification_test=[],
+        screening_test=[],
+        source_hash="b" * 64,
+        selection_hash="c" * 64,
+    )
+    common = dict(
+        candidate=candidate,
+        family=None,
+        runtime={"max_steps": 3},
+        seed_skill_hash="d" * 64,
+        provider="deepseek",
+        model="deepseek-v4-flash",
+    )
+    current = normalized_evolution_input_hash(**common)
+    resolved = item(
+        artifact=str(data_root / "office/a/task.json"),
+        source=str(data_root / "office/a/source.pdf"),
+        constraint="Q1",
+        source_hash="a" * 64,
+    )
+    resolved_validation = resolved.model_copy(update={"task_id": "office-2"})
+
+    assert normalized_evolution_input_hash(
+        **common, train_tasks=[resolved], validation_tasks=[resolved_validation]
+    ) == current
+    moved = resolved.model_copy(
+        update={"artifact_path": str(data_root / "office/b/task.json")}
+    )
+    changed_metadata = resolved.model_copy(
+        update={"metadata": {**resolved.metadata, "goal_constraint": "Q2"}}
+    )
+    changed_content = resolved.model_copy(update={"source_hash": "e" * 64})
+    assert normalized_evolution_input_hash(
+        **common, train_tasks=[moved], validation_tasks=[resolved_validation]
+    ) != current
+    assert normalized_evolution_input_hash(
+        **common,
+        train_tasks=[changed_metadata],
+        validation_tasks=[resolved_validation],
+    ) != current
+    assert normalized_evolution_input_hash(
+        **common,
+        train_tasks=[changed_content],
+        validation_tasks=[resolved_validation],
+    ) != current
+
+
+def test_typed_owned_rows_reject_string_booleans_nonfinite_and_bad_nested_shapes() -> None:
+    with pytest.raises(ValueError):
+        SkillOptRolloutRow.model_validate(
+            {"id": "x", "hard": "false", "soft": 0.0}
+        )
+    with pytest.raises(ValueError):
+        SkillOptRolloutRow.model_validate(
+            {"id": "x", "hard": 0, "soft": float("nan")}
+        )
+    with pytest.raises(ValueError):
+        SkillOptRolloutRow.model_validate(
+            {"id": "x", "hard": 0, "soft": 0.0, "source_files": "a.pdf"}
+        )
+    with pytest.raises(ValueError):
+        _strict_trajectory(
+            {
+                "task_id": "x",
+                "benchmark": "webshop",
+                "events": [],
+                "success": "false",
+            }
+        )
+    with pytest.raises(ValueError):
+        _strict_feedback(
+            {
+                "task_id": "x",
+                "benchmark": "webshop",
+                "scalar_reward": float("inf"),
+            }
+        )
+
+
 def test_spreadsheet_audit_requires_closed_headroom_and_mixed_batches() -> None:
     passed = audit_spreadsheet(
         validation_score=0.2,
@@ -358,12 +603,17 @@ def test_skilllearn_audit_blocks_incomplete_verifier_or_hidden_test_leakage() ->
 def test_incomplete_candidate_action_never_regresses_candidate_two_or_three() -> None:
     assert sequential_incomplete_action(1) == "rerun_candidate_1"
     assert sequential_incomplete_action(2) == "run_candidate_2"
-    assert sequential_incomplete_action(3) == "clean_blocked_after_three_candidates"
+    assert sequential_incomplete_action(3) == "run_candidate_3"
 
 
 def test_completed_candidate_two_domain_failure_advances_to_candidate_three() -> None:
     assert candidate_failure_action(2, deterministic=True) == "run_candidate_3"
     assert candidate_failure_action(2, deterministic=False) == "run_candidate_2"
+    assert candidate_failure_action(3, deterministic=False) == "run_candidate_3"
+    assert (
+        candidate_failure_action(3, deterministic=True)
+        == "clean_blocked_after_three_candidates"
+    )
 
 
 def test_skilllearn_screening_readiness_requires_clean_evidence() -> None:
@@ -593,6 +843,85 @@ def test_owned_trace_derivation_never_trusts_preexisting_sidecars(
     assert domain["evidence_source"] == "owned_persisted_outputs"
 
 
+def test_webshop_partial_owned_evidence_fails_n3_and_n4_closed(
+    tmp_path: Path,
+) -> None:
+    split = json.loads(
+        Path("benchmark/validation/clean_qualification_v2/webshop.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    candidate = StableSplitCandidate(
+        benchmark="webshop",
+        domain="interactive",
+        candidate_index=1,
+        train=[TaskManifest.model_validate(row) for row in split["train"]],
+        validation=[TaskManifest.model_validate(row) for row in split["validation"]],
+        qualification_test=[
+            TaskManifest.model_validate(row) for row in split["clean_test"]
+        ],
+        screening_test=[],
+        source_hash="a" * 64,
+        selection_hash="b" * 64,
+    )
+    clean = tmp_path / "clean"
+    clean.mkdir()
+    (clean / "webshop_task_manifest.json").write_text(
+        json.dumps(
+            {
+                "input_tasks": [
+                    int(task.task_id.removeprefix("goal_"))
+                    for task in candidate.train
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    first = candidate.train[0].task_id
+    evidence = clean / "owned_evidence" / first
+    evidence.mkdir(parents=True)
+    (evidence / "trajectory.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "rsebench.skilladaptor-owned-trajectory.v1",
+                "task_id": first,
+                "native": {"task_id": first},
+                "normalized": {
+                    "record_type": "trajectory",
+                    "task_id": first,
+                    "benchmark": "webshop",
+                    "events": [
+                        {
+                            "event_id": "step-0",
+                            "step_index": 0,
+                            "kind": "action",
+                            "action": "search[item]",
+                            "tags": ["query_refinement"],
+                        }
+                    ],
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    trace, domain = derive_owned_run_audits(
+        tmp_path,
+        candidate=candidate,
+        family=None,
+        runtime={"max_episode_steps": 15},
+    )
+
+    assert trace["N3"]["status"] == "missing"
+    assert trace["N4"]["status"] == "missing"
+    assert trace["N3"]["coverage"] == 0.0
+    assert domain["evidence_source"] == "owned_persisted_outputs"
+    assert any(
+        row["path"].startswith("rsebench-project://")
+        for row in domain["evidence_files"]
+    )
+
+
 def test_candidate_two_completed_n3_failure_is_deterministic(tmp_path: Path) -> None:
     candidate = StableSplitCandidate(
         benchmark="officeqa_full",
@@ -717,3 +1046,292 @@ def test_skilllearn_seed_group_rejects_mixed_fingerprint_and_family_substitution
 
     assert "mixed_clean_identity:baseline_fingerprint" in failures
     assert "run_family_substituted" in failures
+
+
+def test_reuse_index_rehydrates_from_run_dir_and_rejects_cached_evidence_edits(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source_root = tmp_path / "clean-v2"
+    historical = source_root / "run-1"
+    historical.mkdir(parents=True)
+    run_root = tmp_path / "selection-run"
+    run_root.mkdir()
+    record = CleanRunEvidence(
+        benchmark="officeqa_full",
+        candidate_index=1,
+        selection_hash="a" * 64,
+        method_seed=20260813,
+        run_dir=str(historical),
+        train_task_ids=["train"],
+        validation_task_ids=["validation"],
+        accepted_update_count=1,
+        artifact_changed=True,
+        validation_complete=True,
+        seed_artifact_path=str(historical / "seed.md"),
+        seed_artifact_hash="b" * 64,
+        clean_artifact_path=str(historical / "clean.md"),
+        clean_artifact_hash="c" * 64,
+        baseline_fingerprint="d" * 64,
+        evolution_input_hash="e" * 64,
+        provider="deepseek",
+        model="deepseek-v4-flash",
+        provider_config_hash="f" * 64,
+    )
+    repository = SelectionRepository(
+        root=tmp_path,
+        candidates={},
+        candidate_paths={},
+        audits={},
+    )
+    monkeypatch.setattr(qualification_io, "read_clean_run", lambda *args, **kwargs: record)
+    monkeypatch.setattr(
+        qualification_io,
+        "_current_candidate_one_identities",
+        lambda repository: {
+            ("officeqa_full", 20260813, None): {
+                "baseline_fingerprint": record.baseline_fingerprint,
+                "evolution_input_hash": record.evolution_input_hash,
+                "provider": record.provider,
+                "model": record.model,
+                "provider_config_hash": record.provider_config_hash,
+                "method_seed": record.method_seed,
+                "seed_artifact_hash": record.seed_artifact_hash,
+            }
+        },
+    )
+    index = _reuse_index_payload(source_root, [record])
+    (run_root / "reuse_audit_sources.json").write_text(
+        json.dumps(index), encoding="utf-8"
+    )
+
+    assert _rehydrate_reused_records(run_root, repository) == [record]
+
+    # Old sidecar evidence fields cannot override recomputed run evidence.
+    tampered = {**index, "runs": [{"artifact_changed": False}]}
+    (run_root / "reuse_audit_sources.json").write_text(
+        json.dumps(tampered), encoding="utf-8"
+    )
+    with pytest.raises(ValueError):
+        _rehydrate_reused_records(run_root, repository)
+    with pytest.raises(ValueError):
+        qualification_io._qualification(repository, run_root)
+    monkeypatch.setattr(
+        qualification_io, "load_selection_repository", lambda path: repository
+    )
+    with pytest.raises(ValueError):
+        qualification_io.discover_replay_jobs(
+            selection_root=tmp_path / "selection",
+            run_root=run_root,
+            evaluation_role="qualification_test",
+            candidate_index=1,
+            repeats=3,
+            resume=False,
+        )
+
+
+def test_reuse_index_rejects_escape_missing_run_and_current_identity_mismatch(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source_root = tmp_path / "clean-v2"
+    source_root.mkdir()
+    run_root = tmp_path / "selection-run"
+    run_root.mkdir()
+    repository = SelectionRepository(
+        root=tmp_path,
+        candidates={},
+        candidate_paths={},
+        audits={},
+    )
+
+    def write_index(run_dirs: list[str]) -> None:
+        unsigned = {
+            "schema_version": "rsebench.reuse-run-index.v1",
+            "source_root": str(source_root),
+            "source_root_identity": canonical_hash(
+                {"source_root": str(source_root), "run_dirs": run_dirs}
+            ),
+            "run_dirs": run_dirs,
+        }
+        (run_root / "reuse_audit_sources.json").write_text(
+            json.dumps({**unsigned, "index_hash": canonical_hash(unsigned)}),
+            encoding="utf-8",
+        )
+
+    write_index(["../outside"])
+    with pytest.raises(ValueError, match="escapes"):
+        _rehydrate_reused_records(run_root, repository)
+    write_index(["missing"])
+    with pytest.raises(FileNotFoundError, match="historical clean run is missing"):
+        _rehydrate_reused_records(run_root, repository)
+
+    historical = source_root / "run-1"
+    historical.mkdir()
+    stale = CleanRunEvidence(
+        benchmark="officeqa_full",
+        candidate_index=1,
+        selection_hash="a" * 64,
+        method_seed=20260813,
+        run_dir=str(historical),
+        train_task_ids=[],
+        validation_task_ids=[],
+        accepted_update_count=1,
+        artifact_changed=True,
+        validation_complete=True,
+        seed_artifact_path="/seed",
+        seed_artifact_hash="b" * 64,
+        clean_artifact_path="/clean",
+        clean_artifact_hash="c" * 64,
+        baseline_fingerprint="d" * 64,
+        evolution_input_hash="e" * 64,
+        provider="deepseek",
+        model="deepseek-v4-flash",
+        provider_config_hash="f" * 64,
+    )
+    monkeypatch.setattr(qualification_io, "read_clean_run", lambda *args, **kwargs: stale)
+    monkeypatch.setattr(
+        qualification_io,
+        "_current_candidate_one_identities",
+        lambda repository: {
+            ("officeqa_full", 20260813, None): {
+                "baseline_fingerprint": "9" * 64,
+                "evolution_input_hash": stale.evolution_input_hash,
+                "provider": stale.provider,
+                "model": stale.model,
+                "provider_config_hash": stale.provider_config_hash,
+                "method_seed": stale.method_seed,
+                "seed_artifact_hash": stale.seed_artifact_hash,
+            }
+        },
+    )
+    write_index(["run-1"])
+    assert _rehydrate_reused_records(run_root, repository) == []
+
+
+def test_reuse_and_replay_planning_skip_ineligible_owned_evidence(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def candidate(benchmark: str, domain: str) -> StableSplitCandidate:
+        return StableSplitCandidate(
+            benchmark=benchmark,
+            domain=domain,
+            candidate_index=1,
+            train=[],
+            validation=[],
+            qualification_test=[],
+            screening_test=[],
+            source_hash=canonical_hash(f"source:{benchmark}"),
+            selection_hash=canonical_hash(f"selection:{benchmark}"),
+        )
+
+    office = candidate("officeqa_full", "document")
+    webshop = candidate("webshop", "interactive")
+    static = {
+        "static_gates": {
+            "noise_applicability": {
+                "N1": {"status": "pass", "coverage": 1.0},
+                "N2": {"status": "pass", "coverage": 1.0},
+            }
+        }
+    }
+    repository = SelectionRepository(
+        root=tmp_path,
+        candidates={
+            "officeqa_full": {1: office},
+            "webshop": {1: webshop},
+        },
+        candidate_paths={},
+        audits={
+            ("officeqa_full", 1): static,
+            ("webshop", 1): static,
+        },
+    )
+    clean_root = tmp_path / "clean-v2"
+    clean_root.mkdir()
+
+    def run(
+        item: StableSplitCandidate, seed: int, *, missing_trace: bool
+    ) -> CleanRunEvidence:
+        run_dir = clean_root / f"{item.benchmark}-{seed}"
+        run_dir.mkdir()
+        return CleanRunEvidence(
+            benchmark=item.benchmark,
+            candidate_index=1,
+            selection_hash=item.selection_hash,
+            method_seed=seed,
+            run_dir=str(run_dir),
+            train_task_ids=[],
+            validation_task_ids=[],
+            accepted_update_count=1,
+            artifact_changed=True,
+            validation_complete=True,
+            seed_artifact_path=str(run_dir / "seed"),
+            seed_artifact_hash="a" * 64,
+            clean_artifact_path=str(run_dir / "clean"),
+            clean_artifact_hash="b" * 64,
+            baseline_fingerprint="c" * 64,
+            evolution_input_hash="d" * 64,
+            provider="deepseek",
+            model="deepseek-v4-flash",
+            provider_config_hash="e" * 64,
+            trace_applicability={
+                stage: {
+                    "status": "missing" if missing_trace else "pass",
+                    "coverage": 0.0 if missing_trace else 1.0,
+                }
+                for stage in ("N3", "N4")
+            },
+            domain_audit=(
+                {"passed": True, "evidence_complete": True, "failure_reasons": []}
+                if missing_trace
+                else {
+                    "passed": False,
+                    "evidence_complete": True,
+                    "failure_reasons": ["train_batch_not_mixed:1"],
+                }
+            ),
+        )
+
+    records = [
+        *[run(office, seed, missing_trace=False) for seed in qualification_io.METHOD_SEEDS],
+        *[run(webshop, seed, missing_trace=True) for seed in qualification_io.METHOD_SEEDS],
+    ]
+    expected = {
+        (record.benchmark, record.method_seed, None): {
+            "baseline_fingerprint": record.baseline_fingerprint,
+            "evolution_input_hash": record.evolution_input_hash,
+            "provider": record.provider,
+            "model": record.model,
+            "provider_config_hash": record.provider_config_hash,
+            "method_seed": record.method_seed,
+            "seed_artifact_hash": record.seed_artifact_hash,
+        }
+        for record in records
+    }
+    monkeypatch.setattr(
+        qualification_io, "discover_clean_runs", lambda *args, **kwargs: records
+    )
+    monkeypatch.setattr(
+        qualification_io, "_current_candidate_one_identities", lambda repository: expected
+    )
+
+    run_root = tmp_path / "selection-run"
+    status = qualification_io._reuse_audit(
+        repository, run_root, clean_root, None
+    )
+    assert status.domains["officeqa_full"].next_action == "run_candidate_2"
+    assert status.domains["webshop"].next_action == "rerun_candidate_1"
+
+    # The shared audit gate runs before any paid replay job is emitted.
+    (run_root / "reuse_audit_sources.json").unlink()
+    monkeypatch.setattr(
+        qualification_io, "load_selection_repository", lambda path: repository
+    )
+    jobs = qualification_io.discover_replay_jobs(
+        selection_root=tmp_path / "selection",
+        run_root=run_root,
+        evaluation_role="qualification_test",
+        candidate_index=1,
+        repeats=3,
+        resume=False,
+    )
+    assert jobs == []
