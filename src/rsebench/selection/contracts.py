@@ -2,11 +2,19 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable, Iterator, Mapping, Sequence
 from enum import Enum
 from pathlib import Path
 from typing import Any, Literal
 
-from pydantic import ConfigDict, Field, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    FieldSerializationInfo,
+    field_serializer,
+    model_validator,
+)
 
 from rsebench.contracts import StrictModel, TaskManifest
 from rsebench.evidence import canonical_hash
@@ -20,7 +28,49 @@ def _immutable_collection(*args: Any, **kwargs: Any) -> None:
     raise TypeError("selection contract collections are immutable")
 
 
-class _FrozenList(list[Any]):
+class _ImmutableSequence(Sequence[Any]):
+    __slots__ = ("_items",)
+
+    def __init__(self, values: Iterable[Any]) -> None:
+        if hasattr(self, "_items"):
+            _immutable_collection()
+        object.__setattr__(self, "_items", tuple(values))
+
+    def __getitem__(self, index: int | slice) -> Any:
+        return self._items[index]
+
+    def __iter__(self) -> Iterator[Any]:
+        return iter(self._items)
+
+    def __len__(self) -> int:
+        return len(self._items)
+
+    def __eq__(self, other: object) -> bool:
+        if isinstance(other, Sequence) and not isinstance(
+            other,
+            (str, bytes, bytearray),
+        ):
+            return self._items == tuple(other)
+        return False
+
+    def __add__(self, other: Sequence[Any]) -> list[Any]:
+        return [*self, *other]
+
+    def __radd__(self, other: Sequence[Any]) -> list[Any]:
+        return [*other, *self]
+
+    def __copy__(self) -> "_ImmutableSequence":
+        return self
+
+    def __deepcopy__(self, memo: dict[int, Any]) -> "_ImmutableSequence":
+        memo[id(self)] = self
+        return self
+
+    def __repr__(self) -> str:
+        return repr(self._items)
+
+    __setattr__ = _immutable_collection
+    __delattr__ = _immutable_collection
     __setitem__ = _immutable_collection
     __delitem__ = _immutable_collection
     __iadd__ = _immutable_collection
@@ -35,7 +85,50 @@ class _FrozenList(list[Any]):
     sort = _immutable_collection
 
 
-class _FrozenDict(dict[Any, Any]):
+class _ImmutableMapping(Mapping[Any, Any]):
+    __slots__ = ("_items",)
+
+    def __init__(
+        self,
+        values: Mapping[Any, Any] | Iterable[tuple[Any, Any]],
+    ) -> None:
+        if hasattr(self, "_items"):
+            _immutable_collection()
+        items = values.items() if isinstance(values, Mapping) else values
+        object.__setattr__(self, "_items", tuple(items))
+
+    def __getitem__(self, key: Any) -> Any:
+        for candidate, value in self._items:
+            if candidate == key:
+                return value
+        raise KeyError(key)
+
+    def __iter__(self) -> Iterator[Any]:
+        return (key for key, _ in self._items)
+
+    def __len__(self) -> int:
+        return len(self._items)
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, Mapping):
+            return False
+        return dict(self.items()) == dict(other.items())
+
+    def __copy__(self) -> "_ImmutableMapping":
+        return self
+
+    def __deepcopy__(self, memo: dict[int, Any]) -> "_ImmutableMapping":
+        memo[id(self)] = self
+        return self
+
+    def __repr__(self) -> str:
+        return repr(dict(self._items))
+
+    def copy(self) -> dict[Any, Any]:
+        return dict(self._items)
+
+    __setattr__ = _immutable_collection
+    __delattr__ = _immutable_collection
     __setitem__ = _immutable_collection
     __delitem__ = _immutable_collection
     __ior__ = _immutable_collection
@@ -47,21 +140,55 @@ class _FrozenDict(dict[Any, Any]):
 
 
 def _deep_freeze(value: Any) -> Any:
-    if isinstance(value, (_ImmutableSelectionModel, _ImmutableTaskManifest)):
+    if isinstance(
+        value,
+        (
+            _ImmutableSequence,
+            _ImmutableMapping,
+            _ImmutableSelectionModel,
+            _ImmutableTaskManifest,
+        ),
+    ):
         return value
     if isinstance(value, TaskManifest):
         return _ImmutableTaskManifest.model_validate(value.model_dump(mode="python"))
-    if isinstance(value, dict):
-        return _FrozenDict(
+    if isinstance(value, Mapping):
+        return _ImmutableMapping(
             (key, _deep_freeze(child)) for key, child in value.items()
         )
     if isinstance(value, list):
-        return _FrozenList(_deep_freeze(child) for child in value)
+        return _ImmutableSequence(_deep_freeze(child) for child in value)
     if isinstance(value, tuple):
         return tuple(_deep_freeze(child) for child in value)
     if isinstance(value, set):
         return frozenset(_deep_freeze(child) for child in value)
     return value
+
+
+def _deep_thaw(value: Any, *, mode: str) -> Any:
+    if isinstance(value, BaseModel):
+        return value.model_dump(mode=mode)
+    if isinstance(value, _ImmutableSequence):
+        return [_deep_thaw(child, mode=mode) for child in value]
+    if isinstance(value, _ImmutableMapping):
+        return {
+            key: _deep_thaw(child, mode=mode) for key, child in value.items()
+        }
+    if isinstance(value, tuple):
+        return tuple(_deep_thaw(child, mode=mode) for child in value)
+    if isinstance(value, frozenset):
+        return frozenset(_deep_thaw(child, mode=mode) for child in value)
+    return value
+
+
+def _contains_model(value: Any) -> bool:
+    if isinstance(value, BaseModel):
+        return True
+    if isinstance(value, (_ImmutableSequence, tuple, frozenset)):
+        return any(_contains_model(child) for child in value)
+    if isinstance(value, _ImmutableMapping):
+        return any(_contains_model(child) for child in value.values())
+    return False
 
 
 class _ImmutableSelectionModel(StrictModel):
@@ -72,6 +199,16 @@ class _ImmutableSelectionModel(StrictModel):
         for field_name, value in self.__dict__.items():
             object.__setattr__(self, field_name, _deep_freeze(value))
 
+    @field_serializer("*", mode="wrap", check_fields=False)
+    def serialize_immutable_field(
+        self,
+        value: Any,
+        serializer: Any,
+        info: FieldSerializationInfo,
+    ):
+        thawed = _deep_thaw(value, mode=info.mode)
+        return thawed if _contains_model(value) else serializer(thawed)
+
 
 class _ImmutableTaskManifest(TaskManifest):
     model_config = ConfigDict(frozen=True)
@@ -80,6 +217,16 @@ class _ImmutableTaskManifest(TaskManifest):
         del context
         for field_name, value in self.__dict__.items():
             object.__setattr__(self, field_name, _deep_freeze(value))
+
+    @field_serializer("*", mode="wrap", check_fields=False)
+    def serialize_immutable_field(
+        self,
+        value: Any,
+        serializer: Any,
+        info: FieldSerializationInfo,
+    ):
+        thawed = _deep_thaw(value, mode=info.mode)
+        return thawed if _contains_model(value) else serializer(thawed)
 
 
 class ExposureLevel(str, Enum):

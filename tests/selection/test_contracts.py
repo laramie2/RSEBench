@@ -1,3 +1,4 @@
+import copy
 import json
 import operator
 from collections.abc import Callable
@@ -184,6 +185,102 @@ def test_candidate_rejects_deep_mutation(
         mutation(candidate)
 
 
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        pytest.param(
+            lambda candidate: candidate.train.__init__([_task("replacement")]),
+            id="sequence-reinitialization",
+        ),
+        pytest.param(
+            lambda candidate: candidate.metadata.__init__({"changed": True}),
+            id="mapping-reinitialization",
+        ),
+        pytest.param(
+            lambda candidate: candidate.train[0].metadata["nested"]["tags"].__init__(
+                ["changed"]
+            ),
+            id="recursive-sequence-reinitialization",
+        ),
+        pytest.param(
+            lambda candidate: list.append(candidate.train, _task("appended")),
+            id="direct-list-append",
+        ),
+        pytest.param(
+            lambda candidate: dict.__setitem__(candidate.metadata, "changed", True),
+            id="direct-dict-assignment",
+        ),
+        pytest.param(
+            lambda candidate: list.append(
+                candidate.train[0].metadata["nested"]["tags"],
+                "changed",
+            ),
+            id="recursive-direct-list-append",
+        ),
+        pytest.param(
+            lambda candidate: dict.__setitem__(
+                candidate.train[0].metadata["nested"],
+                "changed",
+                True,
+            ),
+            id="recursive-direct-dict-assignment",
+        ),
+        pytest.param(
+            lambda candidate: setattr(candidate.train, "_items", ()),
+            id="sequence-private-state-assignment",
+        ),
+        pytest.param(
+            lambda candidate: setattr(candidate.metadata, "_items", ()),
+            id="mapping-private-state-assignment",
+        ),
+    ],
+)
+def test_candidate_rejects_mutable_builtin_bypasses(
+    mutation: Callable[[StableSplitCandidate], object],
+) -> None:
+    candidate = _candidate(
+        metadata={"selection": {"version": "v1"}},
+        train=[_task("train", metadata={"nested": {"tags": ["original"]}})],
+    )
+
+    with pytest.raises(TypeError):
+        mutation(candidate)
+
+
+@pytest.mark.parametrize(
+    "copier",
+    [
+        pytest.param(copy.deepcopy, id="copy-deepcopy"),
+        pytest.param(
+            lambda candidate: candidate.model_copy(deep=True),
+            id="pydantic-model-copy-deep",
+        ),
+    ],
+)
+def test_deep_copies_succeed_and_remain_deeply_immutable(
+    copier: Callable[[StableSplitCandidate], StableSplitCandidate],
+) -> None:
+    candidate = _candidate(
+        metadata={"selection": {"version": "v1"}},
+        train=[_task("train", metadata={"nested": {"tags": ["original"]}})],
+    )
+
+    copied = copier(candidate)
+
+    assert copied is not candidate
+    assert copied == candidate
+    assert copied.model_dump(mode="json") == candidate.model_dump(mode="json")
+    assert canonical_hash(copied) == canonical_hash(candidate)
+    with pytest.raises(TypeError):
+        copied.train.__init__([_task("replacement")])
+    with pytest.raises(TypeError):
+        copied.metadata.__init__({"changed": True})
+    with pytest.raises(TypeError):
+        copied.train[0].gold_answers.append("changed")
+    with pytest.raises(TypeError):
+        operator.setitem(copied.train[0].metadata["nested"], "changed", True)
+
+
 def _registry() -> ExposureRegistry:
     return ExposureRegistry(
         records=[
@@ -325,9 +422,10 @@ def test_deep_freeze_preserves_inputs_schema_serialization_and_hashes() -> None:
     }
     assert json.loads(candidate.model_dump_json()) == candidate.model_dump(mode="json")
     assert canonical_hash(candidate) == canonical_hash(candidate.model_dump(mode="json"))
-    schema = StableSplitCandidate.model_json_schema()
-    assert schema["properties"]["train"]["type"] == "array"
-    assert schema["properties"]["metadata"]["type"] == "object"
+    for schema_mode in ("validation", "serialization"):
+        schema = StableSplitCandidate.model_json_schema(mode=schema_mode)
+        assert schema["properties"]["train"]["type"] == "array"
+        assert schema["properties"]["metadata"]["type"] == "object"
 
     source_task.task_id = "source-remains-mutable"
     source_task.gold_answers.append("source-remains-mutable")
