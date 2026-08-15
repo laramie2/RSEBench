@@ -159,6 +159,27 @@ def test_replay_cli_exposes_resume_flag() -> None:
     assert args.resume is True
 
 
+def test_skillopt_replay_cli_exposes_explicit_evaluation_role() -> None:
+    module = _load_script()
+
+    args = module._parser().parse_args(
+        [
+            "--manifest",
+            "candidate.json",
+            "--evaluation-role",
+            "screening_test",
+            "--artifact",
+            "seed=seed.md",
+            "--reference",
+            "seed",
+            "--output-dir",
+            "run",
+        ]
+    )
+
+    assert args.evaluation_role == "screening_test"
+
+
 def test_initial_dry_run_does_not_block_subsequent_live_run(
     tmp_path: Path,
     monkeypatch,
@@ -176,7 +197,7 @@ def test_initial_dry_run_does_not_block_subsequent_live_run(
         "--reference",
         "seed",
         "--repeats",
-        "2",
+        "3",
         "--output-dir",
         str(output_dir),
     ]
@@ -228,7 +249,7 @@ def test_resume_rejects_changed_effective_configuration_without_overwriting_plan
     _run_cli(
         module,
         monkeypatch,
-        [*common, "--repeats", "2", "--confirm-provider-cost"],
+        [*common, "--repeats", "3", "--confirm-provider-cost"],
     )
     plan_path = output_dir / "plan.json"
     plan = json.loads(plan_path.read_text(encoding="utf-8"))
@@ -249,7 +270,7 @@ def test_resume_rejects_changed_effective_configuration_without_overwriting_plan
             [
                 *common,
                 "--repeats",
-                "3",
+                "5",
                 "--resume",
                 "--confirm-provider-cost",
             ],
@@ -278,17 +299,46 @@ def test_compatible_resume_retains_original_plan(
         str(output_dir),
         "--confirm-provider-cost",
     ]
-    _run_cli(module, monkeypatch, [*common, "--repeats", "2"])
+    _run_cli(module, monkeypatch, [*common, "--repeats", "3"])
     original_plan = (output_dir / "plan.json").read_bytes()
 
     _run_cli(
         module,
         monkeypatch,
-        [*common, "--repeats", "3", "--resume"],
+        [*common, "--repeats", "5", "--resume"],
     )
 
     assert (output_dir / "plan.json").read_bytes() == original_plan
     assert json.loads((output_dir / "result.json").read_text(encoding="utf-8"))[
         "repeat_count"
-    ] == 3
+    ] == 5
     assert output_dir.with_name("replay.resume-plan.json").is_file()
+
+
+def test_replay_cli_rejects_non_preregistered_repeat_counts(
+    tmp_path: Path, monkeypatch
+) -> None:
+    module = _load_script()
+    artifact = tmp_path / "seed.md"
+    artifact.write_text("seed\n", encoding="utf-8")
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            module.__file__,
+            "--manifest",
+            str(_manifest(tmp_path)),
+            "--artifact",
+            f"seed={artifact}",
+            "--reference",
+            "seed",
+            "--repeats",
+            "2",
+            "--output-dir",
+            str(tmp_path / "replay"),
+            "--dry-run",
+        ],
+    )
+
+    with pytest.raises(ValueError, match="exactly 3 or 5"):
+        module.main()

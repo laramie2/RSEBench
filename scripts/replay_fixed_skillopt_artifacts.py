@@ -16,7 +16,11 @@ for source in reversed((PROJECT_SRC, PROJECT_ROOT)):
     if str(source) not in sys.path:
         sys.path.insert(0, str(source))
 
-from rsebench.core1.dataset import resolve_clean_split_paths  # noqa: E402
+from rsebench.core1.dataset import (  # noqa: E402
+    resolve_candidate_paths,
+    resolve_clean_split_paths,
+)
+from rsebench.evidence import canonical_hash  # noqa: E402
 from rsebench.evolution.artifact_evaluation import (  # noqa: E402
     evaluate_repeated_artifacts,
 )
@@ -28,6 +32,10 @@ from rsebench.evolution.skillopt_executor import (  # noqa: E402
     SkillOptExecutor,
 )
 from rsebench.hashing import sha256_file  # noqa: E402
+from rsebench.selection.contracts import StableSplitCandidate  # noqa: E402
+from rsebench.selection.qualification import (  # noqa: E402
+    select_candidate_evaluation_tasks,
+)
 from scripts.baselines.common_env import (  # noqa: E402
     combined_method_env,
     methods_root,
@@ -69,6 +77,11 @@ def parse_artifact_arguments(
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser()
     parser.add_argument("--manifest", type=Path, required=True)
+    parser.add_argument(
+        "--evaluation-role",
+        choices=("qualification_test", "screening_test"),
+        default="qualification_test",
+    )
     parser.add_argument("--artifact", action="append", default=[])
     parser.add_argument("--reference", required=True)
     parser.add_argument("--repeats", type=int, default=3)
@@ -103,24 +116,57 @@ def _write_json(path: Path, payload: object) -> None:
 
 def main() -> None:
     args = _parser().parse_args()
-    if args.repeats < 2:
-        raise ValueError("--repeats must be at least 2")
+    if args.repeats not in {3, 5}:
+        raise ValueError("--repeats must be exactly 3 or 5")
+    if args.resume and args.repeats != 5:
+        raise ValueError("replay resume only supports extending 3 to 5 repeats")
     if not args.dry_run and not args.confirm_provider_cost:
         raise ValueError("provider-backed replay requires --confirm-provider-cost")
 
     manifest = args.manifest.resolve()
-    portable = CleanEvolutionSplitManifest.model_validate_json(
-        manifest.read_text(encoding="utf-8")
-    )
+    manifest_payload = json.loads(manifest.read_text(encoding="utf-8"))
     environment = combined_method_env("skillopt")
     external_methods = methods_root()
     data_root = Path(environment["RSEBENCH_DATA_ROOT"])
-    split = resolve_clean_split_paths(
-        portable,
-        project_root=PROJECT_ROOT,
-        data_root=data_root,
-        methods_root=external_methods,
-    )
+    portable_task_manifest_hash: str | None = None
+    if manifest_payload.get("schema_version") == "rsebench.stable-split-candidate.v1":
+        portable_candidate = StableSplitCandidate.model_validate(manifest_payload)
+        portable_tasks = select_candidate_evaluation_tasks(
+            portable_candidate,
+            evaluation_role=args.evaluation_role,
+        )
+        portable_task_manifest_hash = canonical_hash(
+            [task.model_dump(mode="json") for task in portable_tasks]
+        )
+        candidate = resolve_candidate_paths(
+            portable_candidate,
+            project_root=PROJECT_ROOT,
+            data_root=data_root,
+            methods_root=external_methods,
+        )
+        clean_test = select_candidate_evaluation_tasks(
+            candidate,
+            evaluation_role=args.evaluation_role,
+        )
+        split = CleanEvolutionSplitManifest(
+            benchmark=candidate.benchmark,
+            domain=candidate.domain,
+            seed=int(candidate.metadata["source_seed"]),
+            source_hash=candidate.source_hash,
+            train=list(candidate.train),
+            validation=list(candidate.validation),
+            clean_test=clean_test,
+            metadata=dict(candidate.metadata),
+        )
+    else:
+        if args.evaluation_role != "qualification_test":
+            raise ValueError("legacy clean manifests only support qualification_test")
+        split = resolve_clean_split_paths(
+            CleanEvolutionSplitManifest.model_validate(manifest_payload),
+            project_root=PROJECT_ROOT,
+            data_root=data_root,
+            methods_root=external_methods,
+        )
     artifacts = parse_artifact_arguments(args.artifact)
     if args.reference not in artifacts:
         raise ValueError(f"reference artifact is missing: {args.reference}")
@@ -158,16 +204,18 @@ def main() -> None:
             )
         previous_plan = json.loads(original_plan_path.read_text(encoding="utf-8"))
         previous_repeat_count = int(previous_result["repeat_count"])  # type: ignore[arg-type]
-        if args.repeats <= previous_repeat_count:
-            raise ValueError("--repeats must exceed the existing repeat count")
+        if previous_repeat_count != 3:
+            raise ValueError("replay resume requires an existing 3-repeat result")
     plan = {
         "schema_version": "rsebench.fixed-artifact-replay-plan.v1",
         "benchmark": split.benchmark,
         "domain": split.domain,
         "manifest": str(manifest),
+        "evaluation_role": args.evaluation_role,
         "split_source_hash": split.source_hash,
         "task_ids": [task.task_id for task in split.clean_test],
-        "task_manifest_hash": _task_manifest_hash(split),
+        "task_manifest_hash": portable_task_manifest_hash
+        or _task_manifest_hash(split),
         "reference_label": args.reference,
         "repeat_count": args.repeats,
         "order_policy": ORDER_POLICY,
@@ -217,6 +265,8 @@ def main() -> None:
         current_runtime = plan["runtime"]
         checks.update(
             {
+                "evaluation role": previous_plan.get("evaluation_role")
+                == plan["evaluation_role"],
                 "split source hash": previous_plan.get("split_source_hash")
                 == plan["split_source_hash"],
                 "runtime workers": isinstance(previous_runtime, dict)
@@ -262,6 +312,7 @@ def main() -> None:
         artifacts=artifacts,
         reference_label=args.reference,
         clean_test=split.clean_test,
+        task_manifest_hash=plan["task_manifest_hash"],
         repeats=args.repeats,
         output_dir=output_dir,
         resume=args.resume,

@@ -6,6 +6,8 @@ import json
 import sys
 from pathlib import Path
 
+import pytest
+
 from rsebench.contracts import TaskManifest
 from rsebench.evidence import canonical_hash
 from rsebench.evolution.runner import EvaluationResult
@@ -206,3 +208,63 @@ def test_skilllearn_dry_run_does_not_construct_provider_client(
     plan = json.loads(output.with_name("replay.plan.json").read_text(encoding="utf-8"))
     assert plan["provider_calls"] == 0
     assert calls == []
+
+
+def test_skilllearn_replay_rejects_two_repeats(tmp_path: Path, monkeypatch) -> None:
+    module = _load_script()
+    artifact = tmp_path / "seed.md"
+    artifact.write_text("seed\n", encoding="utf-8")
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            module.__file__,
+            "--manifest",
+            str(_manifest(tmp_path)),
+            "--family",
+            FAMILY,
+            "--artifact",
+            f"seed={artifact}",
+            "--reference",
+            "seed",
+            "--repeats",
+            "2",
+            "--output-dir",
+            str(tmp_path / "replay"),
+            "--dry-run",
+        ],
+    )
+
+    with pytest.raises(ValueError, match="exactly 3 or 5"):
+        module.main()
+
+
+def test_skilllearn_never_uses_screening_tail_for_qualification(
+    tmp_path: Path, monkeypatch
+) -> None:
+    module = _load_script()
+    artifact = tmp_path / "seed.md"
+    artifact.write_text("seed\n", encoding="utf-8")
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            module.__file__,
+            "--manifest",
+            str(_manifest(tmp_path)),
+            "--family",
+            FAMILY,
+            "--evaluation-role",
+            "qualification_test",
+            "--artifact",
+            f"seed={artifact}",
+            "--reference",
+            "seed",
+            "--output-dir",
+            str(tmp_path / "replay"),
+            "--dry-run",
+        ],
+    )
+
+    with pytest.raises(ValueError, match="has no qualification replay"):
+        module.main()

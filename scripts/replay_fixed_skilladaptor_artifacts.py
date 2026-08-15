@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
@@ -20,12 +21,19 @@ from rsebench.evidence import canonical_hash  # noqa: E402
 from rsebench.evolution.artifact_evaluation import (  # noqa: E402
     evaluate_repeated_artifacts,
 )
+from rsebench.evolution.clean_contracts import (  # noqa: E402
+    CleanEvolutionSplitManifest,
+)
 from rsebench.evolution.skilladaptor_executor import (  # noqa: E402
     SkillAdaptorBudget,
     SkillAdaptorExecutor,
 )
 from rsebench.hashing import sha256_file  # noqa: E402
 from rsebench.selection.clean_view import load_clean_runtime_view  # noqa: E402
+from rsebench.selection.contracts import StableSplitCandidate  # noqa: E402
+from rsebench.selection.qualification import (  # noqa: E402
+    select_candidate_evaluation_tasks,
+)
 from scripts.baselines.common_env import (  # noqa: E402
     combined_method_env,
     methods_root,
@@ -66,6 +74,11 @@ def parse_artifact_arguments(
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser()
     parser.add_argument("--manifest", type=Path, required=True)
+    parser.add_argument(
+        "--evaluation-role",
+        choices=("qualification_test", "screening_test"),
+        default="qualification_test",
+    )
     parser.add_argument("--artifact", action="append", default=[])
     parser.add_argument("--reference", required=True)
     parser.add_argument("--repeats", type=int, default=3)
@@ -101,6 +114,7 @@ def _validate_resume_plan(output_dir: Path, plan: dict[str, Any]) -> int:
     locked = (
         "benchmark",
         "domain",
+        "evaluation_role",
         "split_source_hash",
         "task_manifest_hash",
         "task_ids",
@@ -118,26 +132,49 @@ def _validate_resume_plan(output_dir: Path, plan: dict[str, Any]) -> int:
     if mismatches:
         raise ValueError("resume preflight mismatch: " + ", ".join(mismatches))
     previous = int(result["repeat_count"])
-    if int(plan["repeat_count"]) <= previous:
-        raise ValueError("--repeats must exceed the existing repeat count")
+    if previous != 3 or int(plan["repeat_count"]) != 5:
+        raise ValueError("replay resume only supports extending 3 to 5 repeats")
     return previous
 
 
 def main() -> None:
     args = _parser().parse_args()
-    if args.repeats < 2:
-        raise ValueError("--repeats must be at least 2")
+    if args.repeats not in {3, 5}:
+        raise ValueError("--repeats must be exactly 3 or 5")
+    if args.resume and args.repeats != 5:
+        raise ValueError("replay resume only supports extending 3 to 5 repeats")
     if not args.dry_run and not args.confirm_provider_cost:
         raise ValueError("provider-backed replay requires --confirm-provider-cost")
     manifest = args.manifest.resolve()
-    split = load_clean_runtime_view(manifest)
+    manifest_payload = json.loads(manifest.read_text(encoding="utf-8"))
+    if manifest_payload.get("schema_version") == "rsebench.stable-split-candidate.v1":
+        candidate = StableSplitCandidate.model_validate(manifest_payload)
+        clean_test = select_candidate_evaluation_tasks(
+            candidate,
+            evaluation_role=args.evaluation_role,
+        )
+        split = CleanEvolutionSplitManifest(
+            benchmark=candidate.benchmark,
+            domain=candidate.domain,
+            seed=int(candidate.metadata["source_seed"]),
+            source_hash=candidate.source_hash,
+            train=list(candidate.train),
+            validation=list(candidate.validation),
+            clean_test=clean_test,
+            metadata=dict(candidate.metadata),
+        )
+    else:
+        if args.evaluation_role != "qualification_test":
+            raise ValueError("legacy clean manifests only support qualification_test")
+        split = load_clean_runtime_view(manifest)
     if split.benchmark != "webshop" or split.domain != "interactive":
         raise ValueError("SkillAdaptor replay only supports WebShop")
     if len(split.clean_test) != 20:
         raise ValueError("WebShop fixed replay requires exactly 20 tasks")
     runtime = split.metadata.get("runtime")
-    if not isinstance(runtime, dict) or runtime.get("max_episode_steps") != 15:
+    if not isinstance(runtime, Mapping) or runtime.get("max_episode_steps") != 15:
         raise ValueError("WebShop fixed replay requires a 15-step runtime")
+    runtime = dict(runtime)
     artifacts = parse_artifact_arguments(args.artifact)
     if args.reference not in artifacts:
         raise ValueError(f"reference artifact is missing: {args.reference}")
@@ -148,6 +185,7 @@ def main() -> None:
         "benchmark": split.benchmark,
         "domain": split.domain,
         "manifest": str(manifest),
+        "evaluation_role": args.evaluation_role,
         "split_source_hash": split.source_hash,
         "task_ids": task_ids,
         "task_manifest_hash": canonical_hash(
@@ -192,6 +230,7 @@ def main() -> None:
         artifacts=artifacts,
         reference_label=args.reference,
         clean_test=split.clean_test,
+        task_manifest_hash=plan["task_manifest_hash"],
         repeats=args.repeats,
         output_dir=output_dir,
         resume=args.resume,

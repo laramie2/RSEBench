@@ -6,7 +6,6 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
@@ -36,6 +35,9 @@ from rsebench.evolution.skilllearn_executor import (  # noqa: E402
 from rsebench.hashing import sha256_file  # noqa: E402
 from rsebench.providers.deepseek import DeepSeekClient  # noqa: E402
 from rsebench.selection.contracts import StableSplitCandidate  # noqa: E402
+from rsebench.selection.qualification import (  # noqa: E402
+    select_candidate_evaluation_tasks,
+)
 from scripts.baselines.common_env import methods_root  # noqa: E402
 
 
@@ -101,6 +103,11 @@ def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser()
     parser.add_argument("--manifest", type=Path, required=True)
     parser.add_argument("--family", required=True)
+    parser.add_argument(
+        "--evaluation-role",
+        choices=("qualification_test", "screening_test"),
+        default="screening_test",
+    )
     parser.add_argument("--image-manifest", type=Path, default=DEFAULT_IMAGE_MANIFEST)
     parser.add_argument("--artifact", action="append", default=[])
     parser.add_argument("--reference", required=True)
@@ -122,36 +129,6 @@ def _write_json(path: Path, payload: Any) -> None:
     )
 
 
-def _family_tasks(candidate: StableSplitCandidate, family: str) -> list[Any]:
-    families = candidate.metadata.get("families")
-    if (
-        not isinstance(families, Sequence)
-        or isinstance(families, str)
-        or family not in families
-    ):
-        raise ValueError(f"unknown SkillLearn family: {family}")
-    audit = candidate.metadata.get("static_audit")
-    allocations = (
-        audit.get("family_allocations") if isinstance(audit, Mapping) else None
-    )
-    allocation = allocations.get(family) if isinstance(allocations, Mapping) else None
-    if not isinstance(allocation, Mapping):
-        raise ValueError(f"SkillLearn family allocation is missing: {family}")
-    expected = allocation.get("screening_test")
-    if not isinstance(expected, Sequence) or isinstance(expected, str):
-        raise ValueError(f"SkillLearn screening allocation is malformed: {family}")
-    tasks = [
-        task
-        for task in candidate.screening_test
-        if str(task.metadata.get("task_family") or "") == family
-    ]
-    if [task.task_id for task in tasks] != list(expected):
-        raise ValueError(f"SkillLearn screening allocation differs: {family}")
-    if len(tasks) not in {2, 3}:
-        raise ValueError("SkillLearn fixed replay requires exactly 2 or 3 family tasks")
-    return tasks
-
-
 def _plan_path(output_dir: Path, *, resume: bool) -> Path:
     suffix = ".resume-plan.json" if resume else ".plan.json"
     return output_dir.with_name(output_dir.name + suffix)
@@ -168,6 +145,7 @@ def _validate_resume(output_dir: Path, plan: dict[str, Any]) -> int:
         "benchmark",
         "domain",
         "family",
+        "evaluation_role",
         "selection_hash",
         "task_manifest_hash",
         "task_ids",
@@ -185,15 +163,17 @@ def _validate_resume(output_dir: Path, plan: dict[str, Any]) -> int:
     if mismatches:
         raise ValueError("resume preflight mismatch: " + ", ".join(mismatches))
     previous = int(result["repeat_count"])
-    if int(plan["repeat_count"]) <= previous:
-        raise ValueError("--repeats must exceed the existing repeat count")
+    if previous != 3 or int(plan["repeat_count"]) != 5:
+        raise ValueError("replay resume only supports extending 3 to 5 repeats")
     return previous
 
 
 def main() -> None:
     args = _parser().parse_args()
-    if args.repeats < 2:
-        raise ValueError("--repeats must be at least 2")
+    if args.repeats not in {3, 5}:
+        raise ValueError("--repeats must be exactly 3 or 5")
+    if args.resume and args.repeats != 5:
+        raise ValueError("replay resume only supports extending 3 to 5 repeats")
     if not args.dry_run and not args.confirm_provider_cost:
         raise ValueError("provider-backed replay requires --confirm-provider-cost")
     manifest = args.manifest.resolve()
@@ -204,8 +184,17 @@ def main() -> None:
         raise ValueError("SkillLearn replay only supports SkillLearnBench")
     if portable.metadata.get("qualification_version") != "noise-screen-v1":
         raise ValueError("SkillLearn replay requires a noise-screen-v1 candidate")
+    portable_tasks = select_candidate_evaluation_tasks(
+        portable,
+        evaluation_role=args.evaluation_role,
+        family=args.family,
+    )
     candidate = resolve_selection_candidate_paths(portable)
-    tasks = _family_tasks(candidate, args.family)
+    tasks = select_candidate_evaluation_tasks(
+        candidate,
+        evaluation_role=args.evaluation_role,
+        family=args.family,
+    )
     image_manifest = args.image_manifest.resolve()
     if not image_manifest.is_file():
         raise FileNotFoundError(
@@ -224,11 +213,12 @@ def main() -> None:
         "benchmark": candidate.benchmark,
         "domain": candidate.domain,
         "family": args.family,
+        "evaluation_role": args.evaluation_role,
         "manifest": str(manifest),
         "selection_hash": candidate.selection_hash,
         "task_ids": task_ids,
         "task_manifest_hash": canonical_hash(
-            [task.model_dump(mode="json") for task in tasks]
+            [task.model_dump(mode="json") for task in portable_tasks]
         ),
         "reference_label": args.reference,
         "repeat_count": args.repeats,
@@ -262,6 +252,7 @@ def main() -> None:
         artifacts=artifacts,
         reference_label=args.reference,
         clean_test=tasks,
+        task_manifest_hash=plan["task_manifest_hash"],
         repeats=args.repeats,
         output_dir=output_dir,
         resume=args.resume,

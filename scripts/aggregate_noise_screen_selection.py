@@ -6,7 +6,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-from collections.abc import Mapping, Sequence
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
@@ -27,6 +27,7 @@ from rsebench.selection.qualification import (  # noqa: E402
     replay_action,
     replay_integrity_failures,
     reuse_action,
+    sequential_incomplete_action,
 )
 
 
@@ -41,6 +42,20 @@ SKILLLEARN_FAMILIES = (
     "schedule-planning",
     "dependency-vulnerability-check",
 )
+
+
+def replay_decision_action(replay: Mapping[str, Any]) -> str:
+    """Derive the 3-to-5 branch only from the persisted clean replay summary."""
+
+    summaries = replay.get("summaries")
+    clean = summaries.get("clean") if isinstance(summaries, Mapping) else None
+    deltas = clean.get("deltas_vs_reference") if isinstance(clean, Mapping) else None
+    if not isinstance(deltas, list) or not deltas:
+        raise ValueError("clean replay summary lacks paired deltas")
+    return replay_action(
+        [float(value) for value in deltas],
+        repeats=int(replay.get("repeat_count", 0)),
+    )
 
 
 def _applicability_rows(candidate_audit: Mapping[str, Any]) -> Mapping[str, Any]:
@@ -210,16 +225,15 @@ def _pool_status(benchmark: str, row: Mapping[str, Any]) -> DomainSelectionStatu
     if failures:
         return DomainSelectionStatus(
             benchmark=benchmark,
-            next_action="rerun_candidate_1",
+            next_action=sequential_incomplete_action(candidate_index),
             reasons=failures,
         )
-    deltas = row.get("paired_replay_deltas")
-    if deltas is not None:
-        if not isinstance(deltas, Sequence) or isinstance(deltas, (str, bytes)):
-            raise ValueError(f"paired replay deltas are malformed: {benchmark}")
-        repeats = int(row.get("replay_count", 0))
-        if replay_action([float(value) for value in deltas], repeats=repeats) == (
-            "extend_replay_to_5"
+    replays = row.get("replays")
+    if isinstance(replays, list):
+        if any(
+            replay_decision_action(replay) == "extend_replay_to_5"
+            for replay in replays
+            if isinstance(replay, Mapping)
         ):
             return DomainSelectionStatus(
                 benchmark=benchmark,
@@ -333,17 +347,72 @@ def build_selection_status(payload: Mapping[str, Any]) -> SelectionStatus:
     return SelectionStatus(domains=statuses)
 
 
-def main() -> None:
+def aggregate_from_roots(
+    *,
+    selection_root: Path,
+    run_root: Path,
+    mode: str,
+    clean_v2_root: Path | None = None,
+    skillopt_replay_root: Path | None = None,
+) -> Any:
+    from rsebench.selection.qualification_io import aggregate_selection_roots
+
+    return aggregate_selection_roots(
+        selection_root=selection_root,
+        run_root=run_root,
+        mode=mode,
+        clean_v2_root=clean_v2_root,
+        skillopt_replay_root=skillopt_replay_root,
+    )
+
+
+def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--input", type=Path, required=True)
+    parser.add_argument("--input", type=Path)
+    parser.add_argument("--selection-root", type=Path)
+    parser.add_argument("--run-root", type=Path)
+    parser.add_argument("--clean-v2-root", type=Path)
+    parser.add_argument("--skillopt-replay-root", type=Path)
     parser.add_argument("--output", type=Path, required=True)
-    args = parser.parse_args()
-    payload = json.loads(args.input.read_text(encoding="utf-8"))
-    if not isinstance(payload, Mapping):
-        raise ValueError("selection aggregate input must be an object")
-    status = build_selection_status(payload)
+    parser.add_argument(
+        "--mode",
+        choices=("reuse-audit", "qualification", "screening-generalization"),
+        default="qualification",
+    )
+    return parser
+
+
+def main() -> None:
+    args = build_parser().parse_args()
+    if args.input is not None:
+        if args.selection_root is not None or args.run_root is not None:
+            raise ValueError("--input cannot be combined with root aggregation")
+        payload = json.loads(args.input.read_text(encoding="utf-8"))
+        if not isinstance(payload, Mapping):
+            raise ValueError("selection aggregate input must be an object")
+        output_payload: Any = build_selection_status(payload)
+    else:
+        if args.selection_root is None:
+            raise ValueError("root mode requires --selection-root")
+        run_root = args.run_root or args.output.parent
+        if args.mode != "reuse-audit" and args.run_root is None:
+            raise ValueError(f"{args.mode} mode requires --run-root")
+        output_payload = aggregate_from_roots(
+            selection_root=args.selection_root,
+            run_root=run_root,
+            mode=args.mode,
+            clean_v2_root=args.clean_v2_root,
+            skillopt_replay_root=args.skillopt_replay_root,
+        )
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    args.output.write_text(status.model_dump_json(indent=2) + "\n", encoding="utf-8")
+    if hasattr(output_payload, "model_dump_json"):
+        encoded = output_payload.model_dump_json(indent=2) + "\n"
+    else:
+        encoded = (
+            json.dumps(output_payload, ensure_ascii=False, indent=2, sort_keys=True)
+            + "\n"
+        )
+    args.output.write_text(encoded, encoding="utf-8")
     print(args.output)
 
 

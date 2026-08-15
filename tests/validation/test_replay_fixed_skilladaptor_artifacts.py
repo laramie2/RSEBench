@@ -6,9 +6,13 @@ import json
 import sys
 from pathlib import Path
 
+import pytest
+
 from rsebench.contracts import TaskManifest
+from rsebench.evidence import canonical_hash
 from rsebench.evolution.clean_contracts import CleanEvolutionSplitManifest
 from rsebench.evolution.runner import EvaluationResult
+from rsebench.selection.contracts import StableSplitCandidate
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -56,6 +60,44 @@ def _manifest(tmp_path: Path) -> Path:
     )
     path = tmp_path / "manifest.json"
     path.write_text(split.model_dump_json(indent=2), encoding="utf-8")
+    return path
+
+
+def _candidate_manifest(tmp_path: Path) -> Path:
+    roles = {
+        "train": [_task(f"goal_{index}") for index in range(1, 6)],
+        "validation": [_task(f"goal_{index}") for index in range(6, 11)],
+        "qualification_test": [
+            _task(f"goal_{index}") for index in range(11, 31)
+        ],
+        "screening_test": [_task(f"goal_{index}") for index in range(31, 51)],
+    }
+    candidate = StableSplitCandidate(
+        benchmark="webshop",
+        domain="interactive",
+        candidate_index=2,
+        source_hash=canonical_hash(
+            {
+                role: [task.model_dump(mode="json") for task in tasks]
+                for role, tasks in roles.items()
+            }
+        ),
+        selection_hash=canonical_hash(
+            {role: [task.task_id for task in tasks] for role, tasks in roles.items()}
+        ),
+        metadata={
+            "qualification_version": "noise-screen-v1",
+            "source_seed": 20260813,
+            "runtime": {
+                "max_iterations": 3,
+                "max_episode_steps": 15,
+                "min_sample_size": 5,
+            },
+        },
+        **roles,
+    )
+    path = tmp_path / "candidate.json"
+    path.write_text(candidate.model_dump_json(indent=2), encoding="utf-8")
     return path
 
 
@@ -165,3 +207,85 @@ def test_skilladaptor_replay_dry_run_has_zero_provider_calls(
     plan = json.loads(output.with_name("replay.plan.json").read_text(encoding="utf-8"))
     assert plan["provider_calls"] == 0
     assert not output.exists()
+
+
+def test_skilladaptor_replay_rejects_two_repeats(tmp_path: Path, monkeypatch) -> None:
+    module = _load_script()
+    artifact = tmp_path / "seed.json"
+    artifact.write_text("{}", encoding="utf-8")
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            module.__file__,
+            "--manifest",
+            str(_manifest(tmp_path)),
+            "--artifact",
+            f"seed={artifact}",
+            "--reference",
+            "seed",
+            "--repeats",
+            "2",
+            "--output-dir",
+            str(tmp_path / "replay"),
+            "--dry-run",
+        ],
+    )
+
+    with pytest.raises(ValueError, match="exactly 3 or 5"):
+        module.main()
+
+
+def test_skilladaptor_replay_cli_requires_explicit_role_choices() -> None:
+    module = _load_script()
+    args = module._parser().parse_args(
+        [
+            "--manifest",
+            "candidate.json",
+            "--evaluation-role",
+            "screening_test",
+            "--artifact",
+            "seed=seed.json",
+            "--reference",
+            "seed",
+            "--output-dir",
+            "run",
+        ]
+    )
+    assert args.evaluation_role == "screening_test"
+
+
+def test_skilladaptor_candidate_screening_role_never_aliases_qualification(
+    tmp_path: Path, monkeypatch
+) -> None:
+    module = _load_script()
+    artifact = tmp_path / "seed.json"
+    artifact.write_text("{}", encoding="utf-8")
+    monkeypatch.setattr(module, "methods_root", lambda: tmp_path / "methods")
+    output = tmp_path / "screening"
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            module.__file__,
+            "--manifest",
+            str(_candidate_manifest(tmp_path)),
+            "--evaluation-role",
+            "screening_test",
+            "--artifact",
+            f"seed={artifact}",
+            "--reference",
+            "seed",
+            "--output-dir",
+            str(output),
+            "--dry-run",
+        ],
+    )
+
+    module.main()
+
+    plan = json.loads(output.with_name("screening.plan.json").read_text())
+    assert plan["task_ids"] == [f"goal_{index}" for index in range(31, 51)]
+    assert not set(plan["task_ids"]) & {
+        f"goal_{index}" for index in range(11, 31)
+    }

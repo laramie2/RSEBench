@@ -2,9 +2,12 @@ from __future__ import annotations
 
 import pytest
 
+from rsebench.contracts import TaskManifest
+from rsebench.evidence import canonical_hash
 from rsebench.selection.contracts import (
     CandidateSeedEvidence,
     ScreeningSeedEvidence,
+    StableSplitCandidate,
 )
 from rsebench.selection.qualification import (
     audit_officeqa,
@@ -14,7 +17,14 @@ from rsebench.selection.qualification import (
     decide_candidate,
     decide_screening_generalization,
     replay_action,
+    replay_integrity_failures,
     reuse_action,
+    sequential_incomplete_action,
+)
+from rsebench.selection.qualification_io import (
+    CleanRunEvidence,
+    _group_failures,
+    validate_candidate_denominators,
 )
 
 
@@ -265,3 +275,121 @@ def test_skilllearn_audit_blocks_incomplete_verifier_or_hidden_test_leakage() ->
     )
     assert leaked.passed is False
     assert "hidden_test_leakage" in leaked.failure_reasons
+
+
+def test_incomplete_candidate_action_never_regresses_candidate_two_or_three() -> None:
+    assert sequential_incomplete_action(1) == "rerun_candidate_1"
+    assert sequential_incomplete_action(2) == "run_candidate_2"
+    assert sequential_incomplete_action(3) == "clean_blocked_after_three_candidates"
+
+
+def test_replay_integrity_rejects_two_repeats_and_malformed_resume_history() -> None:
+    minimal = {
+        "repeat_count": 2,
+        "duration_seconds": 1.0,
+        "task_ids": ["t1"],
+        "artifact_hashes": {"seed": "a" * 64, "clean": "b" * 64},
+        "observations": [],
+        "summaries": {},
+        "timing": {"run": {"level": "run"}, "stages": [], "tasks": []},
+        "token_usage": {
+            "observed_coverage": 1.0,
+            "billed_tokens": {
+                "prompt_tokens": 0,
+                "completion_tokens": 0,
+                "total_tokens": 0,
+            },
+        },
+        "resume_history": [],
+    }
+    assert "invalid_replay_repeat_count" in replay_integrity_failures(minimal)
+    malformed_resume = {**minimal, "repeat_count": 5, "resume_history": []}
+    assert "invalid_replay_resume_history" in replay_integrity_failures(
+        malformed_resume
+    )
+
+
+def test_reduced_pool_candidate_denominator_is_rejected() -> None:
+    def task(task_id: str) -> TaskManifest:
+        return TaskManifest(
+            task_id=task_id,
+            benchmark="officeqa_full",
+            domain="document",
+            prompt=task_id,
+            gold_answers=["answer"],
+            source_hash=canonical_hash(task_id),
+        )
+
+    candidate = StableSplitCandidate(
+        benchmark="officeqa_full",
+        domain="document",
+        candidate_index=2,
+        train=[task("train-1"), task("train-2")],
+        validation=[task("validation-1")],
+        qualification_test=[task("qualification-1")],
+        screening_test=[task("screening-1")],
+        source_hash="a" * 64,
+        selection_hash="b" * 64,
+    )
+
+    with pytest.raises(ValueError, match="wrong fixed denominator"):
+        validate_candidate_denominators(candidate)
+
+
+def test_skilllearn_seed_group_rejects_mixed_fingerprint_and_family_substitution() -> (
+    None
+):
+    candidate = StableSplitCandidate(
+        benchmark="skilllearnbench",
+        domain="skill_learning",
+        candidate_index=1,
+        train=[],
+        validation=[],
+        qualification_test=[],
+        screening_test=[],
+        source_hash="a" * 64,
+        selection_hash="b" * 64,
+    )
+
+    def run(seed: int, *, family: str, fingerprint: str = "c" * 64):
+        return CleanRunEvidence(
+            benchmark="skilllearnbench",
+            candidate_index=1,
+            selection_hash=candidate.selection_hash,
+            family=family,
+            method_seed=seed,
+            run_dir=f"/run/{seed}",
+            train_task_ids=["train"],
+            validation_task_ids=["validation"],
+            accepted_update_count=1,
+            artifact_changed=True,
+            validation_complete=True,
+            seed_artifact_path=f"/seed/{seed}",
+            seed_artifact_hash="d" * 64,
+            clean_artifact_path=f"/clean/{seed}",
+            clean_artifact_hash="e" * 64,
+            baseline_fingerprint=fingerprint,
+            evolution_input_hash="f" * 64,
+            provider="deepseek",
+            model="deepseek-v4-flash",
+            provider_config_hash="1" * 64,
+        )
+
+    records = [
+        run(20260813, family="organize-messy-files"),
+        run(
+            20260814,
+            family="organize-messy-files",
+            fingerprint="9" * 64,
+        ),
+        run(20260815, family="substituted-family"),
+    ]
+
+    failures = _group_failures(
+        candidate,
+        records,
+        family="organize-messy-files",
+    )
+
+    assert "mixed_clean_identity:baseline_fingerprint" in failures
+    assert "run_family_substituted" in failures

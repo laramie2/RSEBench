@@ -229,3 +229,25 @@ def test_repeated_artifact_evaluation_uses_immutable_artifact_snapshots(
         content for stage, content in executor.contents if "candidate" in stage
     } == {"candidate\n"}
     assert result.artifact_paths["candidate"] == str(candidate.resolve())
+
+
+def test_replay_can_persist_portable_frozen_task_manifest_hash(
+    tmp_path: Path,
+) -> None:
+    seed = tmp_path / "seed.md"
+    clean = tmp_path / "clean.md"
+    seed.write_text("seed\n", encoding="utf-8")
+    clean.write_text("clean\n", encoding="utf-8")
+    portable_hash = "f" * 64
+
+    result = artifact_evaluation.evaluate_repeated_artifacts(
+        executor=_ReplayExecutor(),
+        artifacts={"seed": seed, "clean": clean},
+        reference_label="seed",
+        clean_test=[_task("t1"), _task("t2")],
+        task_manifest_hash=portable_hash,
+        repeats=2,
+        output_dir=tmp_path / "replay",
+    )
+
+    assert result.task_manifest_hash == portable_hash

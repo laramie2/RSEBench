@@ -72,37 +72,116 @@ def build_commands(spec: Mapping[str, Any]) -> list[list[str]]:
     return commands
 
 
-def main() -> None:
+def build_root_replay_plan(
+    *,
+    selection_root: Path,
+    run_root: Path,
+    evaluation_role: str,
+    candidate_index: int | None,
+    repeats: int,
+    resume: bool,
+) -> dict[str, Any]:
+    """Discover root-owned replay jobs without executing a provider call."""
+
+    from rsebench.selection.qualification_io import discover_replay_jobs
+
+    jobs = discover_replay_jobs(
+        selection_root=selection_root,
+        run_root=run_root,
+        evaluation_role=evaluation_role,
+        candidate_index=candidate_index,
+        repeats=repeats,
+        resume=resume,
+    )
+    return {
+        "schema_version": "rsebench.noise-screen-replay-matrix.v1",
+        "selection_root": str(selection_root.resolve()),
+        "run_root": str(run_root.resolve()),
+        "evaluation_role": evaluation_role,
+        "candidate_index": candidate_index,
+        "repeats": repeats,
+        "resume": resume,
+        "jobs": jobs,
+        "commands": [job["command"] for job in jobs],
+        "provider_calls": 0,
+    }
+
+
+def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--spec", type=Path, required=True)
-    parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--spec", type=Path)
+    parser.add_argument("--output", type=Path)
+    parser.add_argument("--selection-root", type=Path)
+    parser.add_argument("--run-root", type=Path)
+    parser.add_argument(
+        "--evaluation-role",
+        choices=("qualification_test", "screening_test"),
+    )
+    parser.add_argument("--candidate-index", type=int, choices=(1, 2, 3))
+    parser.add_argument("--repeats", type=int, choices=(3, 5), default=3)
+    parser.add_argument("--resume", action="store_true")
     parser.add_argument("--execute", action="store_true")
     parser.add_argument("--confirm-provider-cost", action="store_true")
-    args = parser.parse_args()
-    payload = json.loads(args.spec.read_text(encoding="utf-8"))
-    if not isinstance(payload, Mapping):
-        raise ValueError("replay spec must be an object")
-    commands = build_commands(payload)
+    return parser
+
+
+def main() -> None:
+    args = build_parser().parse_args()
+    if args.spec is not None:
+        if any(
+            value is not None
+            for value in (args.selection_root, args.run_root, args.evaluation_role)
+        ):
+            raise ValueError("--spec cannot be combined with root replay arguments")
+        if args.output is None:
+            raise ValueError("synthetic --spec mode requires --output")
+        payload = json.loads(args.spec.read_text(encoding="utf-8"))
+        if not isinstance(payload, Mapping):
+            raise ValueError("replay spec must be an object")
+        commands = build_commands(payload)
+        plan: dict[str, Any] = {
+            "schema_version": "rsebench.noise-screen-replay-matrix.v1",
+            "commands": commands,
+            "provider_calls": 0,
+        }
+        output = args.output
+    else:
+        if args.selection_root is None or args.run_root is None:
+            raise ValueError("root mode requires --selection-root and --run-root")
+        if args.evaluation_role is None:
+            raise ValueError("root mode requires --evaluation-role")
+        plan = build_root_replay_plan(
+            selection_root=args.selection_root,
+            run_root=args.run_root,
+            evaluation_role=args.evaluation_role,
+            candidate_index=args.candidate_index,
+            repeats=args.repeats,
+            resume=args.resume,
+        )
+        commands = list(plan["commands"])
+        candidate = args.candidate_index if args.candidate_index is not None else "all"
+        output = args.output or (
+            args.run_root
+            / "replay_plans"
+            / f"{args.evaluation_role}-candidate-{candidate}-r{args.repeats}.json"
+        )
     if args.execute and not args.confirm_provider_cost:
         raise ValueError(
             "provider-backed replay matrix requires --confirm-provider-cost"
         )
-    plan = {
-        "schema_version": "rsebench.noise-screen-replay-matrix.v1",
-        "commands": commands,
-        "provider_calls": 0 if not args.execute else None,
-    }
-    args.output.parent.mkdir(parents=True, exist_ok=True)
-    args.output.write_text(
+    if args.execute:
+        plan["provider_calls"] = None
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(
         json.dumps(plan, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
     if not args.execute:
-        print(args.output)
+        print(output)
         return
     for command in commands:
         subprocess.run([*command, "--confirm-provider-cost"], check=True)
-    print(args.output)
+    print(output)
 
 
 if __name__ == "__main__":

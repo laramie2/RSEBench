@@ -4,6 +4,8 @@ import importlib.util
 from datetime import datetime, timezone
 from pathlib import Path
 
+import pytest
+
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 FAMILIES = (
@@ -272,7 +274,7 @@ def test_missing_timing_or_incomplete_token_coverage_blocks_aggregation() -> Non
     status = module.build_selection_status(payload)
 
     row = status.domains["webshop"]
-    assert row.next_action == "rerun_candidate_1"
+    assert row.next_action == "run_candidate_2"
     assert "missing_replay_timing" in row.reasons
     assert "incomplete_token_observation" in row.reasons
 
@@ -292,7 +294,7 @@ def test_incomplete_replay_observation_denominator_blocks_aggregation() -> None:
     status = module.build_selection_status(payload)
 
     row = status.domains["webshop"]
-    assert row.next_action == "rerun_candidate_1"
+    assert row.next_action == "run_candidate_2"
     assert "incomplete_replay_observation_denominator" in row.reasons
 
 
@@ -313,7 +315,7 @@ def test_mixed_reuse_fingerprint_requests_fixed_fallback_matrix() -> None:
     status = module.build_selection_status(payload)
 
     row = status.domains["officeqa_full"]
-    assert row.next_action == "rerun_candidate_1"
+    assert row.next_action == "run_candidate_2"
     assert "reuse_identity_mismatch" in row.reasons
 
 
@@ -334,8 +336,29 @@ def test_individually_matching_but_mixed_fingerprints_reject_reuse() -> None:
     status = module.build_selection_status(payload)
 
     row = status.domains["officeqa_full"]
-    assert row.next_action == "rerun_candidate_1"
+    assert row.next_action == "run_candidate_2"
     assert "mixed_reuse_fingerprints" in row.reasons
+
+
+def test_candidate_three_incomplete_audit_blocks_without_regression() -> None:
+    candidate_three = _pool(candidate_index=3)
+    candidate_three["trace_audit"]["N4"] = {
+        "status": "pending",
+        "coverage": None,
+    }
+    payload = {
+        "domains": {
+            "spreadsheetbench_verified": _pool(),
+            "officeqa_full": candidate_three,
+            "webshop": _pool(),
+        },
+        "skilllearn": _skilllearn(),
+    }
+
+    row = _load_script().build_selection_status(payload).domains["officeqa_full"]
+
+    assert row.next_action == "clean_blocked_after_three_candidates"
+    assert "pending_noise_applicability:N4" in row.reasons
 
 
 def test_unresolved_trace_applicability_is_a_typed_failure() -> None:
@@ -379,14 +402,17 @@ def test_skilllearn_pending_trace_gate_blocks_even_three_ready_families() -> Non
 
 
 def test_sign_inconsistent_replay_requests_five_before_candidate_decision() -> None:
+    spreadsheet = _pool()
+    spreadsheet["replays"][0]["summaries"]["clean"][
+        "deltas_vs_reference"
+    ] = [0.1, -0.1, 0.2]
+    spreadsheet["replays"][0]["summaries"]["clean"][
+        "mean_delta_vs_reference"
+    ] = 0.2 / 3
     module = _load_script()
     payload = {
         "domains": {
-            "spreadsheetbench_verified": {
-                **_pool(),
-                "paired_replay_deltas": [0.1, -0.1, 0.2],
-                "replay_count": 3,
-            },
+            "spreadsheetbench_verified": spreadsheet,
             "officeqa_full": _pool(),
             "webshop": _pool(),
         },
@@ -398,3 +424,40 @@ def test_sign_inconsistent_replay_requests_five_before_candidate_decision() -> N
     assert (
         status.domains["spreadsheetbench_verified"].next_action == "extend_replay_to_5"
     )
+
+
+def test_mixed_sign_is_derived_from_replay_summary_without_duplicate_field() -> None:
+    module = _load_script()
+    replay = _replay()
+    replay["summaries"]["clean"]["deltas_vs_reference"] = [0.1, -0.1, 0.2]
+    replay["summaries"]["clean"]["mean_delta_vs_reference"] = pytest.approx(
+        0.2 / 3
+    )
+
+    action = module.replay_decision_action(replay)
+
+    assert action == "extend_replay_to_5"
+
+
+def test_aggregate_parser_accepts_all_task8_root_modes() -> None:
+    module = _load_script()
+    parser = module.build_parser()
+    for mode in ("reuse-audit", "qualification", "screening-generalization"):
+        args = parser.parse_args(
+            [
+                "--selection-root",
+                "selection",
+                "--run-root",
+                "runs",
+                "--clean-v2-root",
+                "clean-v2",
+                "--skillopt-replay-root",
+                "fixed-replay",
+                "--output",
+                "out.json",
+                "--mode",
+                mode,
+            ]
+        )
+        assert args.mode == mode
+        assert args.selection_root == Path("selection")

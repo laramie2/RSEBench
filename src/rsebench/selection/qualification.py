@@ -15,6 +15,7 @@ from rsebench.selection.contracts import (
     CandidateSeedEvidence,
     ScreeningGeneralizationDecision,
     ScreeningSeedEvidence,
+    StableSplitCandidate,
 )
 
 
@@ -24,6 +25,70 @@ class DomainQualificationAudit(StrictModel):
     passed: bool
     execution_coverage: float = Field(ge=0.0, le=1.0)
     failure_reasons: list[str] = Field(default_factory=list)
+
+
+class DomainScreeningGeneralization(StrictModel):
+    status: Literal["clean_generalization_ready", "clean_generalization_failed"]
+    decision: ScreeningGeneralizationDecision | None = None
+    ready_families: list[str] = Field(default_factory=list)
+    family_decisions: dict[str, ScreeningGeneralizationDecision] = Field(
+        default_factory=dict
+    )
+    failure_reasons: list[str] = Field(default_factory=list)
+
+
+class ScreeningGeneralizationAggregate(StrictModel):
+    schema_version: str = "rsebench.screening-generalization.v1"
+    domains: dict[str, DomainScreeningGeneralization]
+    all_ready: bool
+
+
+_POOL_EVALUATION_COUNTS = {
+    "spreadsheetbench_verified": 30,
+    "officeqa_full": 20,
+    "webshop": 20,
+}
+
+
+def select_candidate_evaluation_tasks(
+    candidate: StableSplitCandidate,
+    *,
+    evaluation_role: Literal["qualification_test", "screening_test"],
+    family: str | None = None,
+) -> list[Any]:
+    """Select the exact frozen evaluation role without permitting role aliasing."""
+
+    tasks = list(getattr(candidate, evaluation_role))
+    if candidate.benchmark == "skilllearnbench":
+        if evaluation_role == "qualification_test":
+            raise ValueError("SkillLearn has no qualification replay")
+        if not family:
+            raise ValueError("SkillLearn screening replay requires a family")
+        tasks = [
+            task
+            for task in tasks
+            if str(task.metadata.get("task_family") or "") == family
+        ]
+        allocations = candidate.metadata.get("static_audit", {}).get(
+            "family_allocations", {}
+        )
+        expected = allocations.get(family, {}).get("screening_test")
+        if [task.task_id for task in tasks] != expected:
+            raise ValueError(f"SkillLearn screening allocation differs: {family}")
+        if len(tasks) not in {2, 3}:
+            raise ValueError("SkillLearn screening family requires 2 or 3 tasks")
+        return tasks
+    if family is not None:
+        raise ValueError("family selector is only valid for SkillLearn")
+    expected_count = _POOL_EVALUATION_COUNTS.get(candidate.benchmark)
+    if expected_count is None:
+        raise ValueError(f"unsupported selection benchmark: {candidate.benchmark}")
+    if len(tasks) != expected_count:
+        raise ValueError(
+            f"{candidate.benchmark} {evaluation_role} requires exactly "
+            f"{expected_count} tasks"
+        )
+    return tasks
 
 
 def _mixed_batch_failures(
@@ -141,6 +206,24 @@ def replay_action(
     if repeats == 3 and min(deltas) < 0.0 < max(deltas):
         return "extend_replay_to_5"
     return "decide_candidate"
+
+
+def sequential_incomplete_action(
+    candidate_index: int,
+) -> Literal[
+    "rerun_candidate_1",
+    "run_candidate_2",
+    "clean_blocked_after_three_candidates",
+]:
+    """Return the only legal action for incomplete evidence at one candidate."""
+
+    if candidate_index == 1:
+        return "rerun_candidate_1"
+    if candidate_index == 2:
+        return "run_candidate_2"
+    if candidate_index == 3:
+        return "clean_blocked_after_three_candidates"
+    raise ValueError("candidate index must be one of 1, 2, or 3")
 
 
 def decision_failures(
@@ -281,6 +364,21 @@ def replay_integrity_failures(
     """Validate the accounting fields required before replay aggregation."""
 
     failures: list[str] = []
+    repeat_count = replay.get("repeat_count")
+    if repeat_count not in {3, 5}:
+        failures.append("invalid_replay_repeat_count")
+    resume_history = replay.get("resume_history")
+    if repeat_count == 3 and resume_history not in ([], None):
+        failures.append("invalid_replay_resume_history")
+    if repeat_count == 5:
+        if (
+            not isinstance(resume_history, list)
+            or len(resume_history) != 1
+            or not isinstance(resume_history[0], Mapping)
+            or resume_history[0].get("from_repeat_count") != 3
+            or resume_history[0].get("to_repeat_count") != 5
+        ):
+            failures.append("invalid_replay_resume_history")
     try:
         RepeatedArtifactReplayResult.model_validate(replay)
     except Exception:
@@ -305,7 +403,6 @@ def replay_integrity_failures(
             failures.append("missing_stage_timing")
         if not isinstance(tasks, list) or not tasks:
             failures.append("missing_task_timing")
-        repeat_count = replay.get("repeat_count")
         task_ids = replay.get("task_ids")
         artifact_hashes = replay.get("artifact_hashes")
         if (
@@ -391,6 +488,8 @@ def replay_integrity_failures(
 
 __all__ = [
     "DomainQualificationAudit",
+    "DomainScreeningGeneralization",
+    "ScreeningGeneralizationAggregate",
     "audit_officeqa",
     "audit_skilllearn",
     "audit_spreadsheet",
@@ -401,4 +500,6 @@ __all__ = [
     "replay_action",
     "replay_integrity_failures",
     "reuse_action",
+    "sequential_incomplete_action",
+    "select_candidate_evaluation_tasks",
 ]

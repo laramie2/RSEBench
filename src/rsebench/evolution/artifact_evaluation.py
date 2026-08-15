@@ -187,6 +187,7 @@ def evaluate_repeated_artifacts(
     artifacts: dict[str, Path | str],
     reference_label: str,
     clean_test: list[TaskManifest],
+    task_manifest_hash: str | None = None,
     repeats: int,
     output_dir: Path | str,
     resume: bool = False,
@@ -211,7 +212,7 @@ def evaluate_repeated_artifacts(
             raise FileNotFoundError(f"artifact {label} not found: {path}")
     hashes = {label: sha256_file(path) for label, path in resolved.items()}
     task_payload = [task.model_dump(mode="json") for task in clean_test]
-    task_manifest_hash = hashlib.sha256(
+    derived_task_manifest_hash = hashlib.sha256(
         json.dumps(
             task_payload,
             ensure_ascii=False,
@@ -219,6 +220,10 @@ def evaluate_repeated_artifacts(
             sort_keys=True,
         ).encode("utf-8")
     ).hexdigest()
+    if task_manifest_hash is None:
+        task_manifest_hash = derived_task_manifest_hash
+    elif not re.fullmatch(r"[0-9a-f]{64}", task_manifest_hash):
+        raise ValueError("task manifest hash must be lowercase SHA-256")
 
     destination = Path(output_dir).resolve()
     labels = list(resolved)
