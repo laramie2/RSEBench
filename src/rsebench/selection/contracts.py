@@ -6,7 +6,7 @@ import math
 from collections.abc import Iterable, Iterator, Mapping, Sequence
 from enum import Enum
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Literal, Self
 
 from pydantic import (
     ConfigDict,
@@ -160,14 +160,23 @@ def _deep_freeze(value: Any) -> Any:
         )
         return immutable
     if isinstance(value, dict):
-        if any(not isinstance(key, str) for key in value):
-            raise ValueError(
-                "selection contracts require stable canonical values; "
-                "mapping keys must be strings"
-            )
-        return _ImmutableMapping(
-            (key, _deep_freeze(child)) for key, child in value.items()
-        )
+        normalized_items: list[tuple[str, Any]] = []
+        normalized_keys: set[str] = set()
+        for key, child in value.items():
+            if not isinstance(key, str):
+                raise ValueError(
+                    "selection contracts require stable canonical values; "
+                    "mapping keys must be strings"
+                )
+            normalized_key = str(key)
+            if normalized_key in normalized_keys:
+                raise ValueError(
+                    "selection contracts require stable canonical values; "
+                    f"duplicate normalized mapping key: {normalized_key!r}"
+                )
+            normalized_keys.add(normalized_key)
+            normalized_items.append((normalized_key, _deep_freeze(child)))
+        return _ImmutableMapping(normalized_items)
     if isinstance(value, (list, tuple)):
         return _ImmutableSequence(_deep_freeze(child) for child in value)
     if isinstance(value, ExposureLevel):
@@ -215,6 +224,22 @@ class _ImmutableSelectionModel(StrictModel):
         del context
         for field_name, value in self.__dict__.items():
             object.__setattr__(self, field_name, _deep_freeze(value))
+
+    def model_copy(
+        self,
+        *,
+        update: Mapping[str, Any] | None = None,
+        deep: bool = False,
+    ) -> Self:
+        if not update:
+            return super().model_copy(deep=deep)
+
+        fields_set = self.model_fields_set | set(update)
+        payload = self.model_dump(mode="python")
+        payload.update(update)
+        copied = type(self).model_validate(payload)
+        object.__setattr__(copied, "__pydantic_fields_set__", fields_set)
+        return copied
 
     @field_serializer("*", mode="wrap", check_fields=False)
     def serialize_immutable_field(

@@ -47,6 +47,21 @@ class _StatefulInt(int):
     state: list[str]
 
 
+class _StatefulStrKey(str):
+    rendered: str
+
+    def __new__(cls, value: str) -> "_StatefulStrKey":
+        instance = super().__new__(cls, value)
+        instance.rendered = value
+        return instance
+
+    def __hash__(self) -> int:
+        return hash(self.rendered)
+
+    def __eq__(self, other: object) -> bool:
+        return self.rendered == str(other)
+
+
 class _StatefulPath(PosixPath):
     rendered: str
 
@@ -308,6 +323,40 @@ def test_deep_copies_succeed_and_remain_deeply_immutable(
         operator.setitem(copied.train[0].metadata["nested"], "changed", True)
 
 
+def test_model_copy_update_revalidates_candidate_invariants() -> None:
+    candidate = _candidate()
+
+    with pytest.raises(ValidationError):
+        candidate.model_copy(update={"candidate_index": 4})
+    with pytest.raises(ValidationError, match="disjoint"):
+        candidate.model_copy(update={"screening_test": candidate.train})
+    with pytest.raises(ValidationError, match="benchmark"):
+        candidate.model_copy(
+            update={"train": [_task("other", benchmark="webshop")]}
+        )
+
+
+def test_model_copy_update_refreezes_metadata_and_rejects_unsupported_values() -> None:
+    candidate = _candidate()
+    source_metadata = {"nested": {"tags": ["original"]}}
+
+    updated = candidate.model_copy(
+        update={"candidate_index": 3, "metadata": source_metadata}
+    )
+    original_dump = updated.model_dump(mode="json")
+    original_hash = canonical_hash(updated)
+    source_metadata["nested"]["tags"].append("caller-change")
+
+    assert updated.candidate_index == 3
+    assert candidate.candidate_index == 2
+    assert updated.model_dump(mode="json") == original_dump
+    assert canonical_hash(updated) == original_hash
+    with pytest.raises(TypeError, match="immutable"):
+        updated.metadata["nested"]["tags"].append("contract-change")
+    with pytest.raises(ValidationError, match="stable canonical values"):
+        candidate.model_copy(update={"metadata": {"bad": bytearray(b"mutable")}})
+
+
 def _registry() -> ExposureRegistry:
     return ExposureRegistry(
         records=[
@@ -498,6 +547,52 @@ def test_supported_metadata_is_unaliased_and_canonical_output_remains_stable() -
     candidate_metadata["nested"]["values"].append(3)
     task_metadata["nested"]["values"].append(4)
 
+    assert candidate.model_dump(mode="json") == original_dump
+    assert canonical_hash(candidate) == original_hash
+
+
+def test_nested_metadata_keys_are_normalized_without_aliases() -> None:
+    candidate_outer_key = _StatefulStrKey("candidate-outer")
+    candidate_inner_key = _StatefulStrKey("candidate-inner")
+    task_outer_key = _StatefulStrKey("task-outer")
+    task_inner_key = _StatefulStrKey("task-inner")
+    candidate = _candidate(
+        metadata={
+            "container": {
+                candidate_outer_key: {candidate_inner_key: "candidate-value"}
+            }
+        },
+        train=[
+            _task(
+                "train",
+                metadata={
+                    "container": {task_outer_key: {task_inner_key: "task-value"}}
+                },
+            )
+        ],
+    )
+    candidate_mapping = candidate.metadata["container"]
+    task_mapping = candidate.train[0].metadata["container"]
+    candidate_stored_key = next(iter(candidate_mapping))
+    candidate_inner_mapping = candidate_mapping["candidate-outer"]
+    task_stored_key = next(iter(task_mapping))
+    task_inner_mapping = task_mapping["task-outer"]
+    original_dump = candidate.model_dump(mode="json")
+    original_hash = canonical_hash(candidate)
+
+    assert type(candidate_stored_key) is str
+    assert candidate_stored_key is not candidate_outer_key
+    assert type(next(iter(candidate_inner_mapping))) is str
+    assert type(task_stored_key) is str
+    assert task_stored_key is not task_outer_key
+    assert type(next(iter(task_inner_mapping))) is str
+    candidate_outer_key.rendered = "candidate-outer-changed"
+    candidate_inner_key.rendered = "candidate-inner-changed"
+    task_outer_key.rendered = "task-outer-changed"
+    task_inner_key.rendered = "task-inner-changed"
+
+    assert candidate_mapping["candidate-outer"]["candidate-inner"] == "candidate-value"
+    assert task_mapping["task-outer"]["task-inner"] == "task-value"
     assert candidate.model_dump(mode="json") == original_dump
     assert canonical_hash(candidate) == original_hash
 
