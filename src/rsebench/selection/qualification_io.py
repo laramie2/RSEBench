@@ -8,6 +8,7 @@ import os
 import random
 import re
 import sys
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
@@ -275,6 +276,207 @@ def _portable_task_identity(task: TaskManifest) -> dict[str, Any]:
     return payload
 
 
+_LEGACY_REUSE_PROJECTION_VERSION = "clean-v2-derived-annotations-v1"
+_LEGACY_REUSE_METADATA_ALLOWLIST = {
+    "officeqa_full": frozenset(
+        {
+            "officeqa_stratum",
+            "static_applicability",
+        }
+    ),
+    "webshop": frozenset(
+        {
+            "constraint_count",
+            "normalized_query",
+            "option_count",
+            "retrieval_rank",
+            "seed_success",
+            "static_applicability",
+            "target_reachable",
+        }
+    ),
+}
+
+
+def _legacy_reuse_task_identity(task: TaskManifest) -> dict[str, Any]:
+    """Remove only clean-v2-absent annotations verified by pinned gates below."""
+
+    allowlist = _LEGACY_REUSE_METADATA_ALLOWLIST.get(task.benchmark)
+    if allowlist is None:
+        raise ValueError("legacy reuse projection is not defined for benchmark")
+    payload = _portable_task_identity(task)
+    metadata = dict(payload["metadata"])
+    for key in allowlist:
+        metadata.pop(key, None)
+    payload["metadata"] = metadata
+    return payload
+
+
+def _legacy_static_audit(candidate: StableSplitCandidate) -> Mapping[str, Any]:
+    audit = candidate.metadata.get("static_audit")
+    if not isinstance(audit, Mapping):
+        raise ValueError("legacy reuse current candidate lacks static audit")
+    applicability = audit.get("noise_applicability")
+    if not isinstance(applicability, Mapping) or any(
+        applicability.get(stage) != {"coverage": 1.0, "status": "pass"}
+        for stage in ("N1", "N2")
+    ):
+        raise ValueError("legacy reuse current candidate static audit is not passed")
+    ordered = audit.get("ordered_task_ids")
+    if not isinstance(ordered, Mapping) or ordered.get("train") != _ids(candidate.train) or (
+        ordered.get("validation") != _ids(candidate.validation)
+    ):
+        raise ValueError("legacy reuse current candidate ordered audit differs")
+    return audit
+
+
+def _validate_officeqa_legacy_annotations(candidate: StableSplitCandidate) -> None:
+    audit = _legacy_static_audit(candidate)
+    gates = audit.get("coverage_gates")
+    if not isinstance(gates, Mapping) or any(
+        not isinstance(row, Mapping) or row.get("status") != "pass"
+        for row in gates.values()
+    ):
+        raise ValueError("OfficeQA legacy reuse static coverage gate is not passed")
+    if audit.get("train_batch_sizes") != [4, 4, 4]:
+        raise ValueError("OfficeQA legacy reuse batch audit differs")
+    for task in [*candidate.train, *candidate.validation]:
+        metadata = task.metadata
+        source_ids = metadata.get("gold_document_ids")
+        source_count = metadata.get("source_file_count")
+        difficulty = metadata.get("difficulty")
+        if (
+            not isinstance(source_ids, Sequence)
+            or isinstance(source_ids, (str, bytes))
+            or type(source_count) is not int
+            or source_count != len(source_ids)
+            or not isinstance(difficulty, str)
+        ):
+            raise ValueError("OfficeQA legacy reuse core source metadata is malformed")
+        expected = {
+            "officeqa_stratum": (
+                f"difficulty={difficulty.casefold()}|files={source_count}"
+            ),
+            "static_applicability": {"N1": True, "N2": bool(source_ids)},
+        }
+        if any(metadata.get(key) != value for key, value in expected.items()):
+            raise ValueError("OfficeQA legacy reuse derived annotation differs")
+
+
+def _validate_webshop_legacy_annotations(candidate: StableSplitCandidate) -> None:
+    audit = _legacy_static_audit(candidate)
+    if (
+        audit.get("unique_normalized_queries") is not True
+        or audit.get("reachable_target_asins") is not True
+        or audit.get("validation_headroom") != {"successes": 2, "total": 5}
+        or audit.get("train_batch_sizes") != [5]
+    ):
+        raise ValueError("WebShop legacy reuse static audit differs")
+    project = _project_root()
+    goals_payload = _read_object(
+        project / "benchmark/validation/clean_qualification_v1/webshop_source.json"
+    )
+    selection = _read_object(
+        project
+        / "benchmark/validation/clean_qualification_v1/"
+        "webshop_validation_selection.json"
+    )
+    products_path = _methods_root(project) / "webshop/data/items_shuffle_1000.json"
+    products = json.loads(products_path.read_text(encoding="utf-8"))
+    goals = goals_payload.get("goals")
+    scores = selection.get("candidate_seed_scores")
+    if (
+        not isinstance(products, list)
+        or not isinstance(goals, dict)
+        or not isinstance(scores, dict)
+    ):
+        raise ValueError("WebShop legacy reuse pinned resources are malformed")
+    seen_asins: set[str] = set()
+    query_groups: dict[str, list[str]] = {}
+    for product in products[:1000]:
+        if not isinstance(product, dict):
+            raise ValueError("WebShop legacy reuse product row is malformed")
+        asin = product.get("asin")
+        if (
+            not isinstance(asin, str)
+            or not asin
+            or asin == "nan"
+            or len(asin) > 10
+            or asin in seen_asins
+        ):
+            continue
+        seen_asins.add(asin)
+        query = _normalized_webshop_query(product.get("query"))
+        query_groups.setdefault(query, []).append(asin)
+    role_tasks = {
+        "train": candidate.train,
+        "validation": candidate.validation,
+        "qualification_test": candidate.qualification_test,
+    }
+    for role, tasks in role_tasks.items():
+        for task in tasks:
+            metadata = task.metadata
+            raw_index = task.task_id.removeprefix("goal_")
+            goal = goals.get(raw_index)
+            if not isinstance(goal, dict):
+                raise ValueError("WebShop legacy reuse pinned goal is missing")
+            target = goal.get("asin")
+            query = _normalized_webshop_query(goal.get("query"))
+            attributes = goal.get("attributes")
+            options = goal.get("goal_options")
+            if (
+                not isinstance(target, str)
+                or not isinstance(attributes, list)
+                or not isinstance(options, dict)
+            ):
+                raise ValueError("WebShop legacy reuse pinned goal is malformed")
+            if (
+                metadata.get("goal_idx") != int(raw_index)
+                or metadata.get("target_asin") != target
+                or metadata.get("query") != goal.get("query")
+                or task.prompt != goal.get("instruction_text")
+            ):
+                raise ValueError("WebShop legacy reuse pinned core task differs")
+            group = query_groups.get(query, [])
+            rank = group.index(target) if target in group else 10_000
+            constraint_count = len(attributes) + len(options) + 1
+            expected = {
+                "normalized_query": query,
+                "target_reachable": rank < 10,
+                "option_count": len(options),
+                "constraint_count": constraint_count,
+                "retrieval_rank": rank,
+                "static_applicability": {
+                    "N1": constraint_count >= 2,
+                    "N2": rank < 10,
+                },
+            }
+            if any(metadata.get(key) != value for key, value in expected.items()):
+                raise ValueError("WebShop legacy reuse derived annotation differs")
+            raw_score = scores.get(raw_index)
+            if role == "validation":
+                if (
+                    isinstance(raw_score, bool)
+                    or not isinstance(raw_score, (int, float))
+                    or metadata.get("seed_success") != (float(raw_score) == 1.0)
+                ):
+                    raise ValueError("WebShop legacy reuse derived annotation differs")
+            elif "seed_success" in metadata:
+                raise ValueError("WebShop seed_success is only valid on validation tasks")
+
+
+def _validate_legacy_reuse_candidate(candidate: StableSplitCandidate) -> None:
+    if candidate.candidate_index != 1:
+        raise ValueError("legacy reuse is restricted to Candidate 1")
+    if candidate.benchmark == "officeqa_full":
+        _validate_officeqa_legacy_annotations(candidate)
+        return
+    if candidate.benchmark == "webshop":
+        _validate_webshop_legacy_annotations(candidate)
+        return
+    raise ValueError("legacy reuse is restricted to OfficeQA and WebShop")
+
+
 def normalized_evolution_input_hash(
     *,
     candidate: StableSplitCandidate,
@@ -285,6 +487,7 @@ def normalized_evolution_input_hash(
     model: str,
     train_tasks: list[TaskManifest] | None = None,
     validation_tasks: list[TaskManifest] | None = None,
+    legacy_reuse: bool = False,
 ) -> str:
     """Hash current evolution inputs without path/commit/manifest-file coupling."""
 
@@ -304,19 +507,29 @@ def normalized_evolution_input_hash(
     else:
         train = candidate.train
         validation = candidate.validation
+    if legacy_reuse:
+        _validate_legacy_reuse_candidate(candidate)
+    task_identity = (
+        _legacy_reuse_task_identity if legacy_reuse else _portable_task_identity
+    )
     return canonical_hash(
         {
             "benchmark": candidate.benchmark,
             "candidate_index": candidate.candidate_index,
             "selection_hash": candidate.selection_hash,
             "family": family,
-            "train": [_portable_task_identity(task) for task in train],
-            "validation": [_portable_task_identity(task) for task in validation],
+            "train": [task_identity(task) for task in train],
+            "validation": [task_identity(task) for task in validation],
             "runtime": runtime,
             "seed_skill_hash": seed_skill_hash,
             "provider": provider,
             "model": model,
             "stage": "clean",
+            **(
+                {"legacy_reuse_projection": _LEGACY_REUSE_PROJECTION_VERSION}
+                if legacy_reuse
+                else {}
+            ),
         }
     )
 
@@ -355,6 +568,7 @@ def _current_candidate_one_identities(
             seed_skill_hash=seed_hash,
             provider=matrix.provider,
             model=matrix.model,
+            legacy_reuse=cell.benchmark in _LEGACY_REUSE_METADATA_ALLOWLIST,
         )
         for seed in matrix.method_seeds:
             expected[(cell.benchmark, seed, cell.family)] = {
@@ -696,6 +910,7 @@ def _skillopt_owned_audits_impl(
     run_dir: Path,
     *,
     candidate: StableSplitCandidate,
+    method_seed: int,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     native = run_dir / "clean/native_train"
     rollout_paths = sorted(native.glob("steps/step_*/rollout/results.jsonl"))
@@ -718,12 +933,14 @@ def _skillopt_owned_audits_impl(
         return _missing_owned_audits(
             run_dir, "unreadable_owned_skillopt_trace", evidence_paths
         )
+    config = summary.get("config")
+    summary_seed = config.get("seed") if isinstance(config, dict) else None
+    if type(summary_seed) is not int or summary_seed != method_seed:
+        raise ValueError("SkillOpt summary seed differs from validated method seed")
     expected_ids = _ids(candidate.train)
     actual_batches = [[row.id for row in batch] for batch in batches]
     actual_ids = [task_id for batch in actual_batches for task_id in batch]
     exact_global_tasks = _same_unique_ids(actual_ids, expected_ids)
-    config = summary.get("config")
-    method_seed = config.get("seed") if isinstance(config, dict) else None
     exact_batches = _skillopt_batch_membership(
         benchmark=candidate.benchmark,
         method_seed=method_seed,
@@ -848,9 +1065,12 @@ def _skillopt_owned_audits(
     run_dir: Path,
     *,
     candidate: StableSplitCandidate,
+    method_seed: int,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     try:
-        return _skillopt_owned_audits_impl(run_dir, candidate=candidate)
+        return _skillopt_owned_audits_impl(
+            run_dir, candidate=candidate, method_seed=method_seed
+        )
     except (OSError, TypeError, ValueError, json.JSONDecodeError, KeyError):
         return _missing_owned_audits(
             run_dir,
@@ -1098,12 +1318,17 @@ def derive_owned_run_audits(
     *,
     candidate: StableSplitCandidate,
     family: str | None,
+    method_seed: int,
     runtime: dict[str, Any],
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     """Derive N3/N4 and domain gates only from baseline-owned persisted outputs."""
 
+    if type(method_seed) is not int:
+        raise ValueError("owned audit method_seed must be a strict integer")
     if candidate.benchmark in {"spreadsheetbench_verified", "officeqa_full"}:
-        return _skillopt_owned_audits(run_dir, candidate=candidate)
+        return _skillopt_owned_audits(
+            run_dir, candidate=candidate, method_seed=method_seed
+        )
     if candidate.benchmark == "webshop":
         return _webshop_owned_audits(
             run_dir, candidate=candidate, runtime=runtime
@@ -1321,6 +1546,8 @@ def _clean_accounting_failures(result: dict[str, Any]) -> list[str]:
 def _match_candidate(
     repository: SelectionRepository,
     split: dict[str, Any],
+    *,
+    legacy_reuse: bool = False,
 ) -> tuple[StableSplitCandidate, int, str | None]:
     benchmark = str(split.get("benchmark") or "")
     if benchmark not in repository.candidates:
@@ -1331,7 +1558,18 @@ def _match_candidate(
     declared = metadata.get("candidate_index")
     if declared is not None and type(declared) is not int:
         raise ValueError("run split candidate_index must be an integer")
-    indexes = [declared] if declared is not None else sorted(repository.candidates[benchmark])
+    if legacy_reuse:
+        if benchmark not in _LEGACY_REUSE_METADATA_ALLOWLIST or family is not None:
+            raise ValueError("legacy reuse is restricted to OfficeQA/WebShop Candidate 1")
+        if declared not in {None, 1}:
+            raise ValueError("legacy reuse is restricted to Candidate 1")
+        indexes = [1]
+    else:
+        indexes = (
+            [declared]
+            if declared is not None
+            else sorted(repository.candidates[benchmark])
+        )
     raw_train = split.get("train")
     raw_validation = split.get("validation")
     if not isinstance(raw_train, list) or not isinstance(raw_validation, list):
@@ -1366,11 +1604,42 @@ def _match_candidate(
         else:
             expected_train = list(candidate.train)
             expected_validation = list(candidate.validation)
+        if legacy_reuse:
+            _validate_legacy_reuse_candidate(candidate)
+            allowlist = _LEGACY_REUSE_METADATA_ALLOWLIST[benchmark]
+            if any(
+                set(task.metadata) & allowlist
+                for task in [*actual_train, *actual_validation]
+            ):
+                continue
+            actual_train_identity = [
+                _portable_task_identity(task) for task in actual_train
+            ]
+            actual_validation_identity = [
+                _portable_task_identity(task) for task in actual_validation
+            ]
+            expected_train_identity = [
+                _legacy_reuse_task_identity(task) for task in expected_train
+            ]
+            expected_validation_identity = [
+                _legacy_reuse_task_identity(task) for task in expected_validation
+            ]
+        else:
+            actual_train_identity = [
+                _portable_task_identity(task) for task in actual_train
+            ]
+            actual_validation_identity = [
+                _portable_task_identity(task) for task in actual_validation
+            ]
+            expected_train_identity = [
+                _portable_task_identity(task) for task in expected_train
+            ]
+            expected_validation_identity = [
+                _portable_task_identity(task) for task in expected_validation
+            ]
         if (
-            [_portable_task_identity(task) for task in actual_train]
-            == [_portable_task_identity(task) for task in expected_train]
-            and [_portable_task_identity(task) for task in actual_validation]
-            == [_portable_task_identity(task) for task in expected_validation]
+            actual_train_identity == expected_train_identity
+            and actual_validation_identity == expected_validation_identity
         ):
             parent_hash = metadata.get("parent_selection_hash")
             if parent_hash is not None and parent_hash != candidate.selection_hash:
@@ -1386,12 +1655,15 @@ def read_clean_run(
     *,
     repository: SelectionRepository,
     boundary: Path,
+    legacy_reuse: bool = False,
 ) -> CleanRunEvidence:
     run_dir = _require_contained(
         run_dir, boundary, label="clean run directory"
     )
     split = _read_object(run_dir / "split_manifest.json")
-    candidate, candidate_index, family = _match_candidate(repository, split)
+    candidate, candidate_index, family = _match_candidate(
+        repository, split, legacy_reuse=legacy_reuse
+    )
     result = _read_object(run_dir / "result.json")
     qualification = _read_object(run_dir / "qualification.json")
     artifact = _read_object(run_dir / "clean/evolution_artifact.json")
@@ -1471,11 +1743,13 @@ def read_clean_run(
         validation_tasks=[
             TaskManifest.model_validate(row) for row in split["validation"]
         ],
+        legacy_reuse=legacy_reuse,
     )
     trace_applicability, domain_audit = derive_owned_run_audits(
         run_dir,
         candidate=candidate,
         family=family,
+        method_seed=method_seed,
         runtime=inputs["runtime"],
     )
     return CleanRunEvidence(
@@ -1508,6 +1782,8 @@ def read_clean_run(
 def discover_clean_runs(
     root: Path | str,
     repository: SelectionRepository,
+    *,
+    legacy_reuse: bool = False,
 ) -> list[CleanRunEvidence]:
     boundary = Path(root).resolve()
     if not boundary.exists():
@@ -1524,7 +1800,12 @@ def discover_clean_runs(
             continue
         try:
             records.append(
-                read_clean_run(run_dir, repository=repository, boundary=boundary)
+                read_clean_run(
+                    run_dir,
+                    repository=repository,
+                    boundary=boundary,
+                    legacy_reuse=legacy_reuse,
+                )
             )
         except (KeyError, TypeError, ValueError, FileNotFoundError):
             continue
@@ -1987,7 +2268,10 @@ def _rehydrate_reused_records(
     records: list[CleanRunEvidence] = []
     for run_dir in validated_dirs:
         record = read_clean_run(
-            run_dir, repository=repository, boundary=source_root
+            run_dir,
+            repository=repository,
+            boundary=source_root,
+            legacy_reuse=True,
         )
         if (
             record.benchmark not in {"officeqa_full", "webshop"}
@@ -2031,7 +2315,7 @@ def _reuse_audit(
     if clean_v2_root is None:
         raise ValueError("reuse-audit requires a declared clean_v2_root")
     records = (
-        discover_clean_runs(clean_v2_root, repository)
+        discover_clean_runs(clean_v2_root, repository, legacy_reuse=True)
         if clean_v2_root is not None
         else []
     )

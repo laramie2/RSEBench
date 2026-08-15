@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import importlib.util
 import json
 import random
 from datetime import datetime, timezone
@@ -12,6 +13,7 @@ from rsebench.contracts import TaskManifest
 from rsebench.evidence import FeedbackRecord, TraceEvent, TrajectoryRecord, canonical_hash
 from rsebench.selection.contracts import (
     CandidateSeedEvidence,
+    ExposureRegistry,
     ScreeningSeedEvidence,
     StableSplitCandidate,
 )
@@ -46,6 +48,177 @@ from rsebench.selection.qualification_io import (
     SkillOptRolloutRow,
     validate_candidate_denominators,
 )
+
+
+@pytest.fixture(scope="module")
+def real_legacy_reuse_cases() -> dict[str, tuple[SelectionRepository, dict]]:
+    project = Path(__file__).resolve().parents[2]
+    spec = importlib.util.spec_from_file_location(
+        "rsebench_build_noise_screen_candidates",
+        project / "scripts/build_noise_screen_candidates.py",
+    )
+    assert spec is not None and spec.loader is not None
+    builder = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(builder)
+    registry = ExposureRegistry(records=[], registry_hash=canonical_hash([]))
+    bundles = {
+        "officeqa_full": builder._officeqa_bundle(
+            exposure_registry=registry,
+            data_root=project / "data",
+            methods_root=project / "methods/external",
+        ),
+        "webshop": builder._webshop_bundle(
+            exposure_registry=registry,
+            data_root=project / "data",
+            methods_root=project / "methods/external",
+        ),
+    }
+    split_paths = {
+        "officeqa_full": next(
+            (
+                project
+                / "outputs/runs/clean-v2-20260814/attempts"
+            ).glob(
+                "officeqa-skillopt-20260813-*/*/runner/officeqa_full/"
+                "20260813/*/split_manifest.json"
+            )
+        ),
+        "webshop": next(
+            (
+                project
+                / "outputs/runs/clean-v2-20260814/attempts"
+            ).glob(
+                "webshop-skilladaptor-20260813-*/*/runner/"
+                "20260813/*/split_manifest.json"
+            )
+        ),
+    }
+    cases: dict[str, tuple[SelectionRepository, dict]] = {}
+    for benchmark, bundle in bundles.items():
+        candidates = {row.candidate_index: row for row in bundle.candidates}
+        repository = SelectionRepository(
+            root=project,
+            candidates={benchmark: candidates},
+            candidate_paths={},
+            audits={},
+        )
+        cases[benchmark] = (
+            repository,
+            json.loads(split_paths[benchmark].read_text(encoding="utf-8")),
+        )
+    return cases
+
+
+@pytest.mark.parametrize("benchmark", ["officeqa_full", "webshop"])
+def test_real_historical_manifest_matches_only_explicit_legacy_reuse(
+    benchmark: str,
+    real_legacy_reuse_cases: dict[str, tuple[SelectionRepository, dict]],
+) -> None:
+    repository, split = real_legacy_reuse_cases[benchmark]
+
+    with pytest.raises(ValueError, match="frozen candidate"):
+        qualification_io._match_candidate(repository, split)
+
+    candidate, index, family = qualification_io._match_candidate(
+        repository, split, legacy_reuse=True
+    )
+    assert candidate.benchmark == benchmark
+    assert index == 1
+    assert family is None
+
+    common = {
+        "candidate": candidate,
+        "family": None,
+        "runtime": {"legacy_fixture": True},
+        "seed_skill_hash": "e" * 64,
+        "provider": "deepseek",
+        "model": "deepseek-v4-flash",
+    }
+    historical_train = [
+        TaskManifest.model_validate(row) for row in split["train"]
+    ]
+    historical_validation = [
+        TaskManifest.model_validate(row) for row in split["validation"]
+    ]
+    assert normalized_evolution_input_hash(
+        **common, legacy_reuse=True
+    ) == normalized_evolution_input_hash(
+        **common,
+        train_tasks=historical_train,
+        validation_tasks=historical_validation,
+        legacy_reuse=True,
+    )
+    assert normalized_evolution_input_hash(**common) != normalized_evolution_input_hash(
+        **common,
+        train_tasks=historical_train,
+        validation_tasks=historical_validation,
+    )
+
+
+@pytest.mark.parametrize("benchmark", ["officeqa_full", "webshop"])
+def test_legacy_reuse_rejects_every_core_task_field_and_extra_metadata(
+    benchmark: str,
+    real_legacy_reuse_cases: dict[str, tuple[SelectionRepository, dict]],
+) -> None:
+    repository, original = real_legacy_reuse_cases[benchmark]
+    core_metadata_key = (
+        "gold_document_ids" if benchmark == "officeqa_full" else "target_asin"
+    )
+    corruptions = {
+        "prompt": "altered prompt",
+        "gold_answers": ["altered gold"],
+        "source_hash": "9" * 64,
+        "verifier": "altered_verifier",
+        "artifact_path": "rsebench-data://altered/artifact.json",
+    }
+    for field, value in corruptions.items():
+        split = json.loads(json.dumps(original))
+        split["train"][0][field] = value
+        with pytest.raises(ValueError, match="frozen candidate"):
+            qualification_io._match_candidate(
+                repository, split, legacy_reuse=True
+            )
+    for key, value in (
+        (core_metadata_key, ["altered.txt"] if benchmark == "officeqa_full" else "X"),
+        ("unexpected_historical_key", True),
+    ):
+        split = json.loads(json.dumps(original))
+        split["train"][0]["metadata"][key] = value
+        with pytest.raises(ValueError, match="frozen candidate"):
+            qualification_io._match_candidate(
+                repository, split, legacy_reuse=True
+            )
+
+
+@pytest.mark.parametrize("benchmark", ["officeqa_full", "webshop"])
+def test_legacy_reuse_independently_rejects_bad_current_derived_annotation(
+    benchmark: str,
+    real_legacy_reuse_cases: dict[str, tuple[SelectionRepository, dict]],
+) -> None:
+    repository, split = real_legacy_reuse_cases[benchmark]
+    candidate = repository.candidates[benchmark][1]
+    first = candidate.train[0]
+    derived_key = (
+        "officeqa_stratum" if benchmark == "officeqa_full" else "constraint_count"
+    )
+    bad_task = first.model_copy(
+        update={"metadata": {**first.metadata, derived_key: "invalid"}},
+        deep=True,
+    )
+    bad_candidate = candidate.model_copy(
+        update={"train": [bad_task, *candidate.train[1:]]}, deep=True
+    )
+    bad_repository = SelectionRepository(
+        root=repository.root,
+        candidates={benchmark: {1: bad_candidate}},
+        candidate_paths={},
+        audits={},
+    )
+
+    with pytest.raises(ValueError, match="derived annotation"):
+        qualification_io._match_candidate(
+            bad_repository, split, legacy_reuse=True
+        )
 
 
 def _frozen_office_repository(tmp_path: Path) -> tuple[SelectionRepository, dict]:
@@ -347,7 +520,63 @@ def test_malformed_skillopt_row_becomes_unreadable_owned_audit(
     )
 
     trace, domain = qualification_io._skillopt_owned_audits(
-        tmp_path, candidate=candidate
+        tmp_path, candidate=candidate, method_seed=20260813
+    )
+
+    assert trace["N3"]["status"] == trace["N4"]["status"] == "missing"
+    assert domain["failure_reasons"] == ["unreadable_owned_skillopt_trace"]
+
+
+def test_skillopt_owned_audit_rejects_summary_seed_from_another_run(
+    tmp_path: Path,
+) -> None:
+    tasks = [
+        TaskManifest(
+            task_id=f"task-{index}",
+            benchmark="spreadsheetbench_verified",
+            domain="spreadsheet",
+            prompt="edit sheet",
+            gold_answers=["ok"],
+            source_hash=canonical_hash(index),
+        )
+        for index in range(20)
+    ]
+    candidate = StableSplitCandidate(
+        benchmark="spreadsheetbench_verified",
+        domain="spreadsheet",
+        candidate_index=1,
+        train=tasks,
+        validation=[],
+        qualification_test=[],
+        screening_test=[],
+        source_hash="a" * 64,
+        selection_hash="b" * 64,
+    )
+    native = tmp_path / "clean/native_train"
+    task_ids = [task.task_id for task in tasks]
+    random.Random(20260814 + 1000).shuffle(task_ids)
+    for index, batch in enumerate((task_ids[:7], task_ids[7:14], task_ids[14:]), 1):
+        rollout = native / f"steps/step_{index:04d}/rollout"
+        rollout.mkdir(parents=True)
+        (rollout / "results.jsonl").write_text(
+            "".join(
+                json.dumps({"id": task_id, "hard": 0, "soft": 0.0}) + "\n"
+                for task_id in batch
+            ),
+            encoding="utf-8",
+        )
+    (native / "summary.json").write_text(
+        json.dumps(
+            {
+                "baseline_selection_hard": 0.5,
+                "config": {"seed": 20260814},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    trace, domain = qualification_io._skillopt_owned_audits(
+        tmp_path, candidate=candidate, method_seed=20260813
     )
 
     assert trace["N3"]["status"] == trace["N4"]["status"] == "missing"
@@ -1292,6 +1521,7 @@ def test_owned_trace_derivation_never_trusts_preexisting_sidecars(
         tmp_path,
         candidate=candidate,
         family=None,
+        method_seed=20260813,
         runtime={"max_steps": 3, "batch_size": 7},
     )
 
@@ -1367,6 +1597,7 @@ def test_webshop_partial_owned_evidence_fails_n3_and_n4_closed(
         tmp_path,
         candidate=candidate,
         family=None,
+        method_seed=20260813,
         runtime={"max_episode_steps": 15},
     )
 
@@ -1390,6 +1621,7 @@ def test_webshop_partial_owned_evidence_fails_n3_and_n4_closed(
         tmp_path,
         candidate=candidate,
         family=None,
+        method_seed=20260813,
         runtime={"max_episode_steps": 15},
     )
     assert malformed_trace["N3"]["status"] == "missing"
@@ -1789,9 +2021,14 @@ def test_reuse_and_replay_planning_skip_ineligible_owned_evidence(
         }
         for record in records
     }
-    monkeypatch.setattr(
-        qualification_io, "discover_clean_runs", lambda *args, **kwargs: records
-    )
+    discovery_modes: list[bool] = []
+
+    def discover(*args, **kwargs):
+        del args
+        discovery_modes.append(bool(kwargs.get("legacy_reuse", False)))
+        return records
+
+    monkeypatch.setattr(qualification_io, "discover_clean_runs", discover)
     monkeypatch.setattr(
         qualification_io, "_current_candidate_one_identities", lambda repository: expected
     )
@@ -1800,6 +2037,7 @@ def test_reuse_and_replay_planning_skip_ineligible_owned_evidence(
     status = qualification_io._reuse_audit(
         repository, run_root, clean_root, None
     )
+    assert discovery_modes == [True]
     assert status.domains["officeqa_full"].next_action == "run_candidate_2"
     assert status.domains["webshop"].next_action == "rerun_candidate_1"
 
