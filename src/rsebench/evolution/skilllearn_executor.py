@@ -13,7 +13,7 @@ from contextlib import nullcontext
 from pathlib import Path
 from typing import Any, Literal, Protocol
 
-from pydantic import Field
+from pydantic import Field, StrictStr
 
 from rsebench.contracts import StrictModel, TaskManifest
 from rsebench.evidence import (
@@ -150,11 +150,11 @@ class SkillLearnExecution(StrictModel):
 
 
 class SkillLearnImageRecord(StrictModel):
-    task_id: str = Field(min_length=1)
-    context_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
-    image_tag: str = Field(min_length=1)
-    image_id: str = Field(min_length=1)
-    workdir: str = Field(min_length=1)
+    task_id: StrictStr = Field(min_length=1)
+    context_hash: StrictStr = Field(pattern=r"^[0-9a-f]{64}$")
+    image_tag: StrictStr = Field(min_length=1)
+    image_id: StrictStr = Field(min_length=1)
+    workdir: StrictStr = Field(min_length=1)
 
 
 class SkillLearnBackend(Protocol):

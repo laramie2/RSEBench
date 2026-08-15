@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import random
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -45,6 +46,463 @@ from rsebench.selection.qualification_io import (
     SkillOptRolloutRow,
     validate_candidate_denominators,
 )
+
+
+def _frozen_office_repository(tmp_path: Path) -> tuple[SelectionRepository, dict]:
+    def task(task_id: str, source_hash: str) -> TaskManifest:
+        return TaskManifest(
+            task_id=task_id,
+            benchmark="officeqa_full",
+            domain="document",
+            prompt=f"prompt:{task_id}",
+            gold_answers=["answer"],
+            source_hash=source_hash,
+            artifact_path=f"rsebench-data://office/{task_id}.json",
+            metadata={"source_files": [f"rsebench-data://office/{task_id}.pdf"]},
+        )
+
+    candidate = StableSplitCandidate(
+        benchmark="officeqa_full",
+        domain="document",
+        candidate_index=1,
+        train=[task("train-1", "a" * 64)],
+        validation=[task("validation-1", "b" * 64)],
+        qualification_test=[],
+        screening_test=[],
+        source_hash="c" * 64,
+        selection_hash="d" * 64,
+    )
+    repository = SelectionRepository(
+        root=tmp_path,
+        candidates={"officeqa_full": {1: candidate}},
+        candidate_paths={},
+        audits={},
+    )
+    split = {
+        "benchmark": "officeqa_full",
+        "train": [candidate.train[0].model_dump(mode="json")],
+        "validation": [candidate.validation[0].model_dump(mode="json")],
+        "metadata": {
+            "candidate_index": 1,
+            "parent_selection_hash": candidate.selection_hash,
+        },
+    }
+    return repository, split
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("prompt", "altered prompt"),
+        ("gold_answers", ["altered answer"]),
+        ("source_hash", "9" * 64),
+        ("metadata", {"source_files": ["rsebench-data://office/other.pdf"]}),
+        ("artifact_path", "rsebench-data://office/other.json"),
+    ],
+)
+def test_match_candidate_rejects_stale_task_content(
+    tmp_path: Path, field: str, value: object
+) -> None:
+    repository, split = _frozen_office_repository(tmp_path)
+    split["train"][0][field] = value
+
+    with pytest.raises(ValueError, match="frozen candidate"):
+        qualification_io._match_candidate(repository, split)
+
+
+def test_three_identical_stale_manifests_cannot_form_candidate_evidence(
+    tmp_path: Path,
+) -> None:
+    repository, split = _frozen_office_repository(tmp_path)
+    candidate = repository.candidates["officeqa_full"][1]
+    split["train"][0]["prompt"] = "same stale prompt"
+
+    accepted = []
+    for _ in qualification_io.METHOD_SEEDS:
+        with pytest.raises(ValueError, match="frozen candidate"):
+            qualification_io._match_candidate(repository, split)
+    assert qualification_io._group_failures(candidate, accepted, family=None) == [
+        "missing_exact_three_method_seeds"
+    ]
+
+
+def test_match_candidate_accepts_resolved_paths_equal_to_frozen_root_uris(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repository, split = _frozen_office_repository(tmp_path)
+    data_root = tmp_path / "data"
+    monkeypatch.setenv("RSEBENCH_DATA_ROOT", str(data_root))
+    split["train"][0]["artifact_path"] = str(data_root / "office/train-1.json")
+    split["train"][0]["metadata"]["source_files"] = [
+        str(data_root / "office/train-1.pdf")
+    ]
+    split["validation"][0]["artifact_path"] = str(
+        data_root / "office/validation-1.json"
+    )
+    split["validation"][0]["metadata"]["source_files"] = [
+        str(data_root / "office/validation-1.pdf")
+    ]
+
+    candidate, index, family = qualification_io._match_candidate(repository, split)
+
+    assert candidate is repository.candidates["officeqa_full"][1]
+    assert index == 1
+    assert family is None
+
+
+def _valid_skilllearn_completion(task_id: str = "family-1") -> tuple[dict, dict]:
+    image = {
+        "task_id": task_id,
+        "context_hash": "a" * 64,
+        "image_tag": "rsebench-skilllearn:abc",
+        "image_id": "sha256:abc",
+        "workdir": "/root",
+    }
+    verifier = {
+        "results": {
+            "tool": {"name": "pytest", "version": "8.4.1"},
+            "summary": {
+                "tests": 2,
+                "passed": 1,
+                "failed": 1,
+                "skipped": 0,
+                "pending": 0,
+                "other": 0,
+                "start": 1.0,
+                "stop": 2.0,
+            },
+            "tests": [
+                {"name": "test_ok", "status": "passed", "duration": 0.1},
+                {"name": "test_fail", "status": "failed", "duration": 0.2},
+            ],
+        }
+    }
+    return image, verifier
+
+
+def test_skilllearn_completion_requires_strict_image_and_verifier_records() -> None:
+    image, verifier = _valid_skilllearn_completion()
+    assert qualification_io._skilllearn_execution_row(
+        task_id="family-1",
+        image_payload=image,
+        verifier_payload=verifier,
+        hidden_test_exposed=False,
+    ) == {
+        "container_started": True,
+        "verifier_completed": True,
+        "hidden_test_exposed": False,
+    }
+
+    malformed = [
+        ({}, verifier),
+        ({**image, "image_id": 1}, verifier),
+        ({**image, "task_id": "family-2"}, verifier),
+        (image, {}),
+        (image, {"results": {}}),
+        (
+            image,
+            {
+                "results": {
+                    **verifier["results"],
+                    "summary": {**verifier["results"]["summary"], "tests": "2"},
+                }
+            },
+        ),
+        (
+            image,
+            {
+                "results": {
+                    **verifier["results"],
+                    "tests": [{"name": "bad", "status": "unknown"}],
+                }
+            },
+        ),
+    ]
+    for bad_image, bad_verifier in malformed:
+        with pytest.raises(ValueError):
+            qualification_io._skilllearn_execution_row(
+                task_id="family-1",
+                image_payload=bad_image,
+                verifier_payload=bad_verifier,
+                hidden_test_exposed=False,
+            )
+
+
+def test_malformed_skilllearn_completion_becomes_unreadable_owned_audit(
+    tmp_path: Path,
+) -> None:
+    def task(task_id: str) -> TaskManifest:
+        return TaskManifest(
+            task_id=task_id,
+            benchmark="skilllearnbench",
+            domain="skill_learning",
+            prompt="produce artifact",
+            source_hash=canonical_hash(task_id),
+            verifier="official:/tests",
+            metadata={"task_family": "family"},
+        )
+
+    candidate = StableSplitCandidate(
+        benchmark="skilllearnbench",
+        domain="skill_learning",
+        candidate_index=1,
+        train=[task("t1"), task("t2")],
+        validation=[task("v1")],
+        qualification_test=[],
+        screening_test=[],
+        source_hash="a" * 64,
+        selection_hash="b" * 64,
+        metadata={
+            "static_audit": {
+                "family_allocations": {
+                    "family": {"train": ["t1", "t2"], "validation": ["v1"]}
+                }
+            }
+        },
+    )
+    task_dir = tmp_path / "clean/evolution/round-1-t1"
+    (task_dir / "execution/image").mkdir(parents=True)
+    (task_dir / "execution/verifier").mkdir()
+    trajectory = TrajectoryRecord(
+        task_id="t1",
+        benchmark="skilllearnbench",
+        events=[
+            TraceEvent(
+                event_id="e0",
+                step_index=0,
+                kind="action",
+                action="write",
+                tags=["artifact_write"],
+            ),
+            TraceEvent(
+                event_id="e1", step_index=1, kind="action", action="inspect"
+            ),
+        ],
+    )
+    feedback = FeedbackRecord(
+        task_id="t1",
+        benchmark="skilllearnbench",
+        blamed_event_ids=["e0"],
+    )
+    (task_dir / "visible_trajectory.json").write_text(
+        trajectory.model_dump_json(), encoding="utf-8"
+    )
+    (task_dir / "visible_feedback.json").write_text(
+        feedback.model_dump_json(), encoding="utf-8"
+    )
+    (task_dir / "execution/image/image_record.json").write_text(
+        "{}", encoding="utf-8"
+    )
+    _, verifier = _valid_skilllearn_completion("t1")
+    (task_dir / "execution/verifier/ctrf.json").write_text(
+        json.dumps(verifier), encoding="utf-8"
+    )
+
+    trace, domain = qualification_io._skilllearn_owned_audits(
+        tmp_path, candidate=candidate, family="family"
+    )
+
+    assert trace["N3"]["status"] == trace["N4"]["status"] == "missing"
+    assert domain["passed"] is False
+    assert domain["failure_reasons"] == ["unreadable_owned_skilllearn_trace"]
+
+
+def test_malformed_skillopt_row_becomes_unreadable_owned_audit(
+    tmp_path: Path,
+) -> None:
+    tasks = [
+        TaskManifest(
+            task_id=f"task-{index}",
+            benchmark="spreadsheetbench_verified",
+            domain="spreadsheet",
+            prompt="edit sheet",
+            gold_answers=["ok"],
+            source_hash=canonical_hash(index),
+        )
+        for index in range(20)
+    ]
+    candidate = StableSplitCandidate(
+        benchmark="spreadsheetbench_verified",
+        domain="spreadsheet",
+        candidate_index=1,
+        train=tasks,
+        validation=[],
+        qualification_test=[],
+        screening_test=[],
+        source_hash="a" * 64,
+        selection_hash="b" * 64,
+    )
+    native = tmp_path / "clean/native_train"
+    for index in range(1, 4):
+        rollout = native / f"steps/step_{index:04d}/rollout"
+        rollout.mkdir(parents=True)
+        (rollout / "results.jsonl").write_text(
+            '{"id":"task-0","hard":"false","soft":0.0}\n'
+            if index == 1
+            else "",
+            encoding="utf-8",
+        )
+    (native / "summary.json").write_text(
+        '{"baseline_selection_hard":0.5}', encoding="utf-8"
+    )
+
+    trace, domain = qualification_io._skillopt_owned_audits(
+        tmp_path, candidate=candidate
+    )
+
+    assert trace["N3"]["status"] == trace["N4"]["status"] == "missing"
+    assert domain["failure_reasons"] == ["unreadable_owned_skillopt_trace"]
+
+
+def test_artifact_and_runtime_paths_cannot_escape_run_or_source_root(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "source"
+    run = source / "run"
+    run.mkdir(parents=True)
+    inside = run / "clean/skill.md"
+    inside.parent.mkdir()
+    inside.write_text("skill", encoding="utf-8")
+    outside = tmp_path / "outside.md"
+    outside.write_text("outside", encoding="utf-8")
+    (run / "escape-link").symlink_to(outside)
+    seed_dir = run / "seed"
+    seed_dir.mkdir()
+    (seed_dir / "seed-link").symlink_to(outside)
+
+    assert qualification_io._artifact_path(
+        run, "clean/skill.md", boundary=source
+    ) == inside.resolve()
+    for raw in (str(outside), "../../outside.md", "escape-link"):
+        with pytest.raises(ValueError, match="escapes"):
+            qualification_io._artifact_path(run, raw, boundary=source)
+    with pytest.raises(ValueError, match="escapes"):
+        qualification_io._single_seed_artifact(run)
+
+    runtime = source / "runtime_identity.json"
+    runtime.symlink_to(outside)
+    with pytest.raises(ValueError, match="escapes"):
+        qualification_io._find_runtime_identity(run, source)
+
+
+def _owned_webshop_pair(task_id: str = "goal_17") -> tuple[dict, dict]:
+    trajectory = {
+        "schema_version": "rsebench.skilladaptor-owned-trajectory.v1",
+        "task_id": task_id,
+        "native": {"task_id": task_id},
+        "normalized": {
+            "record_type": "trajectory",
+            "task_id": task_id,
+            "benchmark": "webshop",
+            "events": [
+                {
+                    "event_id": "e0",
+                    "step_index": 0,
+                    "kind": "action",
+                    "action": "search[item]",
+                }
+            ],
+        },
+    }
+    feedback = {
+        "schema_version": "rsebench.skilladaptor-owned-feedback.v1",
+        "task_id": task_id,
+        "native": {"task_id": task_id},
+        "normalized": {
+            "record_type": "feedback",
+            "task_id": task_id,
+            "benchmark": "webshop",
+            "blamed_event_ids": ["e0"],
+        },
+    }
+    return trajectory, feedback
+
+
+def test_webshop_nested_owned_evidence_requires_exact_identity() -> None:
+    trajectory, feedback = _owned_webshop_pair()
+    normalized_trajectory, normalized_feedback = (
+        qualification_io._validate_skilladaptor_owned_pair(
+            expected_task_id="goal_17",
+            trajectory_payload=trajectory,
+            feedback_payload=feedback,
+        )
+    )
+    assert normalized_trajectory.task_id == normalized_feedback.task_id == "goal_17"
+
+    corruptions = [
+        ({**trajectory, "task_id": "goal_18"}, feedback),
+        (
+            {
+                **trajectory,
+                "normalized": {**trajectory["normalized"], "task_id": "goal_18"},
+            },
+            feedback,
+        ),
+        (
+            trajectory,
+            {**feedback, "normalized": {**feedback["normalized"], "benchmark": "other"}},
+        ),
+        ({**trajectory, "native": {"task_id": "goal_18"}}, feedback),
+        (
+            trajectory,
+            {**feedback, "normalized": {**feedback["normalized"], "task_id": "goal_18"}},
+        ),
+    ]
+    for bad_trajectory, bad_feedback in corruptions:
+        with pytest.raises(ValueError):
+            qualification_io._validate_skilladaptor_owned_pair(
+                expected_task_id="goal_17",
+                trajectory_payload=bad_trajectory,
+                feedback_payload=bad_feedback,
+            )
+
+
+@pytest.mark.parametrize(
+    ("benchmark", "sizes"),
+    [
+        ("spreadsheetbench_verified", (7, 7, 6)),
+        ("officeqa_full", (4, 4, 4)),
+    ],
+)
+def test_skillopt_batch_membership_rejects_same_global_set_redistribution(
+    benchmark: str, sizes: tuple[int, int, int]
+) -> None:
+    method_seed = 20260813
+    task_ids = [f"task-{index}" for index in range(sum(sizes))]
+    shuffled = list(task_ids)
+    random.Random(method_seed + 1000).shuffle(shuffled)
+    exact = []
+    offset = 0
+    for size in sizes:
+        exact.append(shuffled[offset : offset + size])
+        offset += size
+    completion_order = [list(reversed(batch)) for batch in exact]
+    redistributed = [list(batch) for batch in exact]
+    redistributed[0][-1], redistributed[1][0] = (
+        redistributed[1][0],
+        redistributed[0][-1],
+    )
+
+    assert qualification_io._skillopt_batch_membership(
+        benchmark=benchmark,
+        method_seed=method_seed,
+        expected_ids=task_ids,
+        actual_batches=completion_order,
+    )
+    assert not qualification_io._skillopt_batch_membership(
+        benchmark=benchmark,
+        method_seed=method_seed,
+        expected_ids=task_ids,
+        actual_batches=redistributed,
+    )
+    duplicated = [list(batch) for batch in exact]
+    duplicated[0][-1] = duplicated[0][0]
+    assert not qualification_io._skillopt_batch_membership(
+        benchmark=benchmark,
+        method_seed=method_seed,
+        expected_ids=task_ids,
+        actual_batches=duplicated,
+    )
 
 
 @pytest.mark.parametrize(
@@ -921,6 +1379,23 @@ def test_webshop_partial_owned_evidence_fails_n3_and_n4_closed(
         for row in domain["evidence_files"]
     )
 
+    trajectory, feedback = _owned_webshop_pair(first)
+    trajectory["normalized"]["benchmark"] = "other"
+    (evidence / "trajectory.json").write_text(
+        json.dumps(trajectory), encoding="utf-8"
+    )
+    (evidence / "feedback.json").write_text(json.dumps(feedback), encoding="utf-8")
+
+    malformed_trace, malformed_domain = derive_owned_run_audits(
+        tmp_path,
+        candidate=candidate,
+        family=None,
+        runtime={"max_episode_steps": 15},
+    )
+    assert malformed_trace["N3"]["status"] == "missing"
+    assert malformed_trace["N4"]["status"] == "missing"
+    assert "unreadable_owned_webshop_trace" in malformed_domain["failure_reasons"]
+
 
 def test_candidate_two_completed_n3_failure_is_deterministic(tmp_path: Path) -> None:
     candidate = StableSplitCandidate(
@@ -1105,6 +1580,13 @@ def test_reuse_index_rehydrates_from_run_dir_and_rejects_cached_evidence_edits(
     )
 
     assert _rehydrate_reused_records(run_root, repository) == [record]
+
+    monkeypatch.setattr(
+        qualification_io,
+        "_current_candidate_one_identities",
+        lambda repository: {},
+    )
+    assert _rehydrate_reused_records(run_root, repository) == []
 
     # Old sidecar evidence fields cannot override recomputed run evidence.
     tampered = {**index, "runs": [{"artifact_changed": False}]}
@@ -1335,3 +1817,24 @@ def test_reuse_and_replay_planning_skip_ineligible_owned_evidence(
         resume=False,
     )
     assert jobs == []
+
+    # Even an otherwise eligible row cannot forward an artifact from outside
+    # its clean run into a replay command.
+    bad = records[0].model_copy(
+        update={"seed_artifact_path": str(tmp_path / "outside-seed.md")}
+    )
+    records[:] = [bad]
+    monkeypatch.setattr(
+        qualification_io,
+        "_selection_audit_failure_groups",
+        lambda *args, **kwargs: ([], []),
+    )
+    with pytest.raises(ValueError, match="replay seed artifact escapes"):
+        qualification_io.discover_replay_jobs(
+            selection_root=tmp_path / "selection",
+            run_root=run_root,
+            evaluation_role="qualification_test",
+            candidate_index=1,
+            repeats=3,
+            resume=False,
+        )

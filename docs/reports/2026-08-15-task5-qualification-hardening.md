@@ -6,16 +6,18 @@
 
 Task 5 的生产入口已收敛为基于 selection root 与 run root 的文件系统证据流。聚合器不再接受合成 `--input`，replay runner 不再接受可执行 `--spec`。所有 Task 8 provider-backed replay 命令均显式要求 `--execute --confirm-provider-cost`。
 
-Candidate-1 历史 clean artifact 的复用不再只检查三次历史运行是否彼此一致。`reuse_audit_sources.json` 现在只保存 hash-bound 的历史 source root 与相对 run-dir 索引，不保存或反序列化 `CleanRunEvidence`。qualification、screening 与 replay discovery 都从声明的不可变历史目录重新调用 `read_clean_run`，重算 owned audit、artifact hash、完整 portable task identity 与当前期望身份；目录缺失、越界、索引被修改或当前身份不匹配都会失败关闭。旧 manifest 文件名和旧 RSEBench repository commit 不进入规范化 evolution-input hash；完整 TaskManifest 内容、runtime、provider/model/config、baseline、method seed 与 artifact 文件 hash 仍必须一致。
+Candidate-1 历史 clean artifact 的复用不再只检查三次历史运行是否彼此一致。`reuse_audit_sources.json` 现在只保存带内容 hash 的历史 source root 与相对 run-dir 索引，不保存或反序列化 `CleanRunEvidence`。qualification、screening 与 replay discovery 都从声明的不可变历史目录重新调用 `read_clean_run`，重算 owned audit、artifact hash、完整 portable task identity 与当前期望身份；目录缺失、越界、索引被修改或当前身份不匹配都会失败关闭。旧 manifest 文件名和旧 RSEBench repository commit 不进入规范化 evolution-input hash；完整 TaskManifest 内容、runtime、provider/model/config、baseline、method seed 与 artifact 文件 hash 仍必须一致。
+
+这里的 hash 用于发现工作流内的意外修改，不是数字签名，也不提供 source root 的密码学来源真实性；能防止错误复用的边界来自“当前冻结 Candidate-1 身份必须存在并完全相等”、重新读取原始 run，以及 run/seed/clean/runtime/replay 路径的 resolve 后目录包含性检查。
 
 ## Owned trace 派生
 
 N3/N4 与领域审计只从 baseline 已持久化的真实输出即时派生，预先存在的 `trace_applicability.json` 或 `domain_audit.json` 不作为信任源：
 
-- Spreadsheet / SkillOpt：严格解析 3 个 rollout batch、每题 conversation、minibatch patches 与 native summary；将真实 conversation/feedback 归一化后调用已注册的 `spreadsheet_n3_omit_workbook_edit` 与 `spreadsheet_n4_replace_blamed_range`，每题 `MutationAudit.applicable` 都为真才通过。
-- OfficeQA / SkillOpt：严格解析 rollout row 与 conversation，使用 row 自带的 source identity 丰富 `oracle_resource_open` selector，再调用已注册的 N3/N4 算子；同样按 4/4/4、parseability 和 headroom 调用 `audit_officeqa`。
-- WebShop / SkillAdaptor：RSEBench wrapper 在外部 baseline 已有 hook 上持久化 provider 产生的原生 dataclass 与归一化 `TrajectoryRecord`/`FeedbackRecord`；资格判定只消费这组 ordered evidence 并调用已注册算子。历史 retrieval/fault 摘要不足以重建 exact selector，因此不再作为替代证据。30-task reachability 与 2/5 headroom 从 pinned goal/product/calibration 资源重算。
-- SkillLearn：严格解析 family 的两个 acquisition task 的 visible `TrajectoryRecord`/`FeedbackRecord` 并调用已注册 N3/N4 算子，再核对 container、官方 verifier 与 validation execution。
+- Spreadsheet / SkillOpt：严格解析 3 个 rollout batch、每题 conversation、minibatch patches 与 native summary；按 native `Random(method_seed + 1000)` 重建 7/7/6 批次并校验每批精确成员集合和唯一性；将真实 conversation/feedback 归一化后调用已注册的 `spreadsheet_n3_omit_workbook_edit` 与 `spreadsheet_n4_replace_blamed_range`，每题 `MutationAudit.applicable` 都为真才通过。
+- OfficeQA / SkillOpt：严格解析 rollout row 与 conversation，按相同 seed 调度重建 4/4/4 精确批次，使用 row 自带的 source identity 丰富 `oracle_resource_open` selector，再调用已注册的 N3/N4 算子；同样按 parseability 和 headroom 调用 `audit_officeqa`。native worker 并发完成会改变同一批 JSONL 的行顺序，所以顺序不作为身份，跨批重分配、重复、缺失仍会失败。
+- WebShop / SkillAdaptor：RSEBench wrapper 在外部 baseline 已有 hook 上持久化 provider 产生的原生 dataclass 与归一化 `TrajectoryRecord`/`FeedbackRecord`；outer wrapper、normalized trajectory/feedback、可用时的 native `task_id` 以及 benchmark 必须一致。资格判定只消费这组 ordered evidence 并调用已注册算子。历史 retrieval/fault 摘要不足以重建 exact selector，因此不再作为替代证据。30-task reachability 与 2/5 headroom 从 pinned goal/product/calibration 资源重算。
+- SkillLearn：严格解析 family 的两个 acquisition task 的 visible `TrajectoryRecord`/`FeedbackRecord` 并调用已注册 N3/N4 算子，再以严格字符串 image schema 和 CTRF verifier schema（非空 tool/tests、合法 status、精确 summary 计数）核对 container、官方 verifier 与 validation execution。畸形 JSON 统一形成 typed `unreadable_owned_skilllearn_trace`，不再因宽松类型转换而误通过。
 
 每份派生证据都记录 run-relative 或 `rsebench-project://` portable locator、SHA-256 和整体 evidence hash。缺文件或不可读证据属于 retryable；已完整执行但 N3/N4、领域门槛或 clean replay 决策失败属于 deterministic nonqualification，并按 C1→C2→C3→blocked 前进。Candidate 3 缺失/不可读时动作仍是 `run_candidate_3`；只有 Candidate 3 的完整确定性失败才 blocked。
 
@@ -27,6 +29,8 @@ N3/N4 与领域审计只从 baseline 已持久化的真实输出即时派生，�
 - OfficeQA：N3 `12/12`，N4 `12/12`；领域审计确定性失败于 `train_batch_not_mixed:1`，因此不能被解释为缺证据重试。
 - WebShop：历史五个 acquisition task 的 N3/N4 均为 `0/5` 且状态为 `missing`，因为旧 run 没有 wrapper-owned ordered trajectory/feedback；retrieval audit 与单条 fault log 不再被当成 exact selector 的代理。独立从 pinned resources 重算的 30-task denominator、2/5 validation headroom 和 15-step budget 仍通过。reuse audit 因此要求重跑 Candidate 1，并且 replay planner 不会为该 artifact 生成付费任务。
 - SkillLearn `offer-letter-generator`：N3 `2/2`，N4 `2/2`，两个 acquisition 加一个 validation 的 container/verifier 审计通过。
+
+SkillOpt 额外检查了真实 step JSONL 与冻结 train 顺序：Spreadsheet 三批为 `7/7/6`，OfficeQA 三批为 `4/4/4`；二者都与 `Random(20260813 + 1000)` 的分批成员集合完全一致且全局无重复。仅同一批内的 JSONL 行完成顺序不同，因此生产校验采用精确 per-batch set + uniqueness。
 
 本次加固没有调用 provider，也没有运行 N1–N4 noisy evolution。
 

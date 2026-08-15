@@ -5,13 +5,22 @@ from __future__ import annotations
 import json
 import math
 import os
+import random
 import re
 import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    StrictInt,
+    StrictStr,
+    field_validator,
+    model_validator,
+)
 
 from rsebench.contracts import StrictModel, TaskManifest
 from rsebench.core1.dataset import _portable_reference
@@ -27,6 +36,7 @@ from rsebench.evolution.skilladaptor_executor import (
     SkillAdaptorOwnedFeedback,
     SkillAdaptorOwnedTrajectory,
 )
+from rsebench.evolution.skilllearn_executor import SkillLearnImageRecord
 from rsebench.evolution.skillopt_evidence import (
     SkillOptEvidenceAdapter,
     _enrich_n3_spec,
@@ -174,6 +184,97 @@ class SkillOptConversationItem(BaseModel):
     env_feedback: str | None = None
 
 
+class SkillLearnVerifierSummary(StrictModel):
+    tests: StrictInt = Field(ge=1)
+    passed: StrictInt = Field(ge=0)
+    failed: StrictInt = Field(ge=0)
+    skipped: StrictInt = Field(ge=0)
+    pending: StrictInt = Field(ge=0)
+    other: StrictInt = Field(ge=0)
+    start: float | None = None
+    stop: float | None = None
+
+    @field_validator("start", "stop", mode="before")
+    @classmethod
+    def finite_clock(cls, value: Any) -> Any:
+        if value is None:
+            return value
+        if (
+            isinstance(value, bool)
+            or not isinstance(value, (int, float))
+            or not math.isfinite(float(value))
+            or float(value) < 0.0
+        ):
+            raise ValueError("verifier clock must be finite and nonnegative")
+        return value
+
+
+class SkillLearnVerifierTest(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    name: StrictStr = Field(min_length=1)
+    status: Literal["passed", "failed", "skipped", "pending", "other"]
+    duration: float | None = None
+
+    @field_validator("duration", mode="before")
+    @classmethod
+    def finite_duration(cls, value: Any) -> Any:
+        if value is None:
+            return value
+        if (
+            isinstance(value, bool)
+            or not isinstance(value, (int, float))
+            or not math.isfinite(float(value))
+            or float(value) < 0.0
+        ):
+            raise ValueError("verifier duration must be finite and nonnegative")
+        return value
+
+
+class SkillLearnVerifierResults(StrictModel):
+    tool: dict[str, Any]
+    summary: SkillLearnVerifierSummary
+    tests: list[SkillLearnVerifierTest] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def exact_summary(self) -> "SkillLearnVerifierResults":
+        if not self.tool:
+            raise ValueError("verifier tool metadata must be nonempty")
+        counts = {
+            status: sum(row.status == status for row in self.tests)
+            for status in ("passed", "failed", "skipped", "pending", "other")
+        }
+        if self.summary.tests != len(self.tests) or any(
+            getattr(self.summary, status) != count
+            for status, count in counts.items()
+        ):
+            raise ValueError("verifier summary differs from test records")
+        return self
+
+
+class SkillLearnVerifierRecord(StrictModel):
+    results: SkillLearnVerifierResults
+
+
+def _portable_task_identity(task: TaskManifest) -> dict[str, Any]:
+    """Normalize declared root paths while retaining every TaskManifest field."""
+
+    project = _project_root()
+    roots = {
+        "rsebench-project": project,
+        "rsebench-data": Path(
+            os.environ.get("RSEBENCH_DATA_ROOT", project / "data")
+        ).resolve(),
+        "rsebench-methods": _methods_root(project),
+    }
+    payload = task.model_dump(mode="json")
+    payload["artifact_path"] = _portable_reference(
+        payload.get("artifact_path"), roots
+    )
+    payload["metadata"] = _portable_reference(payload["metadata"], roots)
+    return payload
+
+
 def normalized_evolution_input_hash(
     *,
     candidate: StableSplitCandidate,
@@ -186,27 +287,6 @@ def normalized_evolution_input_hash(
     validation_tasks: list[TaskManifest] | None = None,
 ) -> str:
     """Hash current evolution inputs without path/commit/manifest-file coupling."""
-
-    def task_identity(task: TaskManifest) -> dict[str, Any]:
-        project = _project_root()
-        roots = {
-            "rsebench-project": project,
-            "rsebench-data": Path(
-                os.environ.get("RSEBENCH_DATA_ROOT", project / "data")
-            ).resolve(),
-            "rsebench-methods": _methods_root(project),
-        }
-        payload = task.model_dump(mode="json")
-        try:
-            payload["artifact_path"] = _portable_reference(
-                payload.get("artifact_path"), roots
-            )
-            payload["metadata"] = _portable_reference(payload["metadata"], roots)
-        except ValueError:
-            # Non-production test fixtures may sit outside declared roots.  They
-            # remain exact, but production identities always use root URIs.
-            pass
-        return payload
 
     if (train_tasks is None) != (validation_tasks is None):
         raise ValueError("train and validation task overrides must be supplied together")
@@ -230,8 +310,8 @@ def normalized_evolution_input_hash(
             "candidate_index": candidate.candidate_index,
             "selection_hash": candidate.selection_hash,
             "family": family,
-            "train": [task_identity(task) for task in train],
-            "validation": [task_identity(task) for task in validation],
+            "train": [_portable_task_identity(task) for task in train],
+            "validation": [_portable_task_identity(task) for task in validation],
             "runtime": runtime,
             "seed_skill_hash": seed_skill_hash,
             "provider": provider,
@@ -462,6 +542,92 @@ def _strict_feedback(payload: dict[str, Any]) -> FeedbackRecord:
     return FeedbackRecord.model_validate(payload)
 
 
+def _skilllearn_execution_row(
+    *,
+    task_id: str,
+    image_payload: dict[str, Any],
+    verifier_payload: dict[str, Any],
+    hidden_test_exposed: bool,
+) -> dict[str, bool]:
+    image = SkillLearnImageRecord.model_validate(image_payload)
+    if image.task_id != task_id:
+        raise ValueError("SkillLearn image task identity differs")
+    SkillLearnVerifierRecord.model_validate(verifier_payload)
+    return {
+        "container_started": True,
+        "verifier_completed": True,
+        "hidden_test_exposed": hidden_test_exposed,
+    }
+
+
+def _validate_skilladaptor_owned_pair(
+    *,
+    expected_task_id: str,
+    trajectory_payload: dict[str, Any],
+    feedback_payload: dict[str, Any],
+) -> tuple[TrajectoryRecord, FeedbackRecord]:
+    trajectory_wrapper = SkillAdaptorOwnedTrajectory.model_validate(
+        trajectory_payload
+    )
+    feedback_wrapper = SkillAdaptorOwnedFeedback.model_validate(feedback_payload)
+    trajectory = _strict_trajectory(trajectory_payload["normalized"])
+    feedback = _strict_feedback(feedback_payload["normalized"])
+    identities = {
+        trajectory_wrapper.task_id,
+        feedback_wrapper.task_id,
+        trajectory.task_id,
+        feedback.task_id,
+    }
+    if identities != {expected_task_id}:
+        raise ValueError("SkillAdaptor owned evidence task identity differs")
+    if trajectory.benchmark != "webshop" or feedback.benchmark != "webshop":
+        raise ValueError("SkillAdaptor normalized benchmark must be webshop")
+    for native in (trajectory_wrapper.native, feedback_wrapper.native):
+        native_task_id = native.get("task_id")
+        if native_task_id is not None and (
+            not isinstance(native_task_id, str)
+            or native_task_id != expected_task_id
+        ):
+            raise ValueError("SkillAdaptor native task identity differs")
+    return trajectory, feedback
+
+
+def _skillopt_batch_membership(
+    *,
+    benchmark: str,
+    method_seed: int,
+    expected_ids: list[str],
+    actual_batches: list[list[str]],
+) -> bool:
+    sizes = {
+        "spreadsheetbench_verified": (7, 7, 6),
+        "officeqa_full": (4, 4, 4),
+    }.get(benchmark)
+    if (
+        sizes is None
+        or type(method_seed) is not int
+        or len(expected_ids) != sum(sizes)
+        or len(actual_batches) != len(sizes)
+    ):
+        return False
+    shuffled_ids = list(expected_ids)
+    random.Random(method_seed + 1000).shuffle(shuffled_ids)
+    expected_batches: list[list[str]] = []
+    offset = 0
+    for size in sizes:
+        expected_batches.append(shuffled_ids[offset : offset + size])
+        offset += size
+    # Native workers finish in nondeterministic order within one batch, so the
+    # persisted JSONL row order is not an execution-order contract.  The seeded
+    # batch allocation and uniqueness are the contract.
+    return all(
+        len(actual) == len(expected)
+        and len(actual) == len(set(actual))
+        and set(actual) == set(expected)
+        for actual, expected in zip(actual_batches, expected_batches, strict=True)
+    )
+
+
 def _normalized_webshop_query(value: Any) -> str:
     return " ".join(re.findall(r"[a-z0-9]+", str(value).casefold()))
 
@@ -526,7 +692,7 @@ def _pinned_webshop_domain_inputs(
     return reachable, outcomes, [goals_path, selection_path, products_path]
 
 
-def _skillopt_owned_audits(
+def _skillopt_owned_audits_impl(
     run_dir: Path,
     *,
     candidate: StableSplitCandidate,
@@ -553,8 +719,18 @@ def _skillopt_owned_audits(
             run_dir, "unreadable_owned_skillopt_trace", evidence_paths
         )
     expected_ids = _ids(candidate.train)
-    actual_ids = [row.id for batch in batches for row in batch]
-    exact_tasks = _same_unique_ids(actual_ids, expected_ids)
+    actual_batches = [[row.id for row in batch] for batch in batches]
+    actual_ids = [task_id for batch in actual_batches for task_id in batch]
+    exact_global_tasks = _same_unique_ids(actual_ids, expected_ids)
+    config = summary.get("config")
+    method_seed = config.get("seed") if isinstance(config, dict) else None
+    exact_batches = _skillopt_batch_membership(
+        benchmark=candidate.benchmark,
+        method_seed=method_seed,
+        expected_ids=expected_ids,
+        actual_batches=actual_batches,
+    )
+    exact_tasks = exact_global_tasks and exact_batches
     outcomes = [[bool(row.hard) for row in batch] for batch in batches]
     n3_applicable: dict[str, bool] = {}
     n4_applicable: dict[str, bool] = {}
@@ -660,11 +836,30 @@ def _skillopt_owned_audits(
     }
     if not exact_tasks:
         domain["passed"] = False
-        domain["failure_reasons"].append("owned_train_task_set_differs")
+        domain["failure_reasons"].append(
+            "owned_train_batch_allocation_differs"
+            if exact_global_tasks
+            else "owned_train_task_set_differs"
+        )
     return trace, domain
 
 
-def _webshop_owned_audits(
+def _skillopt_owned_audits(
+    run_dir: Path,
+    *,
+    candidate: StableSplitCandidate,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    try:
+        return _skillopt_owned_audits_impl(run_dir, candidate=candidate)
+    except (OSError, TypeError, ValueError, json.JSONDecodeError, KeyError):
+        return _missing_owned_audits(
+            run_dir,
+            "unreadable_owned_skillopt_trace",
+            [run_dir / "clean/native_train/summary.json"],
+        )
+
+
+def _webshop_owned_audits_impl(
     run_dir: Path,
     *,
     candidate: StableSplitCandidate,
@@ -705,14 +900,11 @@ def _webshop_owned_audits(
             continue
         trajectory_payload = _read_object(trajectory_path)
         feedback_payload = _read_object(feedback_path)
-        trajectory_wrapper = SkillAdaptorOwnedTrajectory.model_validate(
-            trajectory_payload
+        trajectory, feedback = _validate_skilladaptor_owned_pair(
+            expected_task_id=task_id,
+            trajectory_payload=trajectory_payload,
+            feedback_payload=feedback_payload,
         )
-        feedback_wrapper = SkillAdaptorOwnedFeedback.model_validate(feedback_payload)
-        if trajectory_wrapper.task_id != task_id or feedback_wrapper.task_id != task_id:
-            raise ValueError("SkillAdaptor owned evidence task identity differs")
-        trajectory = _strict_trajectory(trajectory_payload["normalized"])
-        feedback = _strict_feedback(feedback_payload["normalized"])
         n3_audit, n4_audit = _normalized_task_runtime_applicability(
             benchmark=candidate.benchmark,
             trajectory=trajectory,
@@ -764,7 +956,25 @@ def _webshop_owned_audits(
     return trace, domain
 
 
-def _skilllearn_owned_audits(
+def _webshop_owned_audits(
+    run_dir: Path,
+    *,
+    candidate: StableSplitCandidate,
+    runtime: dict[str, Any],
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    try:
+        return _webshop_owned_audits_impl(
+            run_dir, candidate=candidate, runtime=runtime
+        )
+    except (OSError, TypeError, ValueError, json.JSONDecodeError, KeyError):
+        return _missing_owned_audits(
+            run_dir,
+            "unreadable_owned_webshop_trace",
+            [run_dir / "clean/webshop_task_manifest.json"],
+        )
+
+
+def _skilllearn_owned_audits_impl(
     run_dir: Path,
     *,
     candidate: StableSplitCandidate,
@@ -815,13 +1025,14 @@ def _skilllearn_owned_audits(
         n3_reasons[task_id] = n3_audit.reason
         n4_reasons[task_id] = n4_audit.reason
         executions.append(
-            {
-                "container_started": bool(_read_object(image_path).get("image_id")),
-                "verifier_completed": isinstance(
-                    _read_object(verifier_path).get("results"), dict
+            _skilllearn_execution_row(
+                task_id=task_id,
+                image_payload=_read_object(image_path),
+                verifier_payload=_read_object(verifier_path),
+                hidden_test_exposed=any(
+                    marker in visible for marker in leak_markers
                 ),
-                "hidden_test_exposed": any(marker in visible for marker in leak_markers),
-            }
+            )
         )
     if validation_ids:
         validation_dir = run_dir / "clean/validation/round-2" / validation_ids[0]
@@ -830,13 +1041,12 @@ def _skilllearn_owned_audits(
         evidence_paths.extend([image_path, verifier_path])
         if image_path.is_file() and verifier_path.is_file():
             executions.append(
-                {
-                    "container_started": bool(_read_object(image_path).get("image_id")),
-                    "verifier_completed": isinstance(
-                        _read_object(verifier_path).get("results"), dict
-                    ),
-                    "hidden_test_exposed": False,
-                }
+                _skilllearn_execution_row(
+                    task_id=validation_ids[0],
+                    image_payload=_read_object(image_path),
+                    verifier_payload=_read_object(verifier_path),
+                    hidden_test_exposed=False,
+                )
             )
     if len(round_dirs) < len(train_ids):
         return _missing_owned_audits(
@@ -863,6 +1073,24 @@ def _skilllearn_owned_audits(
         "evidence_complete": len(executions) == 3,
         **provenance,
     }
+
+
+def _skilllearn_owned_audits(
+    run_dir: Path,
+    *,
+    candidate: StableSplitCandidate,
+    family: str,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    try:
+        return _skilllearn_owned_audits_impl(
+            run_dir, candidate=candidate, family=family
+        )
+    except (OSError, TypeError, ValueError, json.JSONDecodeError, KeyError):
+        return _missing_owned_audits(
+            run_dir,
+            "unreadable_owned_skilllearn_trace",
+            [run_dir / "clean/evolution"],
+        )
 
 
 def derive_owned_run_audits(
@@ -1014,19 +1242,53 @@ def load_selection_repository(root: Path | str) -> SelectionRepository:
     return SelectionRepository(selection_root, candidates, paths, audits)
 
 
+def _require_contained(path: Path, root: Path, *, label: str) -> Path:
+    resolved = path.resolve()
+    resolved_root = root.resolve()
+    try:
+        resolved.relative_to(resolved_root)
+    except ValueError as exc:
+        raise ValueError(f"{label} escapes declared root: {resolved}") from exc
+    return resolved
+
+
 def _find_runtime_identity(run_dir: Path, boundary: Path) -> Path:
-    for parent in (run_dir, *run_dir.parents):
+    resolved_boundary = boundary.resolve()
+    resolved_run = _require_contained(
+        run_dir, resolved_boundary, label="clean run directory"
+    )
+    for parent in (resolved_run, *resolved_run.parents):
         candidate = parent / "runtime_identity.json"
         if candidate.is_file():
-            return candidate
-        if parent == boundary:
+            return _require_contained(
+                candidate, resolved_boundary, label="runtime identity"
+            )
+        if parent == resolved_boundary:
             break
     raise FileNotFoundError(f"runtime_identity.json not found above {run_dir}")
 
 
-def _artifact_path(run_dir: Path, raw: str) -> Path:
+def _artifact_path(run_dir: Path, raw: str, *, boundary: Path) -> Path:
+    resolved_run = _require_contained(
+        run_dir, boundary, label="clean run directory"
+    )
     candidate = Path(raw)
-    return (candidate if candidate.is_absolute() else run_dir / candidate).resolve()
+    resolved = (candidate if candidate.is_absolute() else resolved_run / candidate).resolve()
+    _require_contained(resolved, boundary, label="clean artifact")
+    return _require_contained(resolved, resolved_run, label="clean artifact")
+
+
+def _single_seed_artifact(run_dir: Path) -> Path:
+    resolved_run = run_dir.resolve()
+    seed_dir = _require_contained(
+        resolved_run / "seed", resolved_run, label="seed directory"
+    )
+    seed_files = [path for path in seed_dir.iterdir() if path.is_file()]
+    if len(seed_files) != 1:
+        raise ValueError("clean run requires exactly one seed artifact")
+    return _require_contained(
+        seed_files[0], resolved_run, label="seed artifact"
+    )
 
 
 def _clean_accounting_failures(result: dict[str, Any]) -> list[str]:
@@ -1061,11 +1323,21 @@ def _match_candidate(
     split: dict[str, Any],
 ) -> tuple[StableSplitCandidate, int, str | None]:
     benchmark = str(split.get("benchmark") or "")
+    if benchmark not in repository.candidates:
+        raise ValueError(f"clean run benchmark has no frozen candidate: {benchmark}")
     metadata = split.get("metadata")
     metadata = metadata if isinstance(metadata, dict) else {}
     family = str(metadata.get("task_family") or "") or None
     declared = metadata.get("candidate_index")
-    indexes = [int(declared)] if declared is not None else sorted(repository.candidates[benchmark])
+    if declared is not None and type(declared) is not int:
+        raise ValueError("run split candidate_index must be an integer")
+    indexes = [declared] if declared is not None else sorted(repository.candidates[benchmark])
+    raw_train = split.get("train")
+    raw_validation = split.get("validation")
+    if not isinstance(raw_train, list) or not isinstance(raw_validation, list):
+        raise ValueError("run split train/validation must be task lists")
+    actual_train = [TaskManifest.model_validate(row) for row in raw_train]
+    actual_validation = [TaskManifest.model_validate(row) for row in raw_validation]
     for index in indexes:
         candidate = repository.candidates[benchmark].get(index)
         if candidate is None:
@@ -1074,21 +1346,39 @@ def _match_candidate(
             allocation = candidate.metadata.get("static_audit", {}).get(
                 "family_allocations", {}
             ).get(family, {})
-            expected_train = allocation.get("train")
-            expected_validation = allocation.get("validation")
+            train_ids = allocation.get("train")
+            validation_ids = allocation.get("validation")
+            if not isinstance(train_ids, list) or not isinstance(
+                validation_ids, list
+            ):
+                continue
+            train_by_id = {task.task_id: task for task in candidate.train}
+            validation_by_id = {
+                task.task_id: task for task in candidate.validation
+            }
+            try:
+                expected_train = [train_by_id[task_id] for task_id in train_ids]
+                expected_validation = [
+                    validation_by_id[task_id] for task_id in validation_ids
+                ]
+            except KeyError:
+                continue
         else:
-            expected_train = _ids(candidate.train)
-            expected_validation = _ids(candidate.validation)
+            expected_train = list(candidate.train)
+            expected_validation = list(candidate.validation)
         if (
-            [row["task_id"] for row in split.get("train", [])] == expected_train
-            and [row["task_id"] for row in split.get("validation", [])]
-            == expected_validation
+            [_portable_task_identity(task) for task in actual_train]
+            == [_portable_task_identity(task) for task in expected_train]
+            and [_portable_task_identity(task) for task in actual_validation]
+            == [_portable_task_identity(task) for task in expected_validation]
         ):
             parent_hash = metadata.get("parent_selection_hash")
             if parent_hash is not None and parent_hash != candidate.selection_hash:
                 raise ValueError("run split parent selection hash differs")
             return candidate, index, family
-    raise ValueError(f"clean run tasks do not match a frozen candidate: {benchmark}")
+    raise ValueError(
+        f"clean run TaskManifest content does not match a frozen candidate: {benchmark}"
+    )
 
 
 def read_clean_run(
@@ -1097,6 +1387,9 @@ def read_clean_run(
     repository: SelectionRepository,
     boundary: Path,
 ) -> CleanRunEvidence:
+    run_dir = _require_contained(
+        run_dir, boundary, label="clean run directory"
+    )
     split = _read_object(run_dir / "split_manifest.json")
     candidate, candidate_index, family = _match_candidate(repository, split)
     result = _read_object(run_dir / "result.json")
@@ -1114,12 +1407,13 @@ def read_clean_run(
         raise ValueError("clean result method seed must be an integer")
     if method_seed != identity.inputs.method_seed:
         raise ValueError("clean result method seed differs from runtime identity")
-    seed_files = [path for path in (run_dir / "seed").iterdir() if path.is_file()]
-    if len(seed_files) != 1:
-        raise ValueError("clean run requires exactly one seed artifact")
-    seed_path = seed_files[0].resolve()
+    seed_path = _single_seed_artifact(run_dir)
     seed_hash = sha256_file(seed_path)
-    clean_path = _artifact_path(run_dir, str(artifact.get("skill_path") or ""))
+    clean_path = _artifact_path(
+        run_dir,
+        str(artifact.get("skill_path") or ""),
+        boundary=boundary,
+    )
     if not clean_path.is_file():
         raise FileNotFoundError(f"clean artifact is missing: {clean_path}")
     clean_hash = sha256_file(clean_path)
@@ -1695,28 +1989,35 @@ def _rehydrate_reused_records(
         record = read_clean_run(
             run_dir, repository=repository, boundary=source_root
         )
+        if (
+            record.benchmark not in {"officeqa_full", "webshop"}
+            or record.candidate_index != 1
+            or record.family is not None
+        ):
+            continue
         expected = expected_identities.get(
             (record.benchmark, record.method_seed, record.family)
         )
-        if expected is not None:
-            actual = {
-                "baseline_fingerprint": record.baseline_fingerprint,
-                "evolution_input_hash": record.evolution_input_hash,
-                "provider": record.provider,
-                "model": record.model,
-                "provider_config_hash": record.provider_config_hash,
-                "method_seed": record.method_seed,
-                "artifact_hash": record.clean_artifact_hash,
-            }
-            failures = reuse_identity_failures(
-                actual, {**expected, "artifact_hash": record.clean_artifact_hash}
-            )
-            if record.seed_artifact_hash != expected["seed_artifact_hash"]:
-                failures.append("reuse_identity_mismatch:seed_artifact_hash")
-            # A stale historical row is never overlaid.  Qualification then
-            # reports missing evidence and replay discovery cannot schedule it.
-            if failures:
-                continue
+        if expected is None:
+            continue
+        actual = {
+            "baseline_fingerprint": record.baseline_fingerprint,
+            "evolution_input_hash": record.evolution_input_hash,
+            "provider": record.provider,
+            "model": record.model,
+            "provider_config_hash": record.provider_config_hash,
+            "method_seed": record.method_seed,
+            "artifact_hash": record.clean_artifact_hash,
+        }
+        failures = reuse_identity_failures(
+            actual, {**expected, "artifact_hash": record.clean_artifact_hash}
+        )
+        if record.seed_artifact_hash != expected["seed_artifact_hash"]:
+            failures.append("reuse_identity_mismatch:seed_artifact_hash")
+        # A stale historical row is never overlaid.  Qualification then
+        # reports missing evidence and replay discovery cannot schedule it.
+        if failures:
+            continue
         records.append(record)
     return records
 
@@ -2086,6 +2387,17 @@ def discover_replay_jobs(
         )
         if retryable or deterministic:
             continue
+        replay_run_dir = Path(run.run_dir).resolve()
+        seed_artifact = _require_contained(
+            Path(run.seed_artifact_path),
+            replay_run_dir,
+            label="replay seed artifact",
+        )
+        clean_artifact = _require_contained(
+            Path(run.clean_artifact_path),
+            replay_run_dir,
+            label="replay clean artifact",
+        )
         if candidate_index is not None and run.candidate_index != candidate_index:
             continue
         if evaluation_role == "qualification_test" and run.benchmark == "skilllearnbench":
@@ -2128,9 +2440,9 @@ def discover_replay_jobs(
             "--evaluation-role",
             evaluation_role,
             "--artifact",
-            f"seed={run.seed_artifact_path}",
+            f"seed={seed_artifact}",
             "--artifact",
-            f"clean={run.clean_artifact_path}",
+            f"clean={clean_artifact}",
             "--reference",
             "seed",
             "--repeats",
