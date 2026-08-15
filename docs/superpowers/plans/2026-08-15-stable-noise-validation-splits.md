@@ -1352,7 +1352,8 @@ PYTHONPATH=src python scripts/run_noise_screen_replays.py \
   --selection-root benchmark/validation/noise_screen_v1 \
   --run-root outputs/runs/noise-screen-v1-qualification \
   --evaluation-role qualification_test \
-  --repeats 3
+  --repeats 3 \
+  --execute --confirm-provider-cost
 
 PYTHONPATH=src python scripts/aggregate_noise_screen_selection.py \
   --selection-root benchmark/validation/noise_screen_v1 \
@@ -1378,7 +1379,8 @@ PYTHONPATH=src python scripts/run_noise_screen_replays.py \
   --run-root outputs/runs/noise-screen-v1-qualification \
   --candidate-index 2 \
   --evaluation-role qualification_test \
-  --repeats 3 --resume
+  --repeats 3 \
+  --execute --confirm-provider-cost
 PYTHONPATH=src python scripts/aggregate_noise_screen_selection.py \
   --selection-root benchmark/validation/noise_screen_v1 \
   --run-root outputs/runs/noise-screen-v1-qualification \
@@ -1403,7 +1405,8 @@ PYTHONPATH=src python scripts/run_noise_screen_replays.py \
   --run-root outputs/runs/noise-screen-v1-qualification \
   --candidate-index 3 \
   --evaluation-role qualification_test \
-  --repeats 3
+  --repeats 3 \
+  --execute --confirm-provider-cost
 PYTHONPATH=src python scripts/aggregate_noise_screen_selection.py \
   --selection-root benchmark/validation/noise_screen_v1 \
   --run-root outputs/runs/noise-screen-v1-qualification \
@@ -1420,7 +1423,8 @@ PYTHONPATH=src python scripts/run_noise_screen_replays.py \
   --selection-root benchmark/validation/noise_screen_v1 \
   --run-root outputs/runs/noise-screen-v1-qualification \
   --evaluation-role screening_test \
-  --repeats 3
+  --repeats 3 \
+  --execute --confirm-provider-cost
 PYTHONPATH=src python scripts/aggregate_noise_screen_selection.py \
   --selection-root benchmark/validation/noise_screen_v1 \
   --run-root outputs/runs/noise-screen-v1-qualification \

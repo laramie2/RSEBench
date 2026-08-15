@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -10,9 +11,15 @@ from typing import Any, Literal
 
 from pydantic import Field
 
-from rsebench.contracts import StrictModel
+from rsebench.contracts import StrictModel, TaskManifest
 from rsebench.evidence import canonical_hash
 from rsebench.experiments.contracts import ExperimentIdentity
+from rsebench.experiments.preflight import (
+    _default_fingerprint_resolver,
+    _methods_root,
+    _resolve_path,
+    load_experiment_matrix,
+)
 from rsebench.hashing import sha256_file
 from rsebench.selection.contracts import (
     CandidateSeedEvidence,
@@ -24,10 +31,17 @@ from rsebench.selection.contracts import (
 from rsebench.selection.qualification import (
     DomainScreeningGeneralization,
     ScreeningGeneralizationAggregate,
+    audit_officeqa,
+    audit_skilllearn,
+    audit_spreadsheet,
+    audit_webshop,
+    candidate_failure_action,
     decide_candidate,
     decide_screening_generalization,
     replay_action,
     replay_integrity_failures,
+    reuse_identity_failures,
+    screening_family_ready,
     select_candidate_evaluation_tasks,
     sequential_incomplete_action,
 )
@@ -86,11 +100,495 @@ class CleanRunEvidence(StrictModel):
     failure_reasons: list[str] = Field(default_factory=list)
 
 
+def normalized_evolution_input_hash(
+    *,
+    candidate: StableSplitCandidate,
+    family: str | None,
+    runtime: dict[str, Any],
+    seed_skill_hash: str,
+    provider: str,
+    model: str,
+    train_tasks: list[TaskManifest] | None = None,
+    validation_tasks: list[TaskManifest] | None = None,
+) -> str:
+    """Hash current evolution inputs without path/commit/manifest-file coupling."""
+
+    if (train_tasks is None) != (validation_tasks is None):
+        raise ValueError("train and validation task overrides must be supplied together")
+    if train_tasks is not None and validation_tasks is not None:
+        train = train_tasks
+        validation = validation_tasks
+    elif family:
+        allocation = candidate.metadata["static_audit"]["family_allocations"][family]
+        train_ids = set(allocation["train"])
+        validation_ids = set(allocation["validation"])
+        train = [task for task in candidate.train if task.task_id in train_ids]
+        validation = [
+            task for task in candidate.validation if task.task_id in validation_ids
+        ]
+    else:
+        train = candidate.train
+        validation = candidate.validation
+    return canonical_hash(
+        {
+            "benchmark": candidate.benchmark,
+            "candidate_index": candidate.candidate_index,
+            "selection_hash": candidate.selection_hash,
+            "family": family,
+            "train": [
+                {
+                    "task_id": task.task_id,
+                    "benchmark": task.benchmark,
+                    "domain": task.domain,
+                    "prompt": task.prompt,
+                    "gold_answers": list(task.gold_answers),
+                    "source_hash": task.source_hash,
+                    "verifier": task.verifier,
+                }
+                for task in train
+            ],
+            "validation": [
+                {
+                    "task_id": task.task_id,
+                    "benchmark": task.benchmark,
+                    "domain": task.domain,
+                    "prompt": task.prompt,
+                    "gold_answers": list(task.gold_answers),
+                    "source_hash": task.source_hash,
+                    "verifier": task.verifier,
+                }
+                for task in validation
+            ],
+            "runtime": runtime,
+            "seed_skill_hash": seed_skill_hash,
+            "provider": provider,
+            "model": model,
+            "stage": "clean",
+        }
+    )
+
+
+def _current_candidate_one_identities(
+    repository: SelectionRepository,
+) -> dict[tuple[str, int], dict[str, Any]]:
+    """Resolve Candidate-1 identity from the current fallback configuration."""
+
+    project = _project_root()
+    matrix = load_experiment_matrix(
+        project / "configs/experiments/noise-screen-v1-reuse-fallback.yaml"
+    )
+    provider_config_hash = sha256_file(project / matrix.provider_config)
+    resolve_fingerprint = _default_fingerprint_resolver(project)
+    methods_root = _methods_root(project)
+    expected: dict[tuple[str, int], dict[str, Any]] = {}
+    for cell in matrix.cells:
+        candidate = repository.candidates[cell.benchmark][1]
+        seed_hash = sha256_file(
+            _resolve_path(project, methods_root, cell.seed_skill)
+        )
+        runtime = {
+            **cell.runtime,
+            "temperature": matrix.temperature,
+            "thinking": matrix.thinking,
+            "provider_config_hash": provider_config_hash,
+        }
+        if cell.family is not None:
+            runtime["family"] = cell.family
+        fingerprint = resolve_fingerprint(cell.baseline).fingerprint
+        evolution_hash = normalized_evolution_input_hash(
+            candidate=candidate,
+            family=cell.family,
+            runtime=runtime,
+            seed_skill_hash=seed_hash,
+            provider=matrix.provider,
+            model=matrix.model,
+        )
+        for seed in matrix.method_seeds:
+            expected[(cell.benchmark, seed)] = {
+                "baseline_fingerprint": fingerprint,
+                "evolution_input_hash": evolution_hash,
+                "provider": matrix.provider,
+                "model": matrix.model,
+                "provider_config_hash": provider_config_hash,
+                "method_seed": seed,
+                "seed_artifact_hash": seed_hash,
+            }
+    return expected
+
+
 def _read_object(path: Path) -> dict[str, Any]:
     payload = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(payload, dict):
         raise ValueError(f"expected JSON object: {path}")
     return payload
+
+
+def _read_jsonl(path: Path) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        payload = json.loads(line)
+        if not isinstance(payload, dict):
+            raise ValueError(f"expected JSON object line: {path}")
+        rows.append(payload)
+    return rows
+
+
+def _provenance(run_dir: Path, paths: list[Path]) -> dict[str, Any]:
+    files = [
+        {
+            "path": str(path.resolve().relative_to(run_dir.resolve())),
+            "sha256": sha256_file(path),
+        }
+        for path in sorted(set(paths))
+        if path.is_file()
+    ]
+    return {
+        "evidence_source": "owned_persisted_outputs",
+        "evidence_files": files,
+        "evidence_hash": canonical_hash(files),
+    }
+
+
+def _missing_owned_audits(
+    run_dir: Path, reason: str, paths: list[Path]
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    provenance = _provenance(run_dir, paths)
+    return (
+        {
+            "N3": {"status": "missing", "coverage": 0.0, **provenance},
+            "N4": {"status": "missing", "coverage": 0.0, **provenance},
+        },
+        {
+            "passed": False,
+            "execution_coverage": 0.0,
+            "evidence_complete": False,
+            "failure_reasons": [reason],
+            **provenance,
+        },
+    )
+
+
+def _skillopt_owned_audits(
+    run_dir: Path,
+    *,
+    candidate: StableSplitCandidate,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    native = run_dir / "clean/native_train"
+    rollout_paths = sorted(native.glob("steps/step_*/rollout/results.jsonl"))
+    summary_path = native / "summary.json"
+    evidence_paths = [*rollout_paths, summary_path]
+    if len(rollout_paths) != 3 or not summary_path.is_file():
+        return _missing_owned_audits(
+            run_dir, "missing_owned_skillopt_trace", evidence_paths
+        )
+    try:
+        batches = [_read_jsonl(path) for path in rollout_paths]
+        summary = _read_object(summary_path)
+    except (OSError, ValueError, json.JSONDecodeError):
+        return _missing_owned_audits(
+            run_dir, "unreadable_owned_skillopt_trace", evidence_paths
+        )
+    expected_ids = _ids(candidate.train)
+    actual_ids = [str(row.get("id") or "") for batch in batches for row in batch]
+    exact_tasks = _same_unique_ids(actual_ids, expected_ids)
+    outcomes = [[bool(row.get("hard")) for row in batch] for batch in batches]
+    n3_ids: set[str] = set()
+    n4_ids: set[str] = set()
+    patch_coverage = True
+    for rollout_path, batch in zip(rollout_paths, batches, strict=True):
+        step = rollout_path.parent.parent
+        for row in batch:
+            task_id = str(row.get("id") or "")
+            conversation_path = step / "rollout/predictions" / task_id / "conversation.json"
+            evidence_paths.append(conversation_path)
+            if not conversation_path.is_file():
+                continue
+            conversation = json.loads(conversation_path.read_text(encoding="utf-8"))
+            if not isinstance(conversation, list):
+                continue
+            if candidate.benchmark == "spreadsheetbench_verified":
+                assistant = "\n".join(
+                    str(item.get("content") or "")
+                    for item in conversation
+                    if isinstance(item, dict) and item.get("role") == "assistant"
+                )
+                if "load_workbook" in assistant and ".save(" in assistant:
+                    n3_ids.add(task_id)
+                attribution = str(row.get("target_user_prompt") or "")
+                if (
+                    "Expected answer position:" in attribution
+                    and "load_workbook" in assistant
+                    and any(token in assistant for token in ("wb[", ".cell(", "iter_rows"))
+                ):
+                    n4_ids.add(task_id)
+            else:
+                tool_rows = [
+                    item
+                    for item in conversation
+                    if isinstance(item, dict) and item.get("type") == "tool_call"
+                ]
+                if any(
+                    str(item.get("cmd") or "").startswith(("grep(", "read("))
+                    and bool(str(item.get("obs") or "").strip())
+                    for item in tool_rows
+                ):
+                    n3_ids.add(task_id)
+                    n4_ids.add(task_id)
+        patch_paths = sorted((step / "patches").glob("minibatch_*.json"))
+        evidence_paths.extend(patch_paths)
+        patch_counts = {"success": 0, "failure": 0}
+        for path in patch_paths:
+            patch = _read_object(path)
+            source_type = str(patch.get("source_type") or "")
+            body = patch.get("patch")
+            if source_type not in patch_counts or not isinstance(body, dict) or not body:
+                patch_coverage = False
+                continue
+            patch_counts[source_type] += int(patch.get("batch_size", 0))
+        successes = sum(bool(row.get("hard")) for row in batch)
+        if patch_counts != {"success": successes, "failure": len(batch) - successes}:
+            patch_coverage = False
+    n3_coverage = len(n3_ids & set(expected_ids)) / len(expected_ids)
+    n4_coverage = len(n4_ids & set(expected_ids)) / len(expected_ids)
+    provenance = _provenance(run_dir, evidence_paths)
+    trace = {
+        "N3": {
+            "status": "pass" if exact_tasks and n3_coverage == 1.0 else "fail",
+            "coverage": n3_coverage,
+            **provenance,
+        },
+        "N4": {
+            "status": (
+                "pass"
+                if exact_tasks and patch_coverage and n4_coverage == 1.0
+                else "fail"
+            ),
+            "coverage": n4_coverage if patch_coverage else 0.0,
+            **provenance,
+        },
+    }
+    validation_score = float(summary.get("baseline_selection_hard", -1.0))
+    if candidate.benchmark == "spreadsheetbench_verified":
+        audit = audit_spreadsheet(
+            validation_score=validation_score,
+            train_batches=outcomes,
+        )
+    else:
+        parseable = sum(
+            bool(str(row.get("predicted_answer") or "").strip())
+            for batch in batches
+            for row in batch
+        ) / len(expected_ids)
+        audit = audit_officeqa(
+            validation_score=validation_score,
+            parseable_answer_rate=parseable,
+            train_batches=outcomes,
+        )
+    domain = {
+        **audit.model_dump(mode="json"),
+        "evidence_complete": True,
+        **provenance,
+    }
+    if not exact_tasks:
+        domain["passed"] = False
+        domain["failure_reasons"].append("owned_train_task_set_differs")
+    return trace, domain
+
+
+def _webshop_owned_audits(
+    run_dir: Path,
+    *,
+    candidate: StableSplitCandidate,
+    runtime: dict[str, Any],
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    retrieval_path = run_dir / "clean/retrieval_audit/clean_evolution.jsonl"
+    fault_path = run_dir / "clean/native_train/reasoning_faults.log"
+    manifest_path = run_dir / "clean/webshop_task_manifest.json"
+    evidence_paths = [retrieval_path, fault_path, manifest_path]
+    if not all(path.is_file() for path in evidence_paths):
+        return _missing_owned_audits(
+            run_dir, "missing_owned_webshop_trace", evidence_paths
+        )
+    try:
+        retrieval = _read_jsonl(retrieval_path)
+        manifest = _read_object(manifest_path)
+        fault_text = fault_path.read_text(encoding="utf-8")
+    except (OSError, ValueError, json.JSONDecodeError):
+        return _missing_owned_audits(
+            run_dir, "unreadable_owned_webshop_trace", evidence_paths
+        )
+    expected_ids = _ids(candidate.train)
+    manifest_ids = [f"goal_{value}" for value in manifest.get("input_tasks", [])]
+    exact_tasks = manifest_ids == expected_ids
+    events: dict[str, set[str]] = {task_id: set() for task_id in expected_ids}
+    for row in retrieval:
+        task_id = str(row.get("episode_id") or "")
+        if task_id in events:
+            events[task_id].add(str(row.get("event") or ""))
+    n3_ids = {
+        task_id
+        for task_id, kinds in events.items()
+        if {"retrieval", "prompt_injection"}.issubset(kinds)
+    }
+    fault_ids = set(
+        re.findall(r"Task:\s*(goal_\d+)\s*\|\s*Step:\s*\d+\s*\|\s*Obs:", fault_text)
+    )
+    n3_coverage = len(n3_ids) / len(expected_ids)
+    n4_coverage = len(fault_ids & set(expected_ids)) / len(expected_ids)
+    provenance = _provenance(run_dir, evidence_paths)
+    trace = {
+        "N3": {
+            "status": "pass" if exact_tasks and n3_coverage == 1.0 else "fail",
+            "coverage": n3_coverage,
+            **provenance,
+        },
+        "N4": {
+            "status": "pass" if exact_tasks and n4_coverage == 1.0 else "fail",
+            "coverage": n4_coverage,
+            **provenance,
+        },
+    }
+    all_tasks = [
+        *candidate.train,
+        *candidate.validation,
+        *candidate.qualification_test,
+    ]
+    audit = audit_webshop(
+        target_reachable=[task.metadata.get("target_reachable") is True for task in all_tasks],
+        validation_outcomes=[
+            task.metadata.get("seed_success") is True for task in candidate.validation
+        ],
+        max_episode_steps=int(runtime.get("max_episode_steps", 0)),
+    )
+    domain = {
+        **audit.model_dump(mode="json"),
+        "evidence_complete": True,
+        **provenance,
+    }
+    if not exact_tasks:
+        domain["passed"] = False
+        domain["failure_reasons"].append("owned_train_task_set_differs")
+    return trace, domain
+
+
+def _skilllearn_owned_audits(
+    run_dir: Path,
+    *,
+    candidate: StableSplitCandidate,
+    family: str,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    allocation = candidate.metadata["static_audit"]["family_allocations"][family]
+    train_ids = list(allocation["train"])
+    validation_ids = list(allocation["validation"])
+    evolution_root = run_dir / "clean/evolution"
+    round_dirs = sorted(path for path in evolution_root.glob("round-*") if path.is_dir())
+    by_task = {path.name.split("-", maxsplit=2)[-1]: path for path in round_dirs}
+    evidence_paths: list[Path] = []
+    n3_ids: set[str] = set()
+    n4_ids: set[str] = set()
+    executions: list[dict[str, Any]] = []
+    leak_markers = ("/tests/", "test_outputs.py::", "ctrf.json", "reference_solution")
+    for task_id in train_ids:
+        task_dir = by_task.get(task_id)
+        if task_dir is None:
+            continue
+        trajectory_path = task_dir / "visible_trajectory.json"
+        feedback_path = task_dir / "visible_feedback.json"
+        image_path = task_dir / "execution/image/image_record.json"
+        verifier_path = task_dir / "execution/verifier/ctrf.json"
+        evidence_paths.extend(
+            [trajectory_path, feedback_path, image_path, verifier_path]
+        )
+        if not all(path.is_file() for path in evidence_paths[-4:]):
+            continue
+        trajectory = _read_object(trajectory_path)
+        feedback = _read_object(feedback_path)
+        visible = json.dumps([trajectory, feedback], ensure_ascii=False).casefold()
+        if (
+            trajectory.get("task_id") == task_id
+            and isinstance(trajectory.get("events"), list)
+            and trajectory["events"]
+        ):
+            n3_ids.add(task_id)
+        blamed = feedback.get("blamed_event_ids")
+        if (
+            feedback.get("task_id") == task_id
+            and isinstance(blamed, list)
+            and blamed
+            and bool(str(feedback.get("recommendation") or "").strip())
+        ):
+            n4_ids.add(task_id)
+        executions.append(
+            {
+                "container_started": bool(_read_object(image_path).get("image_id")),
+                "verifier_completed": isinstance(
+                    _read_object(verifier_path).get("results"), dict
+                ),
+                "hidden_test_exposed": any(marker in visible for marker in leak_markers),
+            }
+        )
+    if validation_ids:
+        validation_dir = run_dir / "clean/validation/round-2" / validation_ids[0]
+        image_path = validation_dir / "image/image_record.json"
+        verifier_path = validation_dir / "verifier/ctrf.json"
+        evidence_paths.extend([image_path, verifier_path])
+        if image_path.is_file() and verifier_path.is_file():
+            executions.append(
+                {
+                    "container_started": bool(_read_object(image_path).get("image_id")),
+                    "verifier_completed": isinstance(
+                        _read_object(verifier_path).get("results"), dict
+                    ),
+                    "hidden_test_exposed": False,
+                }
+            )
+    if len(round_dirs) < len(train_ids):
+        return _missing_owned_audits(
+            run_dir, "missing_owned_skilllearn_trace", evidence_paths
+        )
+    n3_coverage = len(n3_ids) / len(train_ids)
+    n4_coverage = len(n4_ids) / len(train_ids)
+    provenance = _provenance(run_dir, evidence_paths)
+    trace = {
+        "N3": {
+            "status": "pass" if n3_coverage == 1.0 else "fail",
+            "coverage": n3_coverage,
+            **provenance,
+        },
+        "N4": {
+            "status": "pass" if n4_coverage == 1.0 else "fail",
+            "coverage": n4_coverage,
+            **provenance,
+        },
+    }
+    audit = audit_skilllearn(executions=executions)
+    return trace, {
+        **audit.model_dump(mode="json"),
+        "evidence_complete": len(executions) == 3,
+        **provenance,
+    }
+
+
+def derive_owned_run_audits(
+    run_dir: Path,
+    *,
+    candidate: StableSplitCandidate,
+    family: str | None,
+    runtime: dict[str, Any],
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Derive N3/N4 and domain gates only from baseline-owned persisted outputs."""
+
+    if candidate.benchmark in {"spreadsheetbench_verified", "officeqa_full"}:
+        return _skillopt_owned_audits(run_dir, candidate=candidate)
+    if candidate.benchmark == "webshop":
+        return _webshop_owned_audits(
+            run_dir, candidate=candidate, runtime=runtime
+        )
+    if candidate.benchmark == "skilllearnbench" and family:
+        return _skilllearn_owned_audits(
+            run_dir, candidate=candidate, family=family
+        )
+    return _missing_owned_audits(run_dir, "unsupported_owned_trace_contract", [])
 
 
 def _inside(root: Path, raw: str) -> Path:
@@ -368,15 +866,24 @@ def read_clean_run(
         "seed_skill_hash"
     ):
         failures.append("seed_artifact_hash_differs")
-    scope = {
-        key: value
-        for key, value in inputs.items()
-        if key not in {"method_seed", "repository_commit"}
-    }
-    scope["selection_hash"] = candidate.selection_hash
-    scope["family"] = family
-    trace_path = run_dir / "trace_applicability.json"
-    domain_path = run_dir / "domain_audit.json"
+    evolution_input_hash = normalized_evolution_input_hash(
+        candidate=candidate,
+        family=family,
+        runtime=inputs["runtime"],
+        seed_skill_hash=seed_hash,
+        provider=identity.inputs.provider,
+        model=identity.inputs.model,
+        train_tasks=[TaskManifest.model_validate(row) for row in split["train"]],
+        validation_tasks=[
+            TaskManifest.model_validate(row) for row in split["validation"]
+        ],
+    )
+    trace_applicability, domain_audit = derive_owned_run_audits(
+        run_dir,
+        candidate=candidate,
+        family=family,
+        runtime=inputs["runtime"],
+    )
     return CleanRunEvidence(
         benchmark=candidate.benchmark,
         candidate_index=candidate_index,
@@ -394,14 +901,12 @@ def read_clean_run(
         clean_artifact_path=str(clean_path),
         clean_artifact_hash=clean_hash,
         baseline_fingerprint=identity.inputs.baseline.fingerprint,
-        evolution_input_hash=canonical_hash(scope),
+        evolution_input_hash=evolution_input_hash,
         provider=identity.inputs.provider,
         model=identity.inputs.model,
         provider_config_hash=provider_config_hash,
-        trace_applicability=(
-            _read_object(trace_path) if trace_path.is_file() else {}
-        ),
-        domain_audit=_read_object(domain_path) if domain_path.is_file() else {},
+        trace_applicability=trace_applicability,
+        domain_audit=domain_audit,
         failure_reasons=failures,
     )
 
@@ -470,41 +975,59 @@ def _applicability_rows(audit: dict[str, Any]) -> dict[str, Any]:
     return rows if isinstance(rows, dict) else {}
 
 
-def _selection_audit_failures(
+def _selection_audit_failure_groups(
     repository: SelectionRepository,
     candidate: StableSplitCandidate,
     runs: list[CleanRunEvidence],
-) -> list[str]:
+) -> tuple[list[str], list[str]]:
     """Require static, trace-derived, and domain gates from owned evidence."""
 
-    failures: list[str] = []
+    retryable: list[str] = []
+    deterministic: list[str] = []
     static_rows = _applicability_rows(
         repository.audits[(candidate.benchmark, candidate.candidate_index)]
     )
     for stage in ("N1", "N2"):
         row = static_rows.get(stage)
         if not isinstance(row, dict):
-            failures.append(f"missing_noise_applicability:{stage}")
+            deterministic.append(f"missing_noise_applicability:{stage}")
         elif row.get("status") != "pass" or row.get("coverage") != 1.0:
-            failures.append(f"incomplete_noise_applicability:{stage}")
+            deterministic.append(f"incomplete_noise_applicability:{stage}")
     for run in runs:
         for stage in ("N3", "N4"):
             row = run.trace_applicability.get(stage)
             if not isinstance(row, dict):
-                failures.append(f"missing_noise_applicability:{stage}")
-            elif row.get("status") == "pending":
-                failures.append(f"pending_noise_applicability:{stage}")
+                retryable.append(f"missing_noise_applicability:{stage}")
+            elif row.get("status") in {"pending", "missing"}:
+                retryable.append(f"missing_noise_applicability:{stage}")
             elif row.get("status") != "pass" or row.get("coverage") != 1.0:
-                failures.append(f"incomplete_noise_applicability:{stage}")
+                deterministic.append(f"incomplete_noise_applicability:{stage}")
         if not run.domain_audit:
-            failures.append("missing_domain_audit")
+            retryable.append("missing_domain_audit")
+        elif run.domain_audit.get("evidence_complete") is not True:
+            reasons = run.domain_audit.get("failure_reasons")
+            if isinstance(reasons, list) and reasons:
+                retryable.extend(str(reason) for reason in reasons)
+            else:
+                retryable.append("missing_domain_audit")
         elif run.domain_audit.get("passed") is not True:
             reasons = run.domain_audit.get("failure_reasons")
             if isinstance(reasons, list) and reasons:
-                failures.extend(str(reason) for reason in reasons)
+                deterministic.extend(str(reason) for reason in reasons)
             else:
-                failures.append("domain_structural_audit_failed")
-    return list(dict.fromkeys(failures))
+                deterministic.append("domain_structural_audit_failed")
+    return list(dict.fromkeys(retryable)), list(dict.fromkeys(deterministic))
+
+
+def _selection_audit_failures(
+    repository: SelectionRepository,
+    candidate: StableSplitCandidate,
+    runs: list[CleanRunEvidence],
+) -> list[str]:
+    retryable, deterministic = _selection_audit_failure_groups(
+        repository, candidate, runs
+    )
+    return [*retryable, *deterministic]
 
 
 def _replay_result_path(
@@ -573,12 +1096,19 @@ def _candidate_result(
     run_root: Path,
     family: str | None = None,
 ) -> tuple[str, list[str]]:
-    group_failures = [
-        *_group_failures(candidate, runs, family=family),
-        *_selection_audit_failures(repository, candidate, runs),
-    ]
-    if group_failures:
-        return sequential_incomplete_action(candidate.candidate_index), group_failures
+    group_failures = _group_failures(candidate, runs, family=family)
+    retryable_audit, deterministic_audit = _selection_audit_failure_groups(
+        repository, candidate, runs
+    )
+    if group_failures or retryable_audit:
+        return sequential_incomplete_action(candidate.candidate_index), [
+            *group_failures,
+            *retryable_audit,
+        ]
+    if deterministic_audit:
+        return candidate_failure_action(
+            candidate.candidate_index, deterministic=True
+        ), deterministic_audit
     seed_evidence: list[CandidateSeedEvidence] = []
     replay_failures: list[str] = []
     extend = False
@@ -780,6 +1310,8 @@ def _legacy_replay_sources(root: Path | None) -> list[dict[str, Any]]:
                 "task_ids": replay.get("task_ids"),
                 "artifact_hashes": replay.get("artifact_hashes"),
                 "integrity_failures": replay_integrity_failures(replay),
+                "reuse_disposition": "replay_required",
+                "reuse_reasons": ["legacy_replay_not_canonical_per_seed"],
             }
         )
     return sources
@@ -796,10 +1328,42 @@ def _reuse_audit(
         if clean_v2_root is not None
         else []
     )
+    expected_identities = _current_candidate_one_identities(repository)
+    identity_audits: list[dict[str, Any]] = []
+    current_failures: dict[str, list[str]] = {}
+    for run in records:
+        expected = expected_identities.get((run.benchmark, run.method_seed))
+        if expected is None:
+            continue
+        expected = {**expected, "artifact_hash": run.clean_artifact_hash}
+        actual = {
+            "baseline_fingerprint": run.baseline_fingerprint,
+            "evolution_input_hash": run.evolution_input_hash,
+            "provider": run.provider,
+            "model": run.model,
+            "provider_config_hash": run.provider_config_hash,
+            "method_seed": run.method_seed,
+            "artifact_hash": run.clean_artifact_hash,
+        }
+        failures = reuse_identity_failures(actual, expected)
+        if run.seed_artifact_hash != expected["seed_artifact_hash"]:
+            failures.append("reuse_identity_mismatch:seed_artifact_hash")
+        key = f"{run.benchmark}:{run.method_seed}"
+        current_failures[key] = failures
+        identity_audits.append(
+            {
+                "benchmark": run.benchmark,
+                "method_seed": run.method_seed,
+                "actual": actual,
+                "expected": expected,
+                "failure_reasons": failures,
+            }
+        )
     source_payload = {
         "schema_version": "rsebench.reuse-audit-sources.v1",
         "runs": [record.model_dump(mode="json") for record in records],
         "legacy_replays": _legacy_replay_sources(skillopt_replay_root),
+        "current_identity_audits": identity_audits,
     }
     run_root.mkdir(parents=True, exist_ok=True)
     (run_root / "reuse_audit_sources.json").write_text(
@@ -822,6 +1386,11 @@ def _reuse_audit(
         candidate = repository.candidates[benchmark][1]
         runs = _records_for(records, benchmark, 1)
         failures = _group_failures(candidate, runs, family=None)
+        for run in runs:
+            failures.extend(
+                current_failures.get(f"{benchmark}:{run.method_seed}", [])
+            )
+        failures = list(dict.fromkeys(failures))
         domains[benchmark] = DomainSelectionStatus(
             benchmark=benchmark,
             next_action=("rerun_candidate_1" if failures else "replay_candidate_1"),
@@ -942,6 +1511,7 @@ def _screening(
         candidate = repository.candidates["skilllearnbench"][1]
         for family in SKILLLEARN_FAMILIES:
             seeds: list[ScreeningSeedEvidence] = []
+            family_replay_failures: list[str] = []
             family_runs = _records_for(records, "skilllearnbench", 1, family)
             family_failures = [
                 *_group_failures(candidate, family_runs, family=family),
@@ -970,6 +1540,7 @@ def _screening(
                 skill_failures.extend(
                     f"{family}:{reason}" for reason in replay_failures
                 )
+                family_replay_failures.extend(replay_failures)
                 if replay is not None and not replay_failures:
                     seeds.append(
                         ScreeningSeedEvidence(
@@ -988,7 +1559,13 @@ def _screening(
                     seeds=seeds, execution_coverage=1.0
                 )
                 family_decisions[family] = decision
-                if decision.status == "clean_generalization_ready":
+                if screening_family_ready(
+                    decision,
+                    evidence_failures=[
+                        *family_failures,
+                        *family_replay_failures,
+                    ],
+                ):
                     ready_families.append(family)
     skill_ready = len(ready_families) >= 3
     domains["skilllearnbench"] = DomainScreeningGeneralization(
@@ -1173,7 +1750,9 @@ __all__ = [
     "aggregate_selection_roots",
     "discover_clean_runs",
     "discover_replay_jobs",
+    "derive_owned_run_audits",
     "load_selection_repository",
+    "normalized_evolution_input_hash",
     "read_clean_run",
     "validate_candidate_denominators",
 ]

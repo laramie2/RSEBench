@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
+from pathlib import Path
+
 import pytest
 
 from rsebench.contracts import TaskManifest
@@ -14,16 +17,23 @@ from rsebench.selection.qualification import (
     audit_skilllearn,
     audit_spreadsheet,
     audit_webshop,
+    candidate_failure_action,
     decide_candidate,
     decide_screening_generalization,
     replay_action,
     replay_integrity_failures,
+    reuse_identity_failures,
     reuse_action,
+    screening_family_ready,
     sequential_incomplete_action,
 )
 from rsebench.selection.qualification_io import (
     CleanRunEvidence,
+    SelectionRepository,
     _group_failures,
+    _selection_audit_failure_groups,
+    derive_owned_run_audits,
+    normalized_evolution_input_hash,
     validate_candidate_denominators,
 )
 
@@ -184,6 +194,74 @@ def test_mixed_or_missing_reuse_identity_requests_fixed_fallback_matrix() -> Non
     assert reuse_action(missing, expected) == "run_fixed_fallback_matrix"
 
 
+def test_reuse_identity_reports_each_current_field_mismatch() -> None:
+    expected = {
+        "baseline_fingerprint": "a" * 64,
+        "evolution_input_hash": "b" * 64,
+        "provider": "deepseek",
+        "model": "deepseek-v4-flash",
+        "provider_config_hash": "c" * 64,
+        "method_seed": 20260813,
+        "artifact_hash": "d" * 64,
+    }
+    actual = {
+        **expected,
+        "baseline_fingerprint": "e" * 64,
+        "provider_config_hash": "f" * 64,
+    }
+    assert reuse_identity_failures(actual, expected) == [
+        "reuse_identity_mismatch:baseline_fingerprint",
+        "reuse_identity_mismatch:provider_config_hash",
+    ]
+
+
+def test_normalized_evolution_identity_includes_task_content_not_manifest_path() -> None:
+    def task(task_id: str, source_hash: str) -> TaskManifest:
+        return TaskManifest(
+            task_id=task_id,
+            benchmark="officeqa_full",
+            domain="document",
+            prompt="question",
+            gold_answers=["answer"],
+            source_hash=source_hash,
+            artifact_path=f"rsebench-data://office/{task_id}.json",
+        )
+
+    candidate = StableSplitCandidate(
+        benchmark="officeqa_full",
+        domain="document",
+        candidate_index=1,
+        train=[task("train-1", "a" * 64)],
+        validation=[task("validation-1", "b" * 64)],
+        qualification_test=[],
+        screening_test=[],
+        source_hash="c" * 64,
+        selection_hash="d" * 64,
+    )
+    common = {
+        "candidate": candidate,
+        "family": None,
+        "runtime": {"max_steps": 3},
+        "seed_skill_hash": "e" * 64,
+        "provider": "deepseek",
+        "model": "deepseek-v4-flash",
+    }
+    current = normalized_evolution_input_hash(**common)
+    moved_manifest = normalized_evolution_input_hash(
+        **common,
+        train_tasks=[task("train-1", "a" * 64)],
+        validation_tasks=[task("validation-1", "b" * 64)],
+    )
+    stale_content = normalized_evolution_input_hash(
+        **common,
+        train_tasks=[task("train-1", "f" * 64)],
+        validation_tasks=[task("validation-1", "b" * 64)],
+    )
+
+    assert moved_manifest == current
+    assert stale_content != current
+
+
 def test_spreadsheet_audit_requires_closed_headroom_and_mixed_batches() -> None:
     passed = audit_spreadsheet(
         validation_score=0.2,
@@ -283,6 +361,33 @@ def test_incomplete_candidate_action_never_regresses_candidate_two_or_three() ->
     assert sequential_incomplete_action(3) == "clean_blocked_after_three_candidates"
 
 
+def test_completed_candidate_two_domain_failure_advances_to_candidate_three() -> None:
+    assert candidate_failure_action(2, deterministic=True) == "run_candidate_3"
+    assert candidate_failure_action(2, deterministic=False) == "run_candidate_2"
+
+
+def test_skilllearn_screening_readiness_requires_clean_evidence() -> None:
+    decision = decide_screening_generalization(
+        seeds=[
+            ScreeningSeedEvidence(
+                method_seed=seed,
+                mean_delta_vs_seed=0.1,
+                execution_complete=True,
+                replay_count=3,
+            )
+            for seed in (20260813, 20260814, 20260815)
+        ],
+        execution_coverage=1.0,
+    )
+    assert screening_family_ready(decision, evidence_failures=[]) is True
+    assert (
+        screening_family_ready(
+            decision, evidence_failures=["incomplete_noise_applicability:N3"]
+        )
+        is False
+    )
+
+
 def test_replay_integrity_rejects_two_repeats_and_malformed_resume_history() -> None:
     minimal = {
         "repeat_count": 2,
@@ -307,6 +412,122 @@ def test_replay_integrity_rejects_two_repeats_and_malformed_resume_history() -> 
     assert "invalid_replay_resume_history" in replay_integrity_failures(
         malformed_resume
     )
+
+
+def _span(level: str, name: str, *, task_id: str | None = None) -> dict:
+    now = datetime.now(timezone.utc).isoformat()
+    return {
+        "level": level,
+        "name": name,
+        "task_id": task_id,
+        "started_at": now,
+        "ended_at": now,
+        "duration_seconds": 0.1,
+        "status": "completed",
+        "error_type": None,
+        "metadata": {},
+    }
+
+
+def _valid_replay(repeat_count: int = 3) -> dict:
+    now = datetime.now(timezone.utc).isoformat()
+    hashes = {"seed": "a" * 64, "clean": "b" * 64}
+    labels = tuple(hashes)
+    task_ids = ["t1", "t2"]
+    return {
+        "schema_version": "rsebench.fixed-artifact-replay.v1",
+        "output_dir": "/tmp/replay",
+        "benchmark": "fixture",
+        "domain": "document",
+        "repeat_count": repeat_count,
+        "order_policy": "cyclic_rotation",
+        "artifact_order": list(labels),
+        "reference_label": "seed",
+        "task_ids": task_ids,
+        "task_manifest_hash": "c" * 64,
+        "artifact_paths": {"seed": "/tmp/seed", "clean": "/tmp/clean"},
+        "artifact_hashes": hashes,
+        "observations": [
+            {
+                "repeat": repeat,
+                "artifact_label": label,
+                "artifact_hash": hashes[label],
+                "stage": f"replay_{label}_r{repeat}",
+                "started_at": now,
+                "ended_at": now,
+                "duration_seconds": 0.1,
+                "evaluation": {
+                    "score": 1.0,
+                    "per_task_scores": {task_id: 1.0 for task_id in task_ids},
+                    "diagnostics": {},
+                },
+            }
+            for repeat in range(1, repeat_count + 1)
+            for label in labels
+        ],
+        "summaries": {
+            label: {
+                "scores": [1.0] * repeat_count,
+                "mean_score": 1.0,
+                "score_sample_stddev": 0.0,
+                "min_score": 1.0,
+                "max_score": 1.0,
+                "deltas_vs_reference": [0.0] * repeat_count,
+                "mean_delta_vs_reference": 0.0,
+                "delta_sample_stddev": 0.0,
+            }
+            for label in labels
+        },
+        "started_at": now,
+        "ended_at": now,
+        "duration_seconds": 1.0,
+        "resume_history": (
+            []
+            if repeat_count == 3
+            else [{"from_repeat_count": 3, "to_repeat_count": 5}]
+        ),
+        "timing": {
+            "run": _span("run", "fixed_artifact_replay"),
+            "stages": [
+                _span("stage", f"replay_{label}_r{repeat}")
+                for repeat in range(1, repeat_count + 1)
+                for label in labels
+            ],
+            "tasks": [
+                _span("task", f"replay_{label}_r{repeat}", task_id=task_id)
+                for repeat in range(1, repeat_count + 1)
+                for label in labels
+                for task_id in task_ids
+            ],
+        },
+        "token_usage": {
+            "observed_coverage": 1.0,
+            "billed_tokens": {
+                "prompt_tokens": 0,
+                "completion_tokens": 0,
+                "total_tokens": 0,
+            },
+        },
+    }
+
+
+@pytest.mark.parametrize("repeat_count", [3, 5])
+def test_replay_timing_requires_exact_unique_stage_and_task_sets(
+    repeat_count: int,
+) -> None:
+    stage_substitution = _valid_replay(repeat_count)
+    stage_substitution["timing"]["stages"][-1] = stage_substitution["timing"][
+        "stages"
+    ][0]
+    assert "invalid_replay_stage_set" in replay_integrity_failures(
+        stage_substitution
+    )
+
+    task_substitution = _valid_replay(repeat_count)
+    task_substitution["timing"]["tasks"][-1] = task_substitution["timing"][
+        "tasks"
+    ][0]
+    assert "invalid_replay_task_set" in replay_integrity_failures(task_substitution)
 
 
 def test_reduced_pool_candidate_denominator_is_rejected() -> None:
@@ -334,6 +555,109 @@ def test_reduced_pool_candidate_denominator_is_rejected() -> None:
 
     with pytest.raises(ValueError, match="wrong fixed denominator"):
         validate_candidate_denominators(candidate)
+
+
+def test_owned_trace_derivation_never_trusts_preexisting_sidecars(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "trace_applicability.json").write_text(
+        '{"N3":{"status":"pass","coverage":1.0},'
+        '"N4":{"status":"pass","coverage":1.0}}',
+        encoding="utf-8",
+    )
+    (tmp_path / "domain_audit.json").write_text(
+        '{"passed":true,"failure_reasons":[]}', encoding="utf-8"
+    )
+    candidate = StableSplitCandidate(
+        benchmark="spreadsheetbench_verified",
+        domain="spreadsheet",
+        candidate_index=1,
+        train=[],
+        validation=[],
+        qualification_test=[],
+        screening_test=[],
+        source_hash="a" * 64,
+        selection_hash="b" * 64,
+    )
+
+    trace, domain = derive_owned_run_audits(
+        tmp_path,
+        candidate=candidate,
+        family=None,
+        runtime={"max_steps": 3, "batch_size": 7},
+    )
+
+    assert trace["N3"]["status"] == "missing"
+    assert trace["N4"]["status"] == "missing"
+    assert domain["passed"] is False
+    assert domain["evidence_source"] == "owned_persisted_outputs"
+
+
+def test_candidate_two_completed_n3_failure_is_deterministic(tmp_path: Path) -> None:
+    candidate = StableSplitCandidate(
+        benchmark="officeqa_full",
+        domain="document",
+        candidate_index=2,
+        train=[],
+        validation=[],
+        qualification_test=[],
+        screening_test=[],
+        source_hash="a" * 64,
+        selection_hash="b" * 64,
+    )
+    repository = SelectionRepository(
+        root=tmp_path,
+        candidates={"officeqa_full": {2: candidate}},
+        candidate_paths={},
+        audits={
+            ("officeqa_full", 2): {
+                "static_gates": {
+                    "noise_applicability": {
+                        "N1": {"status": "pass", "coverage": 1.0},
+                        "N2": {"status": "pass", "coverage": 1.0},
+                    }
+                }
+            }
+        },
+    )
+    run = CleanRunEvidence(
+        benchmark="officeqa_full",
+        candidate_index=2,
+        selection_hash=candidate.selection_hash,
+        method_seed=20260813,
+        run_dir="/run",
+        train_task_ids=[],
+        validation_task_ids=[],
+        accepted_update_count=1,
+        artifact_changed=True,
+        validation_complete=True,
+        seed_artifact_path="/seed",
+        seed_artifact_hash="c" * 64,
+        clean_artifact_path="/clean",
+        clean_artifact_hash="d" * 64,
+        baseline_fingerprint="e" * 64,
+        evolution_input_hash="f" * 64,
+        provider="deepseek",
+        model="deepseek-v4-flash",
+        provider_config_hash="1" * 64,
+        trace_applicability={
+            "N3": {"status": "fail", "coverage": 0.5},
+            "N4": {"status": "pass", "coverage": 1.0},
+        },
+        domain_audit={
+            "passed": True,
+            "evidence_complete": True,
+            "failure_reasons": [],
+        },
+    )
+
+    retryable, deterministic = _selection_audit_failure_groups(
+        repository, candidate, [run]
+    )
+
+    assert retryable == []
+    assert deterministic == ["incomplete_noise_applicability:N3"]
+    assert candidate_failure_action(2, deterministic=True) == "run_candidate_3"
 
 
 def test_skilllearn_seed_group_rejects_mixed_fingerprint_and_family_substitution() -> (

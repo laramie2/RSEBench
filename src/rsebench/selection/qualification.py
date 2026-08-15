@@ -226,6 +226,29 @@ def sequential_incomplete_action(
     raise ValueError("candidate index must be one of 1, 2, or 3")
 
 
+def candidate_failure_action(
+    candidate_index: int,
+    *,
+    deterministic: bool,
+) -> Literal[
+    "rerun_candidate_1",
+    "run_candidate_2",
+    "run_candidate_3",
+    "clean_blocked_after_three_candidates",
+]:
+    """Separate retryable missing evidence from completed nonqualification."""
+
+    if not deterministic:
+        return sequential_incomplete_action(candidate_index)
+    if candidate_index == 1:
+        return "run_candidate_2"
+    if candidate_index == 2:
+        return "run_candidate_3"
+    if candidate_index == 3:
+        return "clean_blocked_after_three_candidates"
+    raise ValueError("candidate index must be one of 1, 2, or 3")
+
+
 def decision_failures(
     *,
     seeds: Sequence[CandidateSeedEvidence],
@@ -333,6 +356,16 @@ def decide_screening_generalization(
     )
 
 
+def screening_family_ready(
+    decision: ScreeningGeneralizationDecision,
+    *,
+    evidence_failures: Sequence[str],
+) -> bool:
+    """Require both a positive decision and failure-free owned evidence."""
+
+    return not evidence_failures and decision.status == "clean_generalization_ready"
+
+
 _REUSE_FIELDS = (
     "baseline_fingerprint",
     "evolution_input_hash",
@@ -350,12 +383,26 @@ def reuse_action(
 ) -> Literal["reuse_artifact", "run_fixed_fallback_matrix"]:
     """Approve artifact reuse only when every preregistered identity field matches."""
 
-    for field in _REUSE_FIELDS:
-        if field not in actual or field not in expected:
-            return "run_fixed_fallback_matrix"
-        if actual[field] != expected[field]:
-            return "run_fixed_fallback_matrix"
-    return "reuse_artifact"
+    return (
+        "run_fixed_fallback_matrix"
+        if reuse_identity_failures(actual, expected)
+        else "reuse_artifact"
+    )
+
+
+def reuse_identity_failures(
+    actual: Mapping[str, Any],
+    expected: Mapping[str, Any],
+) -> list[str]:
+    """Return deterministic field-level mismatches against current preflight."""
+
+    return [
+        f"reuse_identity_mismatch:{field}"
+        for field in _REUSE_FIELDS
+        if field not in actual
+        or field not in expected
+        or actual[field] != expected[field]
+    ]
 
 
 def replay_integrity_failures(
@@ -418,6 +465,37 @@ def replay_integrity_failures(
                 failures.append("incomplete_stage_timing_denominator")
             if len(tasks) != expected_tasks:
                 failures.append("incomplete_task_timing_denominator")
+            expected_stage_names = {
+                f"replay_{label}_r{repeat}"
+                for repeat in range(1, repeat_count + 1)
+                for label in artifact_hashes
+            }
+            actual_stage_names = [
+                row.get("name") for row in stages if isinstance(row, Mapping)
+            ]
+            if (
+                len(actual_stage_names) != len(stages)
+                or len(actual_stage_names) != len(set(actual_stage_names))
+                or set(actual_stage_names) != expected_stage_names
+            ):
+                failures.append("invalid_replay_stage_set")
+            expected_task_keys = {
+                (f"replay_{label}_r{repeat}", task_id)
+                for repeat in range(1, repeat_count + 1)
+                for label in artifact_hashes
+                for task_id in task_ids
+            }
+            actual_task_keys = [
+                (row.get("name"), row.get("task_id"))
+                for row in tasks
+                if isinstance(row, Mapping)
+            ]
+            if (
+                len(actual_task_keys) != len(tasks)
+                or len(actual_task_keys) != len(set(actual_task_keys))
+                or set(actual_task_keys) != expected_task_keys
+            ):
+                failures.append("invalid_replay_task_set")
             observations = replay.get("observations")
             if (
                 not isinstance(observations, list)
@@ -494,12 +572,15 @@ __all__ = [
     "audit_skilllearn",
     "audit_spreadsheet",
     "audit_webshop",
+    "candidate_failure_action",
     "decide_candidate",
     "decide_screening_generalization",
     "decision_failures",
     "replay_action",
     "replay_integrity_failures",
     "reuse_action",
+    "reuse_identity_failures",
+    "screening_family_ready",
     "sequential_incomplete_action",
     "select_candidate_evaluation_tasks",
 ]

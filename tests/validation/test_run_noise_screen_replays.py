@@ -5,6 +5,8 @@ import json
 import sys
 from pathlib import Path
 
+import pytest
+
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
@@ -108,3 +110,64 @@ def test_root_cli_execute_still_requires_explicit_cost_confirmation(
         assert "--confirm-provider-cost" in str(exc)
     else:
         raise AssertionError("execute without cost confirmation was accepted")
+
+
+def test_replay_parser_rejects_removed_synthetic_spec_mode() -> None:
+    parser = _load_script().build_parser()
+    with pytest.raises(SystemExit):
+        parser.parse_args(["--spec", "synthetic.json", "--output", "out.json"])
+
+
+def test_task8_replay_commands_are_provider_confirmed() -> None:
+    plan = (
+        PROJECT_ROOT
+        / "docs/superpowers/plans/2026-08-15-stable-noise-validation-splits.md"
+    ).read_text(encoding="utf-8")
+    task8 = plan.split("### Task 8:", maxsplit=1)[1]
+    blocks = task8.split("PYTHONPATH=src python scripts/run_noise_screen_replays.py")[1:]
+    assert len(blocks) == 4
+    for block in blocks:
+        command = block.split("~~~", maxsplit=1)[0]
+        assert "--execute" in command
+        assert "--confirm-provider-cost" in command
+
+
+def test_execute_forwards_confirmation_to_each_replay(
+    tmp_path: Path, monkeypatch
+) -> None:
+    module = _load_script()
+    calls: list[list[str]] = []
+    monkeypatch.setattr(
+        module,
+        "build_root_replay_plan",
+        lambda **_kwargs: {
+            "schema_version": "rsebench.noise-screen-replay-matrix.v1",
+            "commands": [["python", "replay.py"]],
+            "jobs": [{"benchmark": "officeqa_full"}],
+            "provider_calls": 0,
+        },
+    )
+    monkeypatch.setattr(
+        module.subprocess,
+        "run",
+        lambda command, check: calls.append(command),
+    )
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            module.__file__,
+            "--selection-root",
+            str(tmp_path / "selection"),
+            "--run-root",
+            str(tmp_path / "runs"),
+            "--evaluation-role",
+            "qualification_test",
+            "--execute",
+            "--confirm-provider-cost",
+        ],
+    )
+
+    module.main()
+
+    assert calls == [["python", "replay.py", "--confirm-provider-cost"]]
