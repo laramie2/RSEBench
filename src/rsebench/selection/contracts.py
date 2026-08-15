@@ -15,8 +15,71 @@ from rsebench.evidence import canonical_hash
 _HASH_PATTERN = r"^[0-9a-f]{64}$"
 
 
+def _immutable_collection(*args: Any, **kwargs: Any) -> None:
+    del args, kwargs
+    raise TypeError("selection contract collections are immutable")
+
+
+class _FrozenList(list[Any]):
+    __setitem__ = _immutable_collection
+    __delitem__ = _immutable_collection
+    __iadd__ = _immutable_collection
+    __imul__ = _immutable_collection
+    append = _immutable_collection
+    clear = _immutable_collection
+    extend = _immutable_collection
+    insert = _immutable_collection
+    pop = _immutable_collection
+    remove = _immutable_collection
+    reverse = _immutable_collection
+    sort = _immutable_collection
+
+
+class _FrozenDict(dict[Any, Any]):
+    __setitem__ = _immutable_collection
+    __delitem__ = _immutable_collection
+    __ior__ = _immutable_collection
+    clear = _immutable_collection
+    pop = _immutable_collection
+    popitem = _immutable_collection
+    setdefault = _immutable_collection
+    update = _immutable_collection
+
+
+def _deep_freeze(value: Any) -> Any:
+    if isinstance(value, (_ImmutableSelectionModel, _ImmutableTaskManifest)):
+        return value
+    if isinstance(value, TaskManifest):
+        return _ImmutableTaskManifest.model_validate(value.model_dump(mode="python"))
+    if isinstance(value, dict):
+        return _FrozenDict(
+            (key, _deep_freeze(child)) for key, child in value.items()
+        )
+    if isinstance(value, list):
+        return _FrozenList(_deep_freeze(child) for child in value)
+    if isinstance(value, tuple):
+        return tuple(_deep_freeze(child) for child in value)
+    if isinstance(value, set):
+        return frozenset(_deep_freeze(child) for child in value)
+    return value
+
+
 class _ImmutableSelectionModel(StrictModel):
     model_config = ConfigDict(frozen=True)
+
+    def model_post_init(self, context: Any, /) -> None:
+        del context
+        for field_name, value in self.__dict__.items():
+            object.__setattr__(self, field_name, _deep_freeze(value))
+
+
+class _ImmutableTaskManifest(TaskManifest):
+    model_config = ConfigDict(frozen=True)
+
+    def model_post_init(self, context: Any, /) -> None:
+        del context
+        for field_name, value in self.__dict__.items():
+            object.__setattr__(self, field_name, _deep_freeze(value))
 
 
 class ExposureLevel(str, Enum):

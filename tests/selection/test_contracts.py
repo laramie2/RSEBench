@@ -1,3 +1,8 @@
+import json
+import operator
+from collections.abc import Callable
+from typing import Any
+
 import pytest
 from pydantic import ValidationError
 
@@ -9,6 +14,9 @@ from rsebench.selection import (
     ConfirmationSeal,
     ConfirmationSplit,
     DomainSelectionStatus,
+    ExposureLevel,
+    ExposureRecord,
+    ExposureRegistry,
     ResourceLock,
     ResourceReference,
     ScreeningGeneralizationDecision,
@@ -28,6 +36,7 @@ def _task(
     *,
     benchmark: str = "officeqa_full",
     domain: str = "document",
+    metadata: dict[str, Any] | None = None,
 ) -> TaskManifest:
     return TaskManifest(
         task_id=task_id,
@@ -36,6 +45,7 @@ def _task(
         prompt=f"Question {task_id}",
         gold_answers=["answer"],
         source_hash=HASH,
+        metadata=metadata or {},
     )
 
 
@@ -109,6 +119,222 @@ def test_candidate_is_immutable_and_strictly_bounded() -> None:
         _candidate(source_hash="A" * 64)
     with pytest.raises(ValidationError):
         StableSplitCandidate(**_candidate().model_dump(), unexpected=True)
+
+
+@pytest.mark.parametrize(
+    ("mutation", "expected_error"),
+    [
+        pytest.param(
+            lambda candidate: candidate.train.append(_task("appended")),
+            TypeError,
+            id="train-append",
+        ),
+        pytest.param(
+            lambda candidate: operator.setitem(
+                candidate.train,
+                0,
+                _task("replacement"),
+            ),
+            TypeError,
+            id="train-item-assignment",
+        ),
+        pytest.param(
+            lambda candidate: operator.setitem(candidate.metadata, "changed", True),
+            TypeError,
+            id="candidate-metadata",
+        ),
+        pytest.param(
+            lambda candidate: setattr(candidate.train[0], "task_id", "changed"),
+            ValidationError,
+            id="nested-task-attribute",
+        ),
+        pytest.param(
+            lambda candidate: candidate.train[0].gold_answers.append("changed"),
+            TypeError,
+            id="nested-task-gold-answers",
+        ),
+        pytest.param(
+            lambda candidate: operator.setitem(
+                candidate.train[0].metadata,
+                "changed",
+                True,
+            ),
+            TypeError,
+            id="nested-task-metadata",
+        ),
+        pytest.param(
+            lambda candidate: candidate.train[0].metadata["nested"]["tags"].append(
+                "changed"
+            ),
+            TypeError,
+            id="recursively-nested-task-metadata",
+        ),
+    ],
+)
+def test_candidate_rejects_deep_mutation(
+    mutation: Callable[[StableSplitCandidate], object],
+    expected_error: type[Exception],
+) -> None:
+    candidate = _candidate(
+        metadata={"selection": {"version": "v1"}},
+        train=[_task("train", metadata={"nested": {"tags": ["original"]}})],
+    )
+
+    with pytest.raises(expected_error, match="immutable|frozen"):
+        mutation(candidate)
+
+
+def _registry() -> ExposureRegistry:
+    return ExposureRegistry(
+        records=[
+            ExposureRecord(
+                benchmark="officeqa_full",
+                task_id="UID0042",
+                level=ExposureLevel.manifest_only,
+                roles=["train"],
+                sources=["manifest"],
+            )
+        ],
+        registry_hash=HASH,
+    )
+
+
+def _status() -> SelectionStatus:
+    return SelectionStatus(
+        domains={
+            "document": DomainSelectionStatus(
+                benchmark="officeqa_full",
+                selected_candidate_index=1,
+                next_action="freeze_candidate",
+                reasons=["qualified"],
+            )
+        }
+    )
+
+
+def _seal() -> ConfirmationSeal:
+    return ConfirmationSeal(
+        created_before_screening=True,
+        split_hashes={"document": HASH},
+        task_ids={"document": ["confirm"]},
+        exposure_registry_hash=HASH,
+    )
+
+
+def _release() -> SelectionReleaseManifest:
+    return SelectionReleaseManifest(
+        selection_version="noise-screen-v1",
+        selected_candidate_indices={"document": 1},
+        screening_split_hashes={"document": HASH},
+        confirmation_split_hashes={"document": HASH},
+        exposure_registry_hash=HASH,
+        resource_lock_hash=HASH,
+        baseline_fingerprints={"skillopt": HASH},
+        domain_statuses={"document": "clean_generalization_ready"},
+    )
+
+
+@pytest.mark.parametrize(
+    ("factory", "mutation"),
+    [
+        pytest.param(
+            _registry,
+            lambda registry: registry.records.append(registry.records[0]),
+            id="registry-record-list",
+        ),
+        pytest.param(
+            _registry,
+            lambda registry: registry.records[0].roles.append("test"),
+            id="registry-nested-role-list",
+        ),
+        pytest.param(
+            _status,
+            lambda status: operator.setitem(
+                status.domains,
+                "spreadsheet",
+                status.domains["document"],
+            ),
+            id="status-domain-dict",
+        ),
+        pytest.param(
+            _status,
+            lambda status: status.domains["document"].reasons.append("changed"),
+            id="status-nested-reason-list",
+        ),
+        pytest.param(
+            _seal,
+            lambda seal: seal.task_ids["document"].append("changed"),
+            id="seal-nested-task-list",
+        ),
+        pytest.param(
+            _seal,
+            lambda seal: operator.setitem(seal.split_hashes, "changed", HASH),
+            id="seal-hash-dict",
+        ),
+        pytest.param(
+            _release,
+            lambda release: operator.setitem(
+                release.selected_candidate_indices,
+                "changed",
+                2,
+            ),
+            id="release-candidate-dict",
+        ),
+        pytest.param(
+            _release,
+            lambda release: operator.setitem(
+                release.baseline_fingerprints,
+                "changed",
+                HASH,
+            ),
+            id="release-fingerprint-dict",
+        ),
+    ],
+)
+def test_selection_contracts_reject_representative_deep_mutation(
+    factory: Callable[[], Any],
+    mutation: Callable[[Any], object],
+) -> None:
+    with pytest.raises(TypeError, match="immutable"):
+        mutation(factory())
+
+
+def test_deep_freeze_preserves_inputs_schema_serialization_and_hashes() -> None:
+    source_task = _task(
+        "train",
+        metadata={"nested": {"tags": ["original"]}},
+    )
+    input_payload = {
+        "benchmark": "officeqa_full",
+        "domain": "document",
+        "candidate_index": 2,
+        "train": [source_task.model_dump(mode="json")],
+        "validation": [_task("validation").model_dump(mode="json")],
+        "qualification_test": [_task("qualification").model_dump(mode="json")],
+        "screening_test": [_task("screening").model_dump(mode="json")],
+        "source_hash": HASH,
+        "selection_hash": HASH,
+        "metadata": {"selection": {"version": "v1"}},
+    }
+
+    candidate = StableSplitCandidate.model_validate(input_payload)
+
+    assert candidate.model_dump(mode="json") == {
+        "schema_version": "rsebench.stable-split-candidate.v1",
+        **input_payload,
+    }
+    assert json.loads(candidate.model_dump_json()) == candidate.model_dump(mode="json")
+    assert canonical_hash(candidate) == canonical_hash(candidate.model_dump(mode="json"))
+    schema = StableSplitCandidate.model_json_schema()
+    assert schema["properties"]["train"]["type"] == "array"
+    assert schema["properties"]["metadata"]["type"] == "object"
+
+    source_task.task_id = "source-remains-mutable"
+    source_task.gold_answers.append("source-remains-mutable")
+    source_task.metadata["nested"]["tags"].append("source-remains-mutable")
+    assert candidate.train[0].task_id == "train"
+    assert candidate.train[0].gold_answers == ["answer"]
+    assert candidate.train[0].metadata == {"nested": {"tags": ["original"]}}
 
 
 def test_confirmation_roles_must_be_disjoint_and_match_identity() -> None:
