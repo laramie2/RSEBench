@@ -42,7 +42,7 @@ SkillLearn image preflight 为 `all_ready=true`：覆盖 screening/confirmation 
 
 | 领域 | 初始动作 | 原因 |
 |---|---|---|
-| Spreadsheet | `run_candidate_2` | 历史 C1 确定性失败；N3 `20/20`，N4 仅 `4/20` |
+| Spreadsheet | `run_candidate_2` | 历史 C1 seed13 单次 probe 确定性失败；该 probe 的 N3 为 `20/20`、N4 仅 `4/20`，不能写成候选级三 seed 结果 |
 | OfficeQA | `rerun_candidate_1` | 旧运行的 batch-mix/runtime/applicability 证据不足 |
 | WebShop | `rerun_candidate_1` | 旧运行没有 wrapper-owned ordered N3/N4 trace |
 | SkillLearn | `run_candidate_2` | 执行四个固定 screening family 的资格矩阵 |
@@ -62,7 +62,9 @@ C2 和 C3 的六个 clean 单元都正常结束；baseline 能执行自进化，
 | C3 | 20260814 | 2 | 0.4667 | 0.4000 | -0.0667 | fail：退化 |
 | C3 | 20260815 | 0 | 0.3333 | 0.3333 | 0.0000 | fail：无更新 |
 
-更关键的是，owned clean trajectory 无法满足“每个 acquisition task 对 N3/N4 都可合法变异”的预注册适用性门：C2 三个 seed 的 N3 均约为 `18/20`，N4 仅 `3–4/20`；C3 三个 seed 的 N3 分别为 `18/20`、`17/20`、`19/20`，N4 分别为 `3/20`、`4/20`、`4/20`。领域结构审计通过，但 C1–C3 均确定性不合格，最终动作是 `clean_blocked_after_three_candidates`，原因为 `incomplete_noise_applicability:N3` 和 `incomplete_noise_applicability:N4`。
+更关键的是，owned clean trajectory 无法满足“每个 acquisition task 对 N3/N4 都可合法变异”的预注册适用性门：C2 三个 seed 的 N3 分别为 `18/20`、`16/20`、`18/20`，N4 分别为 `3/20`、`3/20`、`4/20`；C3 三个 seed 的 N3 分别为 `18/20`、`17/20`、`19/20`，N4 分别为 `3/20`、`4/20`、`4/20`。领域结构审计通过，但 C1–C3 均确定性不合格，最终动作是 `clean_blocked_after_three_candidates`，原因为 `incomplete_noise_applicability:N3` 和 `incomplete_noise_applicability:N4`。
+
+这里存在一个必须在下一版协议中正面处理、但本轮不能事后改门的结构性冲突。六个 C2/C3 run 中，N4 applicable IDs 都只是 failed rows 的子集，与 success rows 的交集始终为空；所有 success rows 的原生 `fail_reason` 和 `source_files` 均为空，因此规范化后的 `blamed_resource_refs=[]`，无法执行“把被归因范围重定向到同形 decoy”的 N4。与此同时，领域门要求每个 train batch 同时包含 success/failure，而当前 noise-applicability 门又要求全部 acquisition rows 达到 100%。只要 batch 保持 mixed，success rows 就会使 blame-redirect N4 低于 100%。本轮忠实保留这两个预注册门并返回 blocked，没有越界调整算子或门槛。
 
 ### OfficeQA / SkillOpt
 
@@ -91,7 +93,11 @@ C1 三个 clean 单元均正常结束并产生更新，说明当前 baseline/接
 | `schedule-planning` | 3/3 | `2,2,2` | 全部 0 |
 | `organize-messy-files` | 2/3 | seed13/15 均为 2 | 均为 0 |
 
-`organize-messy-files/20260814` attempt 1 在 277.1 秒后因 DeepSeek `run_shell` tool arguments 被截断为非法 JSON 而失败，属于 provider 输出/解析基础设施失败，不是 clean 资格结果。保持同一 unit/experiment identity 的 attempt 2 运行 368.5 秒后随全局终止中断。由于未完成全部 12 个单元，也没有执行正式 qualification replay，当前 aggregate 保持 `clean_blocked_skilllearn_families`，不能冻结 SkillLearn。
+`organize-messy-files/20260814` attempt 1 在 277.1 秒后因 DeepSeek `run_shell` tool arguments 被截断为非法 JSON 而失败，属于 provider 输出/解析基础设施失败，不是 clean 资格结果。保持同一 unit/experiment identity 的 attempt 2 运行 368.5 秒后随全局终止中断。这是 12 个 SkillLearn 单元中唯一真实缺失/中断的 unit。
+
+首次聚合还暴露了一个 provider-free 聚合器 bug：冻结候选会把 family allocation 从 JSON list 深冻结为 `_ImmutableSequence`，而 `_match_candidate` 只接受 `list`，导致上述 11 个 completed run 全部被静默跳过。修复后的匹配接受非字符串 `Sequence[str]`，但仍严格核对 task ID、顺序和完整 TaskManifest；字符串、乱序或错误 ID 继续拒绝。使用同一份 outputs 重新聚合后，共发现 20 个 completed run（Spreadsheet 6、OfficeQA 3、SkillLearn 11），没有新增 provider 调用。
+
+重新聚合后的 SkillLearn 状态仍为 `clean_blocked_skilllearn_families`，但 reasons 已校正为真实证据：`organize-messy-files:missing_exact_three_method_seeds`，以及 `schedule-planning:incomplete_noise_applicability:N3/N4`。后者的三个 completed seed 均为 N3 `1/2`、N4 `1/2`；其他 completed family/seed 的 N3/N4 均为 `2/2`。因此只有 organize seed14 是运行缺失，schedule 是完整运行后的确定性适用性失败，两者不能混为一谈。
 
 ## 中断与恢复状态
 
@@ -135,7 +141,7 @@ WebShop partial 和 SkillLearn retry 的 scheduler durations 分别为 1,657.9 �
 | Spreadsheet | `clean_blocked_after_three_candidates` | 否；C1–C3 全部确定性失败 |
 | OfficeQA | `run_candidate_2` | 否；按全局终止停止 |
 | WebShop | `rerun_candidate_1` | 否；C1 未完成 |
-| SkillLearn | `clean_blocked_skilllearn_families` | 否；1 个单元缺失且未 replay |
+| SkillLearn | `clean_blocked_skilllearn_families` | 否；organize seed14 缺失，schedule 三 seed 的 N3/N4 均为 `1/2` |
 
 因此：
 
@@ -147,7 +153,9 @@ WebShop partial 和 SkillLearn retry 的 scheduler durations 分别为 1,657.9 �
 
 ## 验证
 
-- `PYTHONPATH=src python -m pytest -q`：`749 passed`；
+- tuple/frozen-sequence 回归测试遵循 RED→GREEN：修复前目标用例失败，修复后 focused qualification suite 为 `59 passed`；
+- `PYTHONPATH=src python -m pytest -q`：`753 passed`；
+- `ruff check src/rsebench/selection/qualification_io.py tests/selection/test_qualification.py`：通过；
 - `git diff --check`：通过；
 - candidate/confirmation 目录的绝对路径、worktree 和 credential marker 扫描：通过；
 - `ruff check src scripts tests`：未通过，但只报告仓库既有的 8 项，与本轮 Markdown 变更无关：`scripts/run_paired_skilllearn.py` 的 7 项 E402，以及 `tests/adapters/test_evoskill.py` 的 1 项 F401。本轮没有扩大范围修改这些文件。

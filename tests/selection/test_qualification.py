@@ -3,6 +3,7 @@ from __future__ import annotations
 import importlib.util
 import json
 import random
+from collections.abc import Sequence
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -538,6 +539,125 @@ def test_match_candidate_accepts_resolved_paths_equal_to_frozen_root_uris(
     assert candidate is repository.candidates["officeqa_full"][1]
     assert index == 1
     assert family is None
+
+
+def _frozen_skilllearn_repository(
+    tmp_path: Path,
+) -> tuple[SelectionRepository, dict]:
+    family = "family"
+
+    def task(task_id: str) -> TaskManifest:
+        return TaskManifest(
+            task_id=task_id,
+            benchmark="skilllearnbench",
+            domain="skill_learning",
+            prompt=f"prompt:{task_id}",
+            source_hash=canonical_hash(task_id),
+            verifier="skilllearn_hidden_test_v1",
+            metadata={"task_family": family},
+        )
+
+    train = [task("family-train-1"), task("family-train-2")]
+    validation = [task("family-validation-1")]
+    candidate = StableSplitCandidate(
+        benchmark="skilllearnbench",
+        domain="skill_learning",
+        candidate_index=1,
+        train=train,
+        validation=validation,
+        qualification_test=[],
+        screening_test=[],
+        source_hash="a" * 64,
+        selection_hash="b" * 64,
+        metadata={
+            "static_audit": {
+                "family_allocations": {
+                    family: {
+                        "train": tuple(task.task_id for task in train),
+                        "validation": tuple(task.task_id for task in validation),
+                    }
+                }
+            }
+        },
+    )
+    repository = SelectionRepository(
+        root=tmp_path,
+        candidates={"skilllearnbench": {1: candidate}},
+        candidate_paths={},
+        audits={},
+    )
+    split = {
+        "benchmark": "skilllearnbench",
+        "train": [task.model_dump(mode="json") for task in train],
+        "validation": [task.model_dump(mode="json") for task in validation],
+        "metadata": {
+            "candidate_index": 1,
+            "parent_selection_hash": candidate.selection_hash,
+            "task_family": family,
+        },
+    }
+    return repository, split
+
+
+def test_match_candidate_accepts_frozen_skilllearn_allocation_sequence(
+    tmp_path: Path,
+) -> None:
+    repository, split = _frozen_skilllearn_repository(tmp_path)
+    candidate = repository.candidates["skilllearnbench"][1]
+    allocation = candidate.metadata["static_audit"]["family_allocations"][
+        "family"
+    ]
+    assert isinstance(allocation["train"], Sequence)
+    assert not isinstance(allocation["train"], list)
+
+    matched, index, family = qualification_io._match_candidate(repository, split)
+
+    assert matched is candidate
+    assert index == 1
+    assert family == "family"
+
+
+@pytest.mark.parametrize(
+    ("role", "task_ids"),
+    [
+        ("train", "family-train-1"),
+        ("train", ("family-train-2", "family-train-1")),
+        ("validation", ("wrong-validation-id",)),
+    ],
+)
+def test_match_candidate_rejects_invalid_skilllearn_allocation_sequence(
+    tmp_path: Path,
+    role: str,
+    task_ids: object,
+) -> None:
+    repository, split = _frozen_skilllearn_repository(tmp_path)
+    candidate = repository.candidates["skilllearnbench"][1]
+    allocations = {
+        family: {
+            allocation_role: list(allocation_ids)
+            for allocation_role, allocation_ids in allocation.items()
+        }
+        for family, allocation in candidate.metadata["static_audit"][
+            "family_allocations"
+        ].items()
+    }
+    allocations["family"][role] = task_ids
+    bad_candidate = candidate.model_copy(
+        update={
+            "metadata": {
+                "static_audit": {"family_allocations": allocations}
+            }
+        }
+    )
+    bad_repository = SelectionRepository(
+        root=tmp_path,
+        candidates={"skilllearnbench": {1: bad_candidate}},
+        candidate_paths={},
+        audits={},
+    )
+
+    with pytest.raises(ValueError, match="frozen candidate"):
+        qualification_io._match_candidate(bad_repository, split)
 
 
 def _valid_skilllearn_completion(task_id: str = "family-1") -> tuple[dict, dict]:

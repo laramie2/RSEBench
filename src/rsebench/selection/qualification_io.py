@@ -1547,6 +1547,14 @@ def _clean_accounting_failures(result: dict[str, Any]) -> list[str]:
     return reasons
 
 
+def _is_task_id_sequence(value: Any) -> bool:
+    return (
+        isinstance(value, Sequence)
+        and not isinstance(value, (str, bytes, bytearray))
+        and all(isinstance(task_id, str) for task_id in value)
+    )
+
+
 def _match_candidate(
     repository: SelectionRepository,
     split: dict[str, Any],
@@ -1590,8 +1598,8 @@ def _match_candidate(
             ).get(family, {})
             train_ids = allocation.get("train")
             validation_ids = allocation.get("validation")
-            if not isinstance(train_ids, list) or not isinstance(
-                validation_ids, list
+            if not _is_task_id_sequence(train_ids) or not _is_task_id_sequence(
+                validation_ids
             ):
                 continue
             train_by_id = {task.task_id: task for task in candidate.train}
