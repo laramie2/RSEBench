@@ -6,14 +6,17 @@ from rsebench.contracts import TaskManifest
 from rsebench.core1.dataset import (
     build_core1_pair,
     build_core1_split,
+    make_candidate_paths_portable,
     make_clean_split_paths_portable,
     make_split_paths_portable,
     rehash_task,
+    resolve_candidate_paths,
     resolve_clean_split_paths,
     resolve_split_paths,
 )
 from rsebench.evolution.clean_contracts import CleanEvolutionSplitManifest
 from rsebench.core1.materialize import load_core1_noise_profile
+from rsebench.selection import StableSplitCandidate
 
 
 ROOT = Path(__file__).parents[2]
@@ -245,3 +248,72 @@ def test_task_hash_does_not_depend_on_local_artifact_locator() -> None:
     assert rehash_task(first, artifact_hash="b" * 64).source_hash == rehash_task(
         second, artifact_hash="b" * 64
     ).source_hash
+
+
+def test_candidate_paths_round_trip_qualification_and_screening_roles(
+    tmp_path: Path,
+) -> None:
+    project_root = tmp_path / "project"
+    data_root = tmp_path / "data"
+    methods_root = tmp_path / "methods"
+    for root in (project_root, data_root, methods_root):
+        root.mkdir()
+
+    def role_task(task_id: str, root: Path) -> TaskManifest:
+        artifact = root / f"artifacts/{task_id}.json"
+        artifact.parent.mkdir(parents=True, exist_ok=True)
+        artifact.write_text("{}", encoding="utf-8")
+        return TaskManifest(
+            task_id=task_id,
+            benchmark="fixture",
+            domain="document",
+            prompt=f"Question {task_id}",
+            gold_answers=["answer"],
+            source_hash=task_id[0] * 64,
+            artifact_path=str(artifact.resolve()),
+            verifier="fixture_verifier_v1",
+            metadata={"artifact_hash": "f" * 64},
+        )
+
+    candidate = StableSplitCandidate(
+        benchmark="fixture",
+        domain="document",
+        candidate_index=1,
+        train=[role_task("a-train", project_root)],
+        validation=[role_task("b-validation", data_root)],
+        qualification_test=[role_task("c-qualification", methods_root)],
+        screening_test=[role_task("d-screening", data_root)],
+        source_hash="e" * 64,
+        selection_hash="f" * 64,
+    )
+
+    portable = make_candidate_paths_portable(
+        candidate,
+        project_root=project_root,
+        data_root=data_root,
+        methods_root=methods_root,
+    )
+    encoded = portable.model_dump_json()
+
+    assert str(tmp_path.resolve()) not in encoded
+    assert portable.qualification_test[0].artifact_path == (
+        "rsebench-methods://artifacts/c-qualification.json"
+    )
+    assert portable.screening_test[0].artifact_path == (
+        "rsebench-data://artifacts/d-screening.json"
+    )
+    assert portable.qualification_test[0].verifier == "fixture_verifier_v1"
+    assert portable.qualification_test[0].source_hash == "c" * 64
+    assert portable.qualification_test[0].metadata["artifact_hash"] == "f" * 64
+    resolved = resolve_candidate_paths(
+        portable,
+        project_root=project_root,
+        data_root=data_root,
+        methods_root=methods_root,
+    )
+    assert resolved.qualification_test[0].artifact_path == str(
+        (methods_root / "artifacts/c-qualification.json").resolve()
+    )
+    assert resolved.screening_test[0].artifact_path == str(
+        (data_root / "artifacts/d-screening.json").resolve()
+    )

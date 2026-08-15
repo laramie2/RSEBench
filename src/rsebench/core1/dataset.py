@@ -19,6 +19,7 @@ from rsebench.core1.materialize import Core1NoiseProfile
 from rsebench.evidence import canonical_hash
 from rsebench.evolution.clean_contracts import CleanEvolutionSplitManifest
 from rsebench.evolution.contracts import EvolutionSplitManifest, EvolutionTaskPair
+from rsebench.selection.contracts import ConfirmationSplit, StableSplitCandidate
 
 
 _STAGE_SEMANTICS = {
@@ -302,6 +303,141 @@ def resolve_clean_split_paths(
 
     return _map_clean_split_paths(
         split,
+        roots=_root_mapping(
+            project_root=project_root,
+            data_root=data_root,
+            methods_root=methods_root,
+        ),
+        portable=False,
+    )
+
+
+def _map_candidate_paths(
+    candidate: StableSplitCandidate,
+    *,
+    roots: dict[str, Path],
+    portable: bool,
+) -> StableSplitCandidate:
+    roles = {
+        role: [
+            _map_task_paths(task, roots, portable=portable)
+            for task in getattr(candidate, role)
+        ]
+        for role in (
+            "train",
+            "validation",
+            "qualification_test",
+            "screening_test",
+        )
+    }
+    updated = candidate.model_copy(update=roles, deep=True)
+    if portable:
+        source_hash = canonical_hash(
+            {
+                role: [task.model_dump(mode="json") for task in tasks]
+                for role, tasks in roles.items()
+            }
+        )
+        updated = updated.model_copy(update={"source_hash": source_hash})
+    return updated
+
+
+def make_candidate_paths_portable(
+    candidate: StableSplitCandidate,
+    *,
+    project_root: Path | str,
+    data_root: Path | str,
+    methods_root: Path | str,
+) -> StableSplitCandidate:
+    """Encode every selection-candidate task role with portable root URIs."""
+
+    return _map_candidate_paths(
+        candidate,
+        roots=_root_mapping(
+            project_root=project_root,
+            data_root=data_root,
+            methods_root=methods_root,
+        ),
+        portable=True,
+    )
+
+
+def resolve_candidate_paths(
+    candidate: StableSplitCandidate,
+    *,
+    project_root: Path | str,
+    data_root: Path | str,
+    methods_root: Path | str,
+) -> StableSplitCandidate:
+    """Resolve every portable selection-candidate task role for execution."""
+
+    return _map_candidate_paths(
+        candidate,
+        roots=_root_mapping(
+            project_root=project_root,
+            data_root=data_root,
+            methods_root=methods_root,
+        ),
+        portable=False,
+    )
+
+
+def _map_confirmation_paths(
+    confirmation: ConfirmationSplit,
+    *,
+    roots: dict[str, Path],
+    portable: bool,
+) -> ConfirmationSplit:
+    roles = {
+        role: [
+            _map_task_paths(task, roots, portable=portable)
+            for task in getattr(confirmation, role)
+        ]
+        for role in ("train", "validation", "confirmation_test")
+    }
+    updated = confirmation.model_copy(update=roles, deep=True)
+    if portable:
+        source_hash = canonical_hash(
+            {
+                role: [task.model_dump(mode="json") for task in tasks]
+                for role, tasks in roles.items()
+            }
+        )
+        updated = updated.model_copy(update={"source_hash": source_hash})
+    return updated
+
+
+def make_confirmation_paths_portable(
+    confirmation: ConfirmationSplit,
+    *,
+    project_root: Path | str,
+    data_root: Path | str,
+    methods_root: Path | str,
+) -> ConfirmationSplit:
+    """Encode every confirmation task role with portable root URIs."""
+
+    return _map_confirmation_paths(
+        confirmation,
+        roots=_root_mapping(
+            project_root=project_root,
+            data_root=data_root,
+            methods_root=methods_root,
+        ),
+        portable=True,
+    )
+
+
+def resolve_confirmation_paths(
+    confirmation: ConfirmationSplit,
+    *,
+    project_root: Path | str,
+    data_root: Path | str,
+    methods_root: Path | str,
+) -> ConfirmationSplit:
+    """Resolve every portable confirmation task role for execution."""
+
+    return _map_confirmation_paths(
+        confirmation,
         roots=_root_mapping(
             project_root=project_root,
             data_root=data_root,
