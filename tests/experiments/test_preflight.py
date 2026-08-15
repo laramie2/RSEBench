@@ -504,6 +504,39 @@ def test_clean_v2_matrix_declares_four_portable_cells() -> None:
     assert "{method_seed}" in skilllearn.mutable_resource_keys[0]
 
 
+def test_skilllearn_expanded_clean_matrix_declares_eight_families() -> None:
+    matrix = load_experiment_matrix(
+        PROJECT_ROOT / "configs/experiments/skilllearn-clean-expanded-v1.yaml"
+    )
+
+    assert matrix.qualification_version == "clean-qualification-v2"
+    assert matrix.method_seeds == [20260813, 20260814, 20260815]
+    assert len(matrix.cells) == 8
+    assert {cell.family for cell in matrix.cells} == {
+        "dependency-vulnerability-check",
+        "enterprise-information-search",
+        "financial-analysis",
+        "github-repo-analytics",
+        "offer-letter-generator",
+        "organize-messy-files",
+        "schedule-planning",
+        "stock-data-visualization",
+    }
+    assert all(cell.benchmark == "skilllearnbench" for cell in matrix.cells)
+    assert all(cell.baseline == "skilllearn_self_feedback" for cell in matrix.cells)
+    assert all(cell.adapter_max_parallel == 3 for cell in matrix.cells)
+    assert sum(cell.task_counts.train for cell in matrix.cells) == 16
+    assert sum(cell.task_counts.validation for cell in matrix.cells) == 8
+    assert sum(cell.task_counts.clean_test for cell in matrix.cells) == 20
+    assert all(
+        cell.manifest.startswith(
+            "benchmark/validation/clean_qualification_v2/skilllearnbench/"
+        )
+        for cell in matrix.cells
+    )
+    assert all("{method_seed}" in cell.mutable_resource_keys[0] for cell in matrix.cells)
+
+
 def test_noise_screen_candidate_matrix_declares_candidate_index() -> None:
     matrix = load_experiment_matrix(
         PROJECT_ROOT / "configs/experiments/noise-screen-v1-candidate2.yaml"

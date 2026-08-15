@@ -1,0 +1,135 @@
+schema_version: rsebench.experiment-matrix.v1
+qualification_version: clean-qualification-v2
+stage: clean
+method_seeds: [20260813, 20260814, 20260815]
+provider: deepseek
+model: deepseek-v4-flash
+temperature: 0.0
+thinking: disabled
+provider_config: configs/pilot/deepseek-v4-flash-4096.yaml
+output_root: outputs/runs/skilllearn-clean-expanded-v1-20260815
+
+cells:
+  - key: skilllearn-dependency-vulnerability-check
+    benchmark: skilllearnbench
+    baseline: skilllearn_self_feedback
+    family: dependency-vulnerability-check
+    launcher: scripts/run_clean_skilllearn.py
+    manifest: benchmark/validation/clean_qualification_v2/skilllearnbench/dependency-vulnerability-check.json
+    seed_skill: benchmark/core1/seeds/skilllearn.md
+    image_manifest: benchmark/validation/clean_qualification_v2/skilllearn_image_manifest.json
+    task_counts: {train: 2, validation: 1, clean_test: 2}
+    runtime: &skilllearn_runtime
+      evolution_rounds: 2
+      max_completion_tokens: 4096
+      max_tool_turns: 16
+      require_prebuilt_images: true
+    adapter_key: skilllearn
+    adapter_max_parallel: 3
+    mutable_resource_keys:
+      - docker:skilllearn:dependency-vulnerability-check:{method_seed}
+
+  - key: skilllearn-enterprise-information-search
+    benchmark: skilllearnbench
+    baseline: skilllearn_self_feedback
+    family: enterprise-information-search
+    launcher: scripts/run_clean_skilllearn.py
+    manifest: benchmark/validation/clean_qualification_v2/skilllearnbench/enterprise-information-search.json
+    seed_skill: benchmark/core1/seeds/skilllearn.md
+    image_manifest: benchmark/validation/clean_qualification_v2/skilllearn_image_manifest.json
+    task_counts: {train: 2, validation: 1, clean_test: 3}
+    runtime: *skilllearn_runtime
+    adapter_key: skilllearn
+    adapter_max_parallel: 3
+    mutable_resource_keys:
+      - docker:skilllearn:enterprise-information-search:{method_seed}
+
+  - key: skilllearn-financial-analysis
+    benchmark: skilllearnbench
+    baseline: skilllearn_self_feedback
+    family: financial-analysis
+    launcher: scripts/run_clean_skilllearn.py
+    manifest: benchmark/validation/clean_qualification_v2/skilllearnbench/financial-analysis.json
+    seed_skill: benchmark/core1/seeds/skilllearn.md
+    image_manifest: benchmark/validation/clean_qualification_v2/skilllearn_image_manifest.json
+    task_counts: {train: 2, validation: 1, clean_test: 3}
+    runtime: *skilllearn_runtime
+    adapter_key: skilllearn
+    adapter_max_parallel: 3
+    mutable_resource_keys:
+      - docker:skilllearn:financial-analysis:{method_seed}
+
+  - key: skilllearn-github-repo-analytics
+    benchmark: skilllearnbench
+    baseline: skilllearn_self_feedback
+    family: github-repo-analytics
+    launcher: scripts/run_clean_skilllearn.py
+    manifest: benchmark/validation/clean_qualification_v2/skilllearnbench/github-repo-analytics.json
+    seed_skill: benchmark/core1/seeds/skilllearn.md
+    image_manifest: benchmark/validation/clean_qualification_v2/skilllearn_image_manifest.json
+    task_counts: {train: 2, validation: 1, clean_test: 2}
+    runtime: *skilllearn_runtime
+    adapter_key: skilllearn
+    adapter_max_parallel: 3
+    mutable_resource_keys:
+      - docker:skilllearn:github-repo-analytics:{method_seed}
+
+  - key: skilllearn-offer-letter-generator
+    benchmark: skilllearnbench
+    baseline: skilllearn_self_feedback
+    family: offer-letter-generator
+    launcher: scripts/run_clean_skilllearn.py
+    manifest: benchmark/validation/clean_qualification_v2/skilllearnbench/offer-letter-generator.json
+    seed_skill: benchmark/core1/seeds/skilllearn.md
+    image_manifest: benchmark/validation/clean_qualification_v2/skilllearn_image_manifest.json
+    task_counts: {train: 2, validation: 1, clean_test: 3}
+    runtime: *skilllearn_runtime
+    adapter_key: skilllearn
+    adapter_max_parallel: 3
+    mutable_resource_keys:
+      - docker:skilllearn:offer-letter-generator:{method_seed}
+
+  - key: skilllearn-organize-messy-files
+    benchmark: skilllearnbench
+    baseline: skilllearn_self_feedback
+    family: organize-messy-files
+    launcher: scripts/run_clean_skilllearn.py
+    manifest: benchmark/validation/clean_qualification_v2/skilllearnbench/organize-messy-files.json
+    seed_skill: benchmark/core1/seeds/skilllearn.md
+    image_manifest: benchmark/validation/clean_qualification_v2/skilllearn_image_manifest.json
+    task_counts: {train: 2, validation: 1, clean_test: 3}
+    runtime: *skilllearn_runtime
+    adapter_key: skilllearn
+    adapter_max_parallel: 3
+    mutable_resource_keys:
+      - docker:skilllearn:organize-messy-files:{method_seed}
+
+  - key: skilllearn-schedule-planning
+    benchmark: skilllearnbench
+    baseline: skilllearn_self_feedback
+    family: schedule-planning
+    launcher: scripts/run_clean_skilllearn.py
+    manifest: benchmark/validation/clean_qualification_v2/skilllearnbench/schedule-planning.json
+    seed_skill: benchmark/core1/seeds/skilllearn.md
+    image_manifest: benchmark/validation/clean_qualification_v2/skilllearn_image_manifest.json
+    task_counts: {train: 2, validation: 1, clean_test: 2}
+    runtime: *skilllearn_runtime
+    adapter_key: skilllearn
+    adapter_max_parallel: 3
+    mutable_resource_keys:
+      - docker:skilllearn:schedule-planning:{method_seed}
+
+  - key: skilllearn-stock-data-visualization
+    benchmark: skilllearnbench
+    baseline: skilllearn_self_feedback
+    family: stock-data-visualization
+    launcher: scripts/run_clean_skilllearn.py
+    manifest: benchmark/validation/clean_qualification_v2/skilllearnbench/stock-data-visualization.json
+    seed_skill: benchmark/core1/seeds/skilllearn.md
+    image_manifest: benchmark/validation/clean_qualification_v2/skilllearn_image_manifest.json
+    task_counts: {train: 2, validation: 1, clean_test: 2}
+    runtime: *skilllearn_runtime
+    adapter_key: skilllearn
+    adapter_max_parallel: 3
+    mutable_resource_keys:
+      - docker:skilllearn:stock-data-visualization:{method_seed}
