@@ -21,6 +21,11 @@ from rsebench.selection.contracts import (
     selection_key,
 )
 from rsebench.selection.exposure import build_exposure_registry, merge_record
+from rsebench.selection.release import (
+    FrozenSelectionRelease,
+    SelectionReleaseInput,
+    freeze_selection_release,
+)
 
 __all__ = [
     "CandidateDecision",
@@ -32,15 +37,18 @@ __all__ = [
     "ExposureRecord",
     "ExposureRegistry",
     "ExposureSource",
+    "FrozenSelectionRelease",
     "ResourceLock",
     "ResourceReference",
     "ScreeningGeneralizationDecision",
     "ScreeningSeedEvidence",
     "SelectionAction",
+    "SelectionReleaseInput",
     "SelectionReleaseManifest",
     "SelectionStatus",
     "StableSplitCandidate",
     "build_exposure_registry",
+    "freeze_selection_release",
     "merge_record",
     "selection_key",
 ]

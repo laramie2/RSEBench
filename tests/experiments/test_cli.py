@@ -66,6 +66,9 @@ def test_unified_subapps_expose_expected_commands() -> None:
     release_help = runner.invoke(cli.app, ["release", "--help"])
     assert release_help.exit_code == 0
     assert "freeze" in release_help.stdout.split()
+    selection_help = runner.invoke(cli.app, ["selection", "--help"])
+    assert selection_help.exit_code == 0
+    assert "freeze" in selection_help.stdout.split()
 
 
 def test_experiment_aggregate_passes_matrix_contract_to_scheduler_aggregate(

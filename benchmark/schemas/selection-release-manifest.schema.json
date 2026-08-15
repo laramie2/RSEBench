@@ -1,0 +1,73 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "baseline_fingerprints": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "title": "Baseline Fingerprints",
+      "type": "object"
+    },
+    "confirmation_split_hashes": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "title": "Confirmation Split Hashes",
+      "type": "object"
+    },
+    "domain_statuses": {
+      "additionalProperties": {
+        "const": "clean_generalization_ready",
+        "type": "string"
+      },
+      "title": "Domain Statuses",
+      "type": "object"
+    },
+    "exposure_registry_hash": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Exposure Registry Hash",
+      "type": "string"
+    },
+    "resource_lock_hash": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Resource Lock Hash",
+      "type": "string"
+    },
+    "schema_version": {
+      "default": "rsebench.selection-release.v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "screening_split_hashes": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "title": "Screening Split Hashes",
+      "type": "object"
+    },
+    "selected_candidate_indices": {
+      "additionalProperties": {
+        "type": "integer"
+      },
+      "title": "Selected Candidate Indices",
+      "type": "object"
+    },
+    "selection_version": {
+      "const": "noise-screen-v1",
+      "title": "Selection Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "selection_version",
+    "selected_candidate_indices",
+    "screening_split_hashes",
+    "confirmation_split_hashes",
+    "exposure_registry_hash",
+    "resource_lock_hash",
+    "baseline_fingerprints",
+    "domain_statuses"
+  ],
+  "title": "SelectionReleaseManifest",
+  "type": "object"
+}

@@ -1,0 +1,142 @@
+{
+  "$defs": {
+    "TaskManifest": {
+      "additionalProperties": false,
+      "properties": {
+        "artifact_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Artifact Path"
+        },
+        "benchmark": {
+          "minLength": 1,
+          "title": "Benchmark",
+          "type": "string"
+        },
+        "domain": {
+          "minLength": 1,
+          "title": "Domain",
+          "type": "string"
+        },
+        "gold_answers": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Gold Answers",
+          "type": "array"
+        },
+        "metadata": {
+          "additionalProperties": true,
+          "title": "Metadata",
+          "type": "object"
+        },
+        "prompt": {
+          "minLength": 1,
+          "title": "Prompt",
+          "type": "string"
+        },
+        "source_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Source Hash",
+          "type": "string"
+        },
+        "task_id": {
+          "minLength": 1,
+          "title": "Task Id",
+          "type": "string"
+        },
+        "verifier": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Verifier"
+        }
+      },
+      "required": [
+        "task_id",
+        "benchmark",
+        "domain",
+        "prompt",
+        "source_hash"
+      ],
+      "title": "TaskManifest",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "benchmark": {
+      "title": "Benchmark",
+      "type": "string"
+    },
+    "confirmation_test": {
+      "items": {
+        "$ref": "#/$defs/TaskManifest"
+      },
+      "title": "Confirmation Test",
+      "type": "array"
+    },
+    "domain": {
+      "title": "Domain",
+      "type": "string"
+    },
+    "metadata": {
+      "additionalProperties": true,
+      "title": "Metadata",
+      "type": "object"
+    },
+    "schema_version": {
+      "default": "rsebench.confirmation-split.v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "selection_hash": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Selection Hash",
+      "type": "string"
+    },
+    "source_hash": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Source Hash",
+      "type": "string"
+    },
+    "train": {
+      "items": {
+        "$ref": "#/$defs/TaskManifest"
+      },
+      "title": "Train",
+      "type": "array"
+    },
+    "validation": {
+      "items": {
+        "$ref": "#/$defs/TaskManifest"
+      },
+      "title": "Validation",
+      "type": "array"
+    }
+  },
+  "required": [
+    "benchmark",
+    "domain",
+    "train",
+    "validation",
+    "confirmation_test",
+    "source_hash",
+    "selection_hash"
+  ],
+  "title": "ConfirmationSplit",
+  "type": "object"
+}

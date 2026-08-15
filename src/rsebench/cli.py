@@ -37,15 +37,23 @@ from rsebench.experiments.scheduler import ExperimentScheduler
 from rsebench.generation import generate_from_profile
 from rsebench.providers.deepseek import DeepSeekClient
 from rsebench.registry import validate_registries
+from rsebench.selection.contracts import (
+    ConfirmationSplit,
+    SelectionReleaseManifest,
+    StableSplitCandidate,
+)
+from rsebench.selection.release import freeze_selection_release_file
 
 
 app = typer.Typer(no_args_is_help=True)
 baselines_app = typer.Typer(no_args_is_help=True)
 experiment_app = typer.Typer(no_args_is_help=True)
 release_app = typer.Typer(no_args_is_help=True)
+selection_app = typer.Typer(no_args_is_help=True)
 app.add_typer(baselines_app, name="baselines")
 app.add_typer(experiment_app, name="experiment")
 app.add_typer(release_app, name="release")
+app.add_typer(selection_app, name="selection")
 ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_EXPERIMENT_MATRIX = ROOT / "configs/experiments/clean-v2.yaml"
 
@@ -59,6 +67,11 @@ def export_schemas(output_dir: Path = ROOT / "benchmark" / "schemas") -> None:
         "trajectory-record.schema.json": TrajectoryRecord.model_json_schema(),
         "feedback-record.schema.json": FeedbackRecord.model_json_schema(),
         "runtime-noise-spec.schema.json": RuntimeNoiseSpec.model_json_schema(),
+        "stable-split-candidate.schema.json": StableSplitCandidate.model_json_schema(),
+        "confirmation-split.schema.json": ConfirmationSplit.model_json_schema(),
+        "selection-release-manifest.schema.json": (
+            SelectionReleaseManifest.model_json_schema()
+        ),
     }
     for name, schema in schemas.items():
         path = output_dir / name
@@ -338,6 +351,23 @@ def release_freeze(
         baseline_fingerprints=fingerprints,
     )
     typer.echo(f"release_id={frozen.release_id}")
+    typer.echo(frozen.path)
+
+
+@selection_app.command("freeze")
+def selection_freeze(
+    input_path: Path = typer.Option(
+        ..., "--input", exists=True, dir_okay=False, readable=True
+    ),
+    release_root: Path = typer.Option(..., "--release-root", file_okay=False),
+) -> None:
+    """Freeze a stable split selection release without provider calls."""
+
+    frozen = freeze_selection_release_file(
+        input_path=input_path,
+        destination=release_root,
+    )
+    typer.echo(f"release_id={frozen.release_id} provider_calls=0")
     typer.echo(frozen.path)
 
 
