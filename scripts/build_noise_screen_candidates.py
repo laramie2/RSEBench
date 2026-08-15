@@ -512,6 +512,7 @@ def _webshop_bundle(
 def _skilllearn_bundle(
     *,
     exposure_registry: ExposureRegistry,
+    methods_root: Path,
 ) -> SelectionCandidateBundle:
     root = PROJECT_ROOT / "benchmark/validation/clean_qualification_v2/skilllearnbench"
     screening = {
@@ -530,6 +531,7 @@ def _skilllearn_bundle(
         screening_splits=screening,
         confirmation_splits=confirmation,
         exposure_registry=exposure_registry,
+        official_tasks_root=methods_root / "skilllearnbench/tasks",
     )
 
 
@@ -563,6 +565,7 @@ def load_repository_bundles(
         ),
         "skilllearnbench": _skilllearn_bundle(
             exposure_registry=exposure_registry,
+            methods_root=methods_root,
         ),
     }
 

@@ -315,6 +315,75 @@ def test_round_robin_exact_fails_closed_on_insufficient_pool() -> None:
         round_robin_exact({"easy": rows}, count=3)
 
 
+@pytest.mark.parametrize("role", ["train", "validation", "test"])
+def test_source_pool_rejects_identical_duplicate_task_ids(role: str) -> None:
+    counts = SelectionCounts(train=20, validation=10, test=30)
+    clean = _clean_split(
+        "spreadsheetbench_verified",
+        "spreadsheet",
+        train_count=counts.train,
+        validation_count=counts.validation,
+        test_count=counts.test,
+    )
+    pools = {
+        "train": _pool("spreadsheetbench_verified", "spreadsheet", "source-train", 120),
+        "validation": _pool(
+            "spreadsheetbench_verified", "spreadsheet", "source-validation", 20
+        ),
+        "test": _pool("spreadsheetbench_verified", "spreadsheet", "source-test", 90),
+    }
+    pools[role].append(pools[role][0])
+
+    with pytest.raises(ValueError, match=rf"duplicate task IDs in source pool {role}"):
+        build_selection_candidates(
+            clean_split=clean,
+            source_pools=pools,
+            exposure_registry=_registry("spreadsheetbench_verified"),
+            counts=counts,
+        )
+
+
+def test_conflicting_duplicate_payload_is_rejected_in_both_source_orders() -> None:
+    counts = SelectionCounts(train=20, validation=10, test=30)
+    clean = _clean_split(
+        "spreadsheetbench_verified",
+        "spreadsheet",
+        train_count=counts.train,
+        validation_count=counts.validation,
+        test_count=counts.test,
+    )
+    base_train = _pool(
+        "spreadsheetbench_verified", "spreadsheet", "source-train", 120
+    )
+    original = base_train[0]
+    conflict = original.model_copy(
+        update={
+            "prompt": "sum formula with a conflicting payload",
+            "source_hash": "b" * 64,
+        }
+    )
+    for duplicate_pair in ([original, conflict], [conflict, original]):
+        pools = {
+            "train": [*duplicate_pair, *base_train[1:]],
+            "validation": _pool(
+                "spreadsheetbench_verified", "spreadsheet", "source-validation", 20
+            ),
+            "test": _pool(
+                "spreadsheetbench_verified", "spreadsheet", "source-test", 90
+            ),
+        }
+        with pytest.raises(
+            ValueError,
+            match="duplicate task IDs in source pool train",
+        ):
+            build_selection_candidates(
+                clean_split=clean,
+                source_pools=pools,
+                exposure_registry=_registry("spreadsheetbench_verified"),
+                counts=counts,
+            )
+
+
 def test_exact_domain_strata_are_stable() -> None:
     spreadsheet = _pool(
         "spreadsheetbench_verified", "spreadsheet", "sheet", 5
@@ -365,6 +434,11 @@ def test_static_audits_preserve_batches_coverage_and_pending_semantics() -> None
     assert len(office_audit["difficulty_coverage"]) == 2
     assert len(office_audit["source_file_count_coverage"]) >= 2
     assert len(office_audit["question_axis_coverage"]) == 5
+    assert office_audit["coverage_gates"] == {
+        "difficulty": {"required": ["easy", "hard"], "status": "pass"},
+        "question_axis": {"minimum_distinct": 4, "status": "pass"},
+        "source_file_count": {"minimum_distinct": 2, "status": "pass"},
+    }
     webshop_audit = webshop.candidates[0].metadata["static_audit"]
     assert webshop_audit["unique_normalized_queries"] is True
     assert webshop_audit["reachable_target_asins"] is True
@@ -410,11 +484,74 @@ def test_webshop_fails_closed_when_recorded_headroom_is_not_two_of_five() -> Non
         )
 
 
+@pytest.mark.parametrize(
+    ("collapsed_dimension", "message"),
+    [
+        ("difficulty", "OfficeQA difficulty coverage"),
+        ("source_file_count", "OfficeQA source-file-count coverage"),
+        ("question_axis", "OfficeQA question-axis coverage"),
+    ],
+)
+def test_officeqa_coverage_dimensions_are_fail_closed_gates(
+    collapsed_dimension: str,
+    message: str,
+) -> None:
+    counts = SelectionCounts(train=12, validation=12, test=20)
+    clean = _clean_split(
+        "officeqa_full",
+        "document",
+        train_count=counts.train,
+        validation_count=counts.validation,
+        test_count=counts.test,
+    )
+    pools = {
+        "train": _pool("officeqa_full", "document", "source-train", 72),
+        "validation": _pool(
+            "officeqa_full", "document", "source-validation", 24
+        ),
+        "test": _pool("officeqa_full", "document", "source-test", 60),
+    }
+
+    def collapse(task: TaskManifest) -> TaskManifest:
+        metadata = dict(task.metadata)
+        prompt = task.prompt
+        if collapsed_dimension == "difficulty":
+            metadata["difficulty"] = "easy"
+        elif collapsed_dimension == "source_file_count":
+            metadata["source_file_count"] = 1
+        else:
+            prompt = "What value was reported during fiscal year 1992?"
+        return task.model_copy(update={"metadata": metadata, "prompt": prompt})
+
+    clean = clean.model_copy(
+        update={
+            "train": [collapse(task) for task in clean.train],
+            "validation": [collapse(task) for task in clean.validation],
+            "clean_test": [collapse(task) for task in clean.clean_test],
+        }
+    )
+    pools = {
+        role: [collapse(task) for task in tasks]
+        for role, tasks in pools.items()
+    }
+
+    with pytest.raises(ValueError, match=message):
+        build_selection_candidates(
+            clean_split=clean,
+            source_pools=pools,
+            exposure_registry=_registry("officeqa_full"),
+            counts=counts,
+        )
+
+
 def _load_clean(path: Path) -> CleanEvolutionSplitManifest:
     return CleanEvolutionSplitManifest.model_validate_json(path.read_text())
 
 
-def test_skilllearn_uses_fixed_families_and_instance_allocation() -> None:
+def _skilllearn_splits() -> tuple[
+    dict[str, CleanEvolutionSplitManifest],
+    dict[str, CleanEvolutionSplitManifest],
+]:
     root = ROOT / "benchmark/validation/clean_qualification_v2/skilllearnbench"
     screening_names = (
         "organize-messy-files",
@@ -432,6 +569,13 @@ def test_skilllearn_uses_fixed_families_and_instance_allocation() -> None:
     confirmation = {
         name: _load_clean(root / f"{name}.json") for name in confirmation_names
     }
+    return screening, confirmation
+
+
+def test_skilllearn_uses_fixed_families_and_instance_allocation() -> None:
+    screening, confirmation = _skilllearn_splits()
+    screening_names = tuple(screening)
+    confirmation_names = tuple(confirmation)
 
     bundle = build_skilllearn_selection_candidates(
         screening_splits=screening,
@@ -451,10 +595,94 @@ def test_skilllearn_uses_fixed_families_and_instance_allocation() -> None:
     applicability = bundle.candidates[0].metadata["static_audit"][
         "noise_applicability"
     ]
-    assert applicability["N1"]["status"] == "pass"
-    assert applicability["N2"]["status"] == "pass"
+    assert applicability["N1"] == {
+        "applicable": 8,
+        "coverage": 1.0,
+        "denominator": 8,
+        "status": "pass",
+    }
+    assert applicability["N2"] == {
+        "applicable": 8,
+        "coverage": 1.0,
+        "denominator": 8,
+        "status": "pass",
+    }
     assert applicability["N3"]["status"] == "pending"
     assert applicability["N4"]["status"] == "pending"
+
+
+@pytest.mark.parametrize("mutation", ["truncated", "extra"])
+def test_skilllearn_family_tail_must_match_authoritative_inventory(
+    mutation: str,
+) -> None:
+    screening, confirmation = _skilllearn_splits()
+    family = "organize-messy-files"
+    split = screening[family]
+    if mutation == "truncated":
+        clean_test = split.clean_test[:-1]
+    else:
+        clean_test = [
+            *split.clean_test,
+            split.clean_test[-1].model_copy(
+                update={"task_id": f"{family}-7", "source_hash": "b" * 64}
+            ),
+        ]
+    screening[family] = split.model_copy(update={"clean_test": clean_test})
+
+    with pytest.raises(ValueError, match="official inventory"):
+        build_skilllearn_selection_candidates(
+            screening_splits=screening,
+            confirmation_splits=confirmation,
+            exposure_registry=_registry("skilllearnbench"),
+        )
+
+
+def test_skilllearn_rejects_duplicate_canonical_official_inventory(
+    tmp_path: Path,
+) -> None:
+    screening, confirmation = _skilllearn_splits()
+    source = ROOT / "methods/external/skilllearnbench/tasks"
+    inventory = tmp_path / "tasks"
+    inventory.mkdir()
+    for family in (*screening, *confirmation):
+        if family != "organize-messy-files":
+            (inventory / family).symlink_to(source / family, target_is_directory=True)
+            continue
+        family_root = inventory / family
+        family_root.mkdir()
+        for instance in (source / family).iterdir():
+            (family_root / instance.name).symlink_to(instance, target_is_directory=True)
+        (family_root / f"{family}-01").symlink_to(
+            source / family / f"{family}-1",
+            target_is_directory=True,
+        )
+
+    with pytest.raises(ValueError, match="duplicate official inventory"):
+        build_skilllearn_selection_candidates(
+            screening_splits=screening,
+            confirmation_splits=confirmation,
+            exposure_registry=_registry("skilllearnbench"),
+            official_tasks_root=inventory,
+        )
+
+
+def test_skilllearn_applicability_fails_for_unsuitable_acquisition_task() -> None:
+    screening, confirmation = _skilllearn_splits()
+    family = "organize-messy-files"
+    split = screening[family]
+    unsuitable = split.train[0].model_copy(
+        update={"prompt": "Instruction that does not match the official task resource."}
+    )
+    screening[family] = split.model_copy(
+        update={"train": [unsuitable, *split.train[1:]]}
+    )
+
+    with pytest.raises(ValueError, match="N1/N2 static applicability"):
+        build_skilllearn_selection_candidates(
+            screening_splits=screening,
+            confirmation_splits=confirmation,
+            exposure_registry=_registry("skilllearnbench"),
+        )
 
 
 def test_selection_and_seal_hashes_cover_ordered_task_ids() -> None:

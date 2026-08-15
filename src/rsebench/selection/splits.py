@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import re
-from collections import defaultdict, deque
+import tomllib
+from collections import Counter, defaultdict, deque
 from collections.abc import Callable, Mapping, Sequence
+from pathlib import Path
 from typing import Any
 
 from pydantic import Field, model_validator
@@ -34,6 +36,36 @@ CONFIRMATION_SKILLLEARN_FAMILIES = (
     "stock-data-visualization",
     "enterprise-information-search",
 )
+DEFAULT_SKILLLEARN_TASKS_ROOT = (
+    Path(__file__).resolve().parents[3]
+    / "methods/external/skilllearnbench/tasks"
+)
+_SKILLLEARN_N1_TARGETS = {
+    "organize-messy-files": "fixed_filename_rules",
+    "offer-letter-generator": "fixed_filename_rules",
+    "schedule-planning": "fixed_document_coordinates",
+    "dependency-vulnerability-check": "fixed_software_configuration",
+    "github-repo-analytics": "fixed_software_configuration",
+    "financial-analysis": "fixed_spreadsheet_columns",
+    "stock-data-visualization": "fixed_spreadsheet_columns",
+    "enterprise-information-search": "fixed_instance_constants",
+}
+_SKILLLEARN_N2_TARGET_SUFFIXES = {
+    "organize-messy-files": frozenset({".docx", ".pdf", ".pptx", ".txt"}),
+    "offer-letter-generator": frozenset({".docx", ".pdf", ".pptx", ".txt"}),
+    "schedule-planning": frozenset({".pdf"}),
+    "dependency-vulnerability-check": frozenset(
+        {".json", ".lock", ".py", ".toml", ".yaml", ".yml"}
+    ),
+    "github-repo-analytics": frozenset(
+        {".json", ".lock", ".py", ".toml", ".yaml", ".yml"}
+    ),
+    "financial-analysis": frozenset({".csv", ".json", ".tsv", ".xlsx", ".zip"}),
+    "stock-data-visualization": frozenset(
+        {".csv", ".json", ".tsv", ".xlsx", ".zip"}
+    ),
+    "enterprise-information-search": frozenset({".json", ".txt"}),
+}
 
 SPREADSHEET_KEYWORD_MAP_VERSION = "spreadsheet-operation-keywords-v1"
 SPREADSHEET_OPERATION_KEYWORDS: tuple[tuple[str, tuple[str, ...]], ...] = (
@@ -370,17 +402,47 @@ def _static_audit(
         all_tasks = [*train, *validation, *test]
         if any(task.task_id == "UID0240" for task in all_tasks):
             raise ValueError("OfficeQA excludes UID0240")
+        difficulties = sorted(
+            {
+                str(task.metadata.get("difficulty", "unknown")).casefold()
+                for task in acquisition
+            }
+        )
+        source_file_counts = sorted(
+            {int(task.metadata.get("source_file_count", 0)) for task in acquisition}
+        )
+        question_axes = sorted(
+            {_officeqa_question_axis(task.prompt) for task in acquisition}
+        )
+        if not {"easy", "hard"}.issubset(difficulties):
+            raise ValueError("OfficeQA difficulty coverage requires easy and hard")
+        if len(source_file_counts) < 2:
+            raise ValueError(
+                "OfficeQA source-file-count coverage requires two distinct counts"
+            )
+        if len(question_axes) < 4:
+            raise ValueError(
+                "OfficeQA question-axis coverage requires four distinct axes"
+            )
         audit.update(
             {
-                "difficulty_coverage": sorted(
-                    {str(task.metadata.get("difficulty", "unknown")) for task in acquisition}
-                ),
-                "source_file_count_coverage": sorted(
-                    {int(task.metadata.get("source_file_count", 0)) for task in acquisition}
-                ),
-                "question_axis_coverage": sorted(
-                    {_officeqa_question_axis(task.prompt) for task in acquisition}
-                ),
+                "difficulty_coverage": difficulties,
+                "source_file_count_coverage": source_file_counts,
+                "question_axis_coverage": question_axes,
+                "coverage_gates": {
+                    "difficulty": {
+                        "required": ["easy", "hard"],
+                        "status": "pass",
+                    },
+                    "source_file_count": {
+                        "minimum_distinct": 2,
+                        "status": "pass",
+                    },
+                    "question_axis": {
+                        "minimum_distinct": 4,
+                        "status": "pass",
+                    },
+                },
                 "train_batch_sizes": _batch_sizes(len(train), 4),
             }
         )
@@ -482,6 +544,15 @@ def build_selection_candidates(
     benchmark = clean_split.benchmark
     if set(source_pools) != {"train", "validation", "test"}:
         raise ValueError("source_pools must contain exactly train, validation, and test")
+    for role, tasks in source_pools.items():
+        counts_by_id = Counter(task.task_id for task in tasks)
+        duplicates = sorted(
+            task_id for task_id, frequency in counts_by_id.items() if frequency > 1
+        )
+        if duplicates:
+            raise ValueError(
+                f"duplicate task IDs in source pool {role}: {duplicates}"
+            )
     if (
         len(clean_split.train),
         len(clean_split.validation),
@@ -628,20 +699,155 @@ def build_selection_candidates(
 def _validate_skilllearn_family_split(
     family: str,
     split: CleanEvolutionSplitManifest,
+    *,
+    official_tasks_root: Path,
 ) -> None:
     if split.benchmark != "skilllearnbench" or split.domain != "skill_learning":
         raise ValueError(f"invalid SkillLearn identity for family {family}")
-    expected_train = [f"{family}-1", f"{family}-2"]
-    expected_validation = [f"{family}-3"]
+    family_root = official_tasks_root / family
+    if not family_root.is_dir():
+        raise ValueError(f"SkillLearn {family} official inventory is missing")
+    numbered: list[tuple[int, str]] = []
+    canonical_ids: set[str] = set()
+    for path in family_root.iterdir():
+        if not path.is_dir():
+            continue
+        match = re.fullmatch(rf"{re.escape(family)}-(\d+)", path.name)
+        if match is None:
+            raise ValueError(
+                f"SkillLearn {family} official inventory has extra entry {path.name}"
+            )
+        number = int(match.group(1))
+        canonical_id = f"{family}-{number}"
+        if canonical_id in canonical_ids:
+            raise ValueError(
+                f"SkillLearn {family} has duplicate official inventory ID "
+                f"{canonical_id}"
+            )
+        canonical_ids.add(canonical_id)
+        numbered.append((number, canonical_id))
+    numbered.sort()
+    official_ids = [task_id for _, task_id in numbered]
+    expected_inventory = [
+        f"{family}-{index}" for index in range(1, len(official_ids) + 1)
+    ]
+    if official_ids != expected_inventory or len(official_ids) < 4:
+        raise ValueError(f"SkillLearn {family} official inventory is not contiguous")
+
+    expected_train = official_ids[:2]
+    expected_validation = official_ids[2:3]
+    expected_test = official_ids[3:]
     if [task.task_id for task in split.train] != expected_train:
         raise ValueError(f"SkillLearn {family} must use instances 1-2 for train")
     if [task.task_id for task in split.validation] != expected_validation:
         raise ValueError(f"SkillLearn {family} must use instance 3 for validation")
-    expected_test = [
-        f"{family}-{index}" for index in range(4, 4 + len(split.clean_test))
-    ]
     if [task.task_id for task in split.clean_test] != expected_test:
-        raise ValueError(f"SkillLearn {family} must use every remaining instance for test")
+        raise ValueError(
+            f"SkillLearn {family} test must match official inventory remainder"
+        )
+
+
+def _skilllearn_task_structure_is_valid(
+    task: TaskManifest,
+    *,
+    family: str,
+    official_tasks_root: Path,
+) -> bool:
+    instance = official_tasks_root / family / task.task_id
+    portable_path = f"rsebench-methods://skilllearnbench/tasks/{family}/{task.task_id}"
+    if (
+        task.metadata.get("task_family") != family
+        or str(task.artifact_path) != portable_path
+        or task.metadata.get("official_instance_path") != portable_path
+        or task.verifier != "skilllearn_hidden_test_v1"
+        or not instance.is_dir()
+    ):
+        return False
+    instruction = instance / "instruction.md"
+    task_config = instance / "task.toml"
+    environment = instance / "environment"
+    if not instruction.is_file() or not task_config.is_file() or not environment.is_dir():
+        return False
+    if instruction.read_text(encoding="utf-8") != task.prompt:
+        return False
+    try:
+        config = tomllib.loads(task_config.read_text(encoding="utf-8"))
+    except (OSError, tomllib.TOMLDecodeError):
+        return False
+    if not isinstance(config.get("verifier"), dict):
+        return False
+    return any(
+        path.is_file() and path.name != "Dockerfile"
+        for path in environment.rglob("*")
+    )
+
+
+def _skilllearn_n2_target_is_valid(
+    task: TaskManifest,
+    *,
+    family: str,
+    official_tasks_root: Path,
+) -> bool:
+    suffixes = _SKILLLEARN_N2_TARGET_SUFFIXES.get(family, frozenset())
+    environment = official_tasks_root / family / task.task_id / "environment"
+    return bool(suffixes) and any(
+        path.is_file()
+        and path.name != "Dockerfile"
+        and path.suffix.casefold() in suffixes
+        for path in environment.rglob("*")
+    )
+
+
+def _skilllearn_noise_applicability(
+    screening_splits: Mapping[str, CleanEvolutionSplitManifest],
+    *,
+    official_tasks_root: Path,
+) -> dict[str, dict[str, float | int | str | None]]:
+    acquisition = [
+        (family, task)
+        for family in SCREENING_SKILLLEARN_FAMILIES
+        for task in screening_splits[family].train
+    ]
+    denominator = len(SCREENING_SKILLLEARN_FAMILIES) * 2
+    if len(acquisition) != denominator:
+        raise ValueError("SkillLearn applicability denominator must be eight")
+    predicates = {
+        "N1": [
+            _skilllearn_task_structure_is_valid(
+                task,
+                family=family,
+                official_tasks_root=official_tasks_root,
+            )
+            and family in _SKILLLEARN_N1_TARGETS
+            for family, task in acquisition
+        ],
+        "N2": [
+            _skilllearn_task_structure_is_valid(
+                task,
+                family=family,
+                official_tasks_root=official_tasks_root,
+            )
+            and _skilllearn_n2_target_is_valid(
+                task,
+                family=family,
+                official_tasks_root=official_tasks_root,
+            )
+            for family, task in acquisition
+        ],
+    }
+    statuses: dict[str, dict[str, float | int | str | None]] = {}
+    for stage, results in predicates.items():
+        applicable = sum(results)
+        coverage = applicable / denominator
+        statuses[stage] = {
+            "applicable": applicable,
+            "coverage": coverage,
+            "denominator": denominator,
+            "status": "pass" if applicable == denominator else "fail",
+        }
+    statuses["N3"] = {"coverage": None, "status": "pending"}
+    statuses["N4"] = {"coverage": None, "status": "pending"}
+    return statuses
 
 
 def build_skilllearn_selection_candidates(
@@ -649,6 +855,7 @@ def build_skilllearn_selection_candidates(
     screening_splits: Mapping[str, CleanEvolutionSplitManifest],
     confirmation_splits: Mapping[str, CleanEvolutionSplitManifest],
     exposure_registry: ExposureRegistry,
+    official_tasks_root: str | Path = DEFAULT_SKILLLEARN_TASKS_ROOT,
 ) -> SelectionCandidateBundle:
     """Build the one preregistered fixed-family SkillLearn candidate."""
 
@@ -656,8 +863,26 @@ def build_skilllearn_selection_candidates(
         raise ValueError("SkillLearn screening families differ from preregistration")
     if set(confirmation_splits) != set(CONFIRMATION_SKILLLEARN_FAMILIES):
         raise ValueError("SkillLearn confirmation families differ from preregistration")
-    for family, split in {**screening_splits, **confirmation_splits}.items():
-        _validate_skilllearn_family_split(family, split)
+    tasks_root = Path(official_tasks_root)
+    all_splits = {**screening_splits, **confirmation_splits}
+    for family, split in all_splits.items():
+        _validate_skilllearn_family_split(
+            family,
+            split,
+            official_tasks_root=tasks_root,
+        )
+        ordinary_tasks = [*split.validation, *split.clean_test]
+        if family in CONFIRMATION_SKILLLEARN_FAMILIES:
+            ordinary_tasks = [*split.train, *ordinary_tasks]
+        if not all(
+            _skilllearn_task_structure_is_valid(
+                task,
+                family=family,
+                official_tasks_root=tasks_root,
+            )
+            for task in ordinary_tasks
+        ):
+            raise ValueError(f"SkillLearn {family} official task structure is invalid")
 
     screening_order = [screening_splits[name] for name in SCREENING_SKILLLEARN_FAMILIES]
     confirmation_order = [
@@ -677,12 +902,12 @@ def build_skilllearn_selection_candidates(
     # family tail semantically, but StableSplitCandidate requires disjoint roles.
     # Qualification is therefore empty: these family tails are screening evidence.
     screening_roles["qualification_test"] = []
-    applicability = {
-        "N1": {"coverage": 1.0, "status": "pass"},
-        "N2": {"coverage": 1.0, "status": "pass"},
-        "N3": {"coverage": None, "status": "pending"},
-        "N4": {"coverage": None, "status": "pending"},
-    }
+    applicability = _skilllearn_noise_applicability(
+        screening_splits,
+        official_tasks_root=tasks_root,
+    )
+    if any(applicability[stage]["status"] != "pass" for stage in ("N1", "N2")):
+        raise ValueError("SkillLearn N1/N2 static applicability must be 100%")
     candidate = StableSplitCandidate(
         benchmark="skilllearnbench",
         domain="skill_learning",
