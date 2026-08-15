@@ -10,21 +10,24 @@ import shutil
 import tempfile
 from collections.abc import Mapping, Sequence
 from pathlib import Path, PurePosixPath
-from typing import Any
+from typing import Annotated, Any
 
 from pydantic import Field, model_validator
 
 from rsebench.contracts import StrictModel, TaskManifest
 from rsebench.evidence import canonical_hash
 from rsebench.selection.contracts import (
-    CandidateDecision,
     ConfirmationSeal,
     ConfirmationSplit,
     ExposureRegistry,
+    PoolCandidateDecision,
     ResourceLock,
+    SelectionStatus,
     SelectionReleaseManifest,
     StableSplitCandidate,
+    SkillLearnQualificationDecision,
 )
+from rsebench.selection.qualification import ScreeningGeneralizationAggregate
 
 
 EXPECTED_DOMAINS = frozenset(
@@ -70,6 +73,10 @@ _UNRESOLVED_MARKERS = (
     "replace_me",
     "todo://",
 )
+ReleaseDomainDecision = Annotated[
+    PoolCandidateDecision | SkillLearnQualificationDecision,
+    Field(discriminator="decision_type"),
+]
 
 
 class FrozenSelectionRelease(StrictModel):
@@ -85,7 +92,7 @@ class SelectionReleaseInput(StrictModel):
 
     candidates: dict[str, StableSplitCandidate]
     confirmations: dict[str, ConfirmationSplit]
-    decisions: dict[str, CandidateDecision]
+    decisions: dict[str, ReleaseDomainDecision]
     domain_statuses: dict[str, str]
     exposure_registry: ExposureRegistry
     confirmation_seal: ConfirmationSeal
@@ -103,6 +110,87 @@ class SelectionReleaseInput(StrictModel):
             if set(getattr(self, field_name)) != EXPECTED_DOMAINS:
                 raise ValueError(f"{field_name} requires exactly the four registered domains")
         return self
+
+
+class QualificationReleaseCompanion(StrictModel):
+    """Hash-bound qualification decisions derived from owned run evidence."""
+
+    schema_version: str = "rsebench.qualification-release-companion.v1"
+    selection_status_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
+    selected_candidate_indices: dict[str, int]
+    selection_hashes: dict[str, str]
+    decisions: dict[str, ReleaseDomainDecision]
+    decision_bases: dict[str, str]
+    baseline_fingerprints: dict[str, str]
+    evidence_hashes: dict[str, str]
+    companion_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+    @model_validator(mode="after")
+    def validate_bindings(self) -> "QualificationReleaseCompanion":
+        for field_name in (
+            "selected_candidate_indices",
+            "selection_hashes",
+            "decisions",
+            "decision_bases",
+        ):
+            if set(getattr(self, field_name)) != EXPECTED_DOMAINS:
+                raise ValueError(
+                    f"{field_name} requires exactly the four registered domains"
+                )
+        if set(self.baseline_fingerprints) != EXPECTED_BASELINES:
+            raise ValueError("companion requires exactly the three registered baselines")
+        if not self.evidence_hashes:
+            raise ValueError("companion requires owned evidence hashes")
+        for values in (
+            self.selection_hashes,
+            self.baseline_fingerprints,
+            self.evidence_hashes,
+        ):
+            if any(not _HASH_PATTERN.fullmatch(value) for value in values.values()):
+                raise ValueError("companion contains a non-SHA-256 hash")
+        expected = canonical_hash(_qualification_companion_unsigned(self))
+        if self.companion_hash != expected:
+            raise ValueError("qualification companion hash differs")
+        return self
+
+
+def _qualification_companion_unsigned(
+    companion: QualificationReleaseCompanion,
+) -> dict[str, Any]:
+    return companion.model_dump(mode="json", exclude={"companion_hash"})
+
+
+def make_qualification_release_companion(
+    *,
+    selection_status: SelectionStatus,
+    selected_candidate_indices: Mapping[str, int],
+    selection_hashes: Mapping[str, str],
+    decisions: Mapping[str, ReleaseDomainDecision],
+    decision_bases: Mapping[str, str],
+    baseline_fingerprints: Mapping[str, str],
+    evidence_hashes: Mapping[str, str],
+) -> QualificationReleaseCompanion:
+    """Create a companion whose hash covers every release qualification input."""
+
+    unsigned = {
+        "schema_version": "rsebench.qualification-release-companion.v1",
+        "selection_status_hash": canonical_hash(
+            selection_status.model_dump(mode="json")
+        ),
+        "selected_candidate_indices": dict(sorted(selected_candidate_indices.items())),
+        "selection_hashes": dict(sorted(selection_hashes.items())),
+        "decisions": {
+            benchmark: decision.model_dump(mode="json")
+            for benchmark, decision in sorted(decisions.items())
+        },
+        "decision_bases": dict(sorted(decision_bases.items())),
+        "baseline_fingerprints": dict(sorted(baseline_fingerprints.items())),
+        "evidence_hashes": dict(sorted(evidence_hashes.items())),
+    }
+    return QualificationReleaseCompanion(
+        **unsigned,
+        companion_hash=canonical_hash(unsigned),
+    )
 
 
 def _canonical_json_bytes(payload: Any) -> bytes:
@@ -182,7 +270,7 @@ def _validate_release_inputs(
     *,
     candidates: Mapping[str, StableSplitCandidate],
     confirmations: Mapping[str, ConfirmationSplit],
-    decisions: Mapping[str, CandidateDecision],
+    decisions: Mapping[str, ReleaseDomainDecision],
     domain_statuses: Mapping[str, str],
     exposure_registry: ExposureRegistry,
     confirmation_seal: ConfirmationSeal,
@@ -233,18 +321,37 @@ def _validate_release_inputs(
     for benchmark in sorted(EXPECTED_DOMAINS):
         candidate = candidates[benchmark]
         confirmation = confirmations[benchmark]
-        decision = decisions[benchmark]
+        domain_decision = decisions[benchmark]
         if candidate.metadata.get("selection_version") != "noise-screen-v1":
             raise ValueError(f"candidate is not noise-screen-v1: {benchmark}")
         if confirmation.metadata.get("selection_version") != "noise-screen-v1":
             raise ValueError(f"confirmation is not noise-screen-v1: {benchmark}")
-        if decision.candidate_index != candidate.candidate_index:
+        if benchmark == "skilllearnbench":
+            if not isinstance(domain_decision, SkillLearnQualificationDecision):
+                raise ValueError("SkillLearn requires its fixed-family decision type")
+            decision_index = domain_decision.candidate_index
+            passed = domain_decision.passed
+            action = domain_decision.next_action
+            execution_coverage = domain_decision.execution_coverage
+            noise_applicability = domain_decision.noise_applicability
+        else:
+            if not isinstance(domain_decision, PoolCandidateDecision):
+                raise ValueError(f"pool benchmark requires CandidateDecision: {benchmark}")
+            if domain_decision.benchmark != benchmark:
+                raise ValueError(f"decision benchmark differs: {benchmark}")
+            decision = domain_decision.decision
+            decision_index = decision.candidate_index
+            passed = decision.passed
+            action = decision.next_action
+            execution_coverage = decision.execution_coverage
+            noise_applicability = decision.noise_applicability
+        if decision_index != candidate.candidate_index:
             raise ValueError(f"decision candidate index differs: {benchmark}")
         if (
-            not decision.passed
-            or decision.next_action != "freeze_candidate"
-            or decision.execution_coverage != 1.0
-            or decision.noise_applicability != 1.0
+            not passed
+            or action != "freeze_candidate"
+            or execution_coverage != 1.0
+            or noise_applicability != 1.0
         ):
             raise ValueError(
                 f"release requires a passing freeze_candidate decision: {benchmark}"
@@ -275,12 +382,13 @@ def build_release_files(
     *,
     candidates: Mapping[str, StableSplitCandidate],
     confirmations: Mapping[str, ConfirmationSplit],
-    decisions: Mapping[str, CandidateDecision],
+    decisions: Mapping[str, ReleaseDomainDecision],
     domain_statuses: Mapping[str, str],
     exposure_registry: ExposureRegistry,
     confirmation_seal: ConfirmationSeal,
     resource_lock: ResourceLock,
     baseline_fingerprints: Mapping[str, str],
+    qualification_companion: QualificationReleaseCompanion | None = None,
 ) -> dict[str, bytes]:
     """Return canonical UTF-8 JSON bytes keyed by repository-relative path."""
 
@@ -319,6 +427,26 @@ def build_release_files(
         "confirmation_seal.json": _canonical_json_bytes(confirmation_seal),
         "resource_lock.json": _canonical_json_bytes(resource_lock),
     }
+    if qualification_companion is not None:
+        if dict(qualification_companion.selected_candidate_indices) != {
+            benchmark: candidate.candidate_index
+            for benchmark, candidate in candidates.items()
+        }:
+            raise ValueError("qualification companion candidate indices differ")
+        if dict(qualification_companion.selection_hashes) != {
+            benchmark: candidate.selection_hash
+            for benchmark, candidate in candidates.items()
+        }:
+            raise ValueError("qualification companion selection hashes differ")
+        if dict(qualification_companion.decisions) != dict(decisions):
+            raise ValueError("qualification companion decisions differ")
+        if dict(qualification_companion.baseline_fingerprints) != dict(
+            baseline_fingerprints
+        ):
+            raise ValueError("qualification companion baseline fingerprints differ")
+        files["qualification_release.json"] = _canonical_json_bytes(
+            qualification_companion
+        )
     for benchmark in sorted(EXPECTED_DOMAINS):
         files[f"base_splits/{benchmark}.json"] = _canonical_json_bytes(
             candidates[benchmark]
@@ -450,12 +578,13 @@ def freeze_selection_release(
     destination: Path,
     candidates: Mapping[str, StableSplitCandidate],
     confirmations: Mapping[str, ConfirmationSplit],
-    decisions: Mapping[str, CandidateDecision],
+    decisions: Mapping[str, ReleaseDomainDecision],
     domain_statuses: Mapping[str, str],
     exposure_registry: ExposureRegistry,
     confirmation_seal: ConfirmationSeal,
     resource_lock: ResourceLock,
     baseline_fingerprints: Mapping[str, str],
+    qualification_companion: QualificationReleaseCompanion | None = None,
 ) -> FrozenSelectionRelease:
     """Freeze one release only after every portable selection barrier passes."""
 
@@ -468,6 +597,7 @@ def freeze_selection_release(
         confirmation_seal=confirmation_seal,
         resource_lock=resource_lock,
         baseline_fingerprints=baseline_fingerprints,
+        qualification_companion=qualification_companion,
     )
     reject_secrets_and_absolute_paths(files)
     return atomic_content_addressed_write(destination, files)
@@ -494,15 +624,189 @@ def freeze_selection_release_file(
     )
 
 
+def _read_json_object(path: Path) -> dict[str, Any]:
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError(f"expected a JSON object: {path}")
+    return payload
+
+
+def _owned_path(root: Path, locator: str) -> Path:
+    candidate = Path(locator)
+    if candidate.is_absolute():
+        raise ValueError(f"selection locator must be relative: {locator}")
+    resolved = (root / candidate).resolve()
+    try:
+        resolved.relative_to(root.resolve())
+    except ValueError as exc:
+        raise ValueError(f"selection locator escapes root: {locator}") from exc
+    if not resolved.is_file():
+        raise FileNotFoundError(f"selection artifact is missing: {resolved}")
+    return resolved
+
+
+def _load_selected_candidates(
+    *,
+    selection_root: Path,
+    index: Mapping[str, Any],
+    status: SelectionStatus,
+) -> dict[str, StableSplitCandidate]:
+    raw_candidates = index.get("candidates")
+    if not isinstance(raw_candidates, dict) or set(raw_candidates) != EXPECTED_DOMAINS:
+        raise ValueError("selection index requires exactly four candidate mappings")
+    selected: dict[str, StableSplitCandidate] = {}
+    for benchmark in sorted(EXPECTED_DOMAINS):
+        status_row = status.domains[benchmark]
+        if (
+            status_row.next_action != "freeze_candidate"
+            or status_row.selected_candidate_index is None
+        ):
+            raise ValueError(f"domain is not freeze_candidate: {benchmark}")
+        paths = raw_candidates[benchmark]
+        if not isinstance(paths, list):
+            raise ValueError(f"candidate index is malformed: {benchmark}")
+        matches: list[StableSplitCandidate] = []
+        for locator in paths:
+            candidate = StableSplitCandidate.model_validate(
+                _read_json_object(_owned_path(selection_root, str(locator)))
+            )
+            if (
+                candidate.benchmark == benchmark
+                and candidate.candidate_index == status_row.selected_candidate_index
+            ):
+                matches.append(candidate)
+        if len(matches) != 1:
+            raise ValueError(f"selected candidate is not unique: {benchmark}")
+        selected[benchmark] = matches[0]
+    return selected
+
+
+def _load_confirmations(
+    *, selection_root: Path, index: Mapping[str, Any]
+) -> dict[str, ConfirmationSplit]:
+    raw = index.get("confirmation")
+    if not isinstance(raw, dict) or set(raw) != EXPECTED_DOMAINS:
+        raise ValueError("selection index requires exactly four confirmations")
+    confirmations: dict[str, ConfirmationSplit] = {}
+    for benchmark, locator in sorted(raw.items()):
+        confirmation = ConfirmationSplit.model_validate(
+            _read_json_object(_owned_path(selection_root, str(locator)))
+        )
+        if confirmation.benchmark != benchmark:
+            raise ValueError(f"confirmation benchmark differs from index: {benchmark}")
+        confirmations[benchmark] = confirmation
+    return confirmations
+
+
+def freeze_selection_release_roots(
+    *, selection_root: Path, run_root: Path, destination: Path
+) -> FrozenSelectionRelease:
+    """Revalidate owned qualification evidence and freeze the Task 8 roots."""
+
+    selection = Path(selection_root).resolve()
+    runs = Path(run_root).resolve()
+    index = _read_json_object(_owned_path(selection, "manifest.json"))
+    if index.get("selection_version") != "noise-screen-v1":
+        raise ValueError("selection root is not noise-screen-v1")
+    status = SelectionStatus.model_validate_json(
+        _owned_path(runs, "selection_status.json").read_text(encoding="utf-8")
+    )
+    if set(status.domains) != EXPECTED_DOMAINS:
+        raise ValueError("selection status requires exactly four domains")
+    candidates = _load_selected_candidates(
+        selection_root=selection,
+        index=index,
+        status=status,
+    )
+    confirmations = _load_confirmations(selection_root=selection, index=index)
+    screening = ScreeningGeneralizationAggregate.model_validate_json(
+        _owned_path(runs, "screening_generalization.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    if set(screening.domains) != EXPECTED_DOMAINS or not screening.all_ready:
+        raise ValueError("all domains must be clean_generalization_ready")
+    domain_statuses = {
+        benchmark: row.status for benchmark, row in screening.domains.items()
+    }
+    if any(status_value != "clean_generalization_ready" for status_value in domain_statuses.values()):
+        raise ValueError("all domains must be clean_generalization_ready")
+
+    stored_companion = QualificationReleaseCompanion.model_validate_json(
+        _owned_path(runs, "release_qualification.json").read_text(encoding="utf-8")
+    )
+    from rsebench.selection.qualification_io import (
+        derive_release_qualification_companion,
+    )
+
+    derived_companion = derive_release_qualification_companion(
+        selection_root=selection,
+        run_root=runs,
+    )
+    if stored_companion != derived_companion:
+        raise ValueError(
+            "qualification companion differs from owned qualification evidence"
+        )
+    expected_indices = {
+        benchmark: candidate.candidate_index
+        for benchmark, candidate in candidates.items()
+    }
+    expected_hashes = {
+        benchmark: candidate.selection_hash
+        for benchmark, candidate in candidates.items()
+    }
+    if stored_companion.selection_status_hash != canonical_hash(
+        status.model_dump(mode="json")
+    ):
+        raise ValueError("qualification companion differs from selection status")
+    if dict(stored_companion.selected_candidate_indices) != expected_indices:
+        raise ValueError("qualification companion candidate indices differ")
+    if dict(stored_companion.selection_hashes) != expected_hashes:
+        raise ValueError("qualification companion selection hashes differ")
+
+    exposure_registry = ExposureRegistry.model_validate(
+        _read_json_object(_owned_path(selection, "exposure_registry.json"))
+    )
+    if index.get("exposure_registry_hash") != exposure_registry.registry_hash:
+        raise ValueError("selection index exposure registry hash differs")
+    seal_locator = str(index.get("confirmation_seal") or "")
+    confirmation_seal = ConfirmationSeal.model_validate(
+        _read_json_object(_owned_path(selection, seal_locator))
+    )
+    lock_locator = (
+        "resource_lock.json"
+        if (selection / "resource_lock.json").is_file()
+        else "resource_lock.preflight.json"
+    )
+    lock_path = _owned_path(selection, lock_locator)
+    resource_lock = ResourceLock.model_validate(_read_json_object(lock_path))
+    return freeze_selection_release(
+        destination=destination,
+        candidates=candidates,
+        confirmations=confirmations,
+        decisions=stored_companion.decisions,
+        domain_statuses=domain_statuses,
+        exposure_registry=exposure_registry,
+        confirmation_seal=confirmation_seal,
+        resource_lock=resource_lock,
+        baseline_fingerprints=stored_companion.baseline_fingerprints,
+        qualification_companion=stored_companion,
+    )
+
+
 __all__ = [
     "EXPECTED_BASELINES",
     "EXPECTED_DOMAINS",
     "FrozenSelectionRelease",
+    "QualificationReleaseCompanion",
+    "ReleaseDomainDecision",
     "SelectionReleaseInput",
     "atomic_content_addressed_write",
     "build_release_files",
     "freeze_selection_release",
     "freeze_selection_release_file",
+    "freeze_selection_release_roots",
+    "make_qualification_release_companion",
     "reject_secrets_and_absolute_paths",
     "validate_cross_release_disjointness",
 ]

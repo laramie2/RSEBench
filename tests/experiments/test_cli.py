@@ -71,6 +71,15 @@ def test_unified_subapps_expose_expected_commands() -> None:
     assert "freeze" in selection_help.stdout.split()
 
 
+def test_selection_freeze_help_documents_task8_root_owned_mode() -> None:
+    help_result = runner.invoke(cli.app, ["selection", "freeze", "--help"])
+
+    assert help_result.exit_code == 0
+    assert {"--selection-root", "--run-root", "--release-root"} <= set(
+        help_result.stdout.split()
+    )
+
+
 def test_experiment_aggregate_passes_matrix_contract_to_scheduler_aggregate(
     monkeypatch,
     tmp_path: Path,

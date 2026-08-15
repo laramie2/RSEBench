@@ -64,6 +64,23 @@ def main() -> None:
     )
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(output_payload.model_dump_json(indent=2) + "\n", encoding="utf-8")
+    if args.mode == "qualification" and all(
+        row.next_action == "freeze_candidate"
+        and row.selected_candidate_index is not None
+        for row in output_payload.domains.values()
+    ):
+        from rsebench.selection.qualification_io import (
+            derive_release_qualification_companion,
+        )
+
+        companion = derive_release_qualification_companion(
+            selection_root=args.selection_root,
+            run_root=run_root,
+        )
+        (run_root / "release_qualification.json").write_text(
+            companion.model_dump_json(indent=2) + "\n",
+            encoding="utf-8",
+        )
     print(args.output)
 
 

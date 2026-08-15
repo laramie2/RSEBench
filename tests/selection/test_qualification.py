@@ -12,9 +12,14 @@ import rsebench.selection.qualification_io as qualification_io
 from rsebench.contracts import TaskManifest
 from rsebench.evidence import FeedbackRecord, TraceEvent, TrajectoryRecord, canonical_hash
 from rsebench.selection.contracts import (
+    CandidateDecision,
     CandidateSeedEvidence,
+    DomainSelectionStatus,
     ExposureRegistry,
+    PoolCandidateDecision,
     ScreeningSeedEvidence,
+    SelectionStatus,
+    SkillLearnQualificationDecision,
     StableSplitCandidate,
 )
 from rsebench.selection.qualification import (
@@ -48,6 +53,175 @@ from rsebench.selection.qualification_io import (
     SkillOptRolloutRow,
     validate_candidate_denominators,
 )
+
+
+def test_release_companion_rederives_typed_decisions_from_owned_evidence(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    benchmarks = {
+        "spreadsheetbench_verified": "spreadsheet",
+        "officeqa_full": "document",
+        "webshop": "interactive",
+        "skilllearnbench": "skill_learning",
+    }
+    candidates = {
+        benchmark: StableSplitCandidate(
+            benchmark=benchmark,
+            domain=domain,
+            candidate_index=1,
+            train=[],
+            validation=[],
+            qualification_test=[],
+            screening_test=[],
+            source_hash=canonical_hash(f"source:{benchmark}"),
+            selection_hash=canonical_hash(f"selection:{benchmark}"),
+        )
+        for benchmark, domain in benchmarks.items()
+    }
+    repository = SelectionRepository(
+        root=tmp_path,
+        candidates={benchmark: {1: candidate} for benchmark, candidate in candidates.items()},
+        candidate_paths={},
+        audits={},
+    )
+    status = SelectionStatus(
+        domains={
+            benchmark: DomainSelectionStatus(
+                benchmark=benchmark,
+                selected_candidate_index=1,
+                next_action="freeze_candidate",
+            )
+            for benchmark in benchmarks
+        }
+    )
+    (tmp_path / "selection_status.json").write_text(status.model_dump_json())
+    fingerprints = {
+        "spreadsheetbench_verified": "a" * 64,
+        "officeqa_full": "a" * 64,
+        "webshop": "b" * 64,
+        "skilllearnbench": "c" * 64,
+    }
+    records: list[CleanRunEvidence] = []
+    for benchmark in qualification_io.POOL_BENCHMARKS:
+        for seed in qualification_io.METHOD_SEEDS:
+            records.append(
+                CleanRunEvidence(
+                    benchmark=benchmark,
+                    candidate_index=1,
+                    selection_hash=candidates[benchmark].selection_hash,
+                    method_seed=seed,
+                    run_dir=str(tmp_path / f"{benchmark}-{seed}"),
+                    train_task_ids=[],
+                    validation_task_ids=[],
+                    accepted_update_count=1,
+                    artifact_changed=True,
+                    validation_complete=True,
+                    seed_artifact_path=str(tmp_path / "seed"),
+                    seed_artifact_hash="d" * 64,
+                    clean_artifact_path=str(tmp_path / "clean"),
+                    clean_artifact_hash="e" * 64,
+                    baseline_fingerprint=fingerprints[benchmark],
+                    evolution_input_hash="f" * 64,
+                    provider="deepseek",
+                    model="deepseek-v4-flash",
+                    provider_config_hash="1" * 64,
+                )
+            )
+            replay = qualification_io._replay_result_path(
+                tmp_path,
+                role="qualification_test",
+                benchmark=benchmark,
+                candidate_index=1,
+                method_seed=seed,
+                family=None,
+            )
+            replay.parent.mkdir(parents=True, exist_ok=True)
+            replay.write_text("{}\n")
+    for family in qualification_io.SKILLLEARN_FAMILIES:
+        for seed in qualification_io.METHOD_SEEDS:
+            records.append(
+                CleanRunEvidence(
+                    benchmark="skilllearnbench",
+                    candidate_index=1,
+                    selection_hash=candidates["skilllearnbench"].selection_hash,
+                    family=family,
+                    method_seed=seed,
+                    run_dir=str(tmp_path / f"{family}-{seed}"),
+                    train_task_ids=[],
+                    validation_task_ids=[],
+                    accepted_update_count=1,
+                    artifact_changed=True,
+                    validation_complete=True,
+                    seed_artifact_path=str(tmp_path / "seed"),
+                    seed_artifact_hash="d" * 64,
+                    clean_artifact_path=str(tmp_path / "clean"),
+                    clean_artifact_hash="e" * 64,
+                    baseline_fingerprint=fingerprints["skilllearnbench"],
+                    evolution_input_hash="f" * 64,
+                    provider="deepseek",
+                    model="deepseek-v4-flash",
+                    provider_config_hash="1" * 64,
+                )
+            )
+    pool_decision = CandidateDecision(
+        candidate_index=1,
+        passed=True,
+        accepted_seed_count=3,
+        nondegrading_seed_count=3,
+        mean_clean_gain=0.1,
+        execution_coverage=1.0,
+        noise_applicability=1.0,
+        next_action="freeze_candidate",
+        failure_reasons=[],
+    )
+    monkeypatch.setattr(qualification_io, "load_selection_repository", lambda root: repository)
+    monkeypatch.setattr(qualification_io, "_qualification", lambda *args: status)
+    monkeypatch.setattr(qualification_io, "discover_clean_runs", lambda *args: records)
+    monkeypatch.setattr(qualification_io, "_rehydrate_reused_records", lambda *args: [])
+    monkeypatch.setattr(
+        qualification_io,
+        "_candidate_decision_result",
+        lambda **kwargs: ("freeze_candidate", [], pool_decision),
+    )
+    monkeypatch.setattr(qualification_io, "_group_failures", lambda *args, **kwargs: [])
+    failed_family = qualification_io.SKILLLEARN_FAMILIES[-1]
+
+    def audit_failures(repository, candidate, runs):
+        del repository, candidate
+        return (
+            ["incomplete_noise_applicability"]
+            if runs and runs[0].family == failed_family
+            else []
+        )
+
+    monkeypatch.setattr(
+        qualification_io,
+        "_selection_audit_failures",
+        audit_failures,
+    )
+
+    companion = qualification_io.derive_release_qualification_companion(
+        selection_root=tmp_path,
+        run_root=tmp_path,
+    )
+
+    assert isinstance(companion.decisions["webshop"], PoolCandidateDecision)
+    skilllearn = companion.decisions["skilllearnbench"]
+    assert isinstance(skilllearn, SkillLearnQualificationDecision)
+    assert len(skilllearn.ready_families) == 3
+    assert skilllearn.required_ready_family_count == 3
+    assert skilllearn.evaluated_family_count == 4
+    assert skilllearn.passed is True
+    assert skilllearn.family_summaries[failed_family].ready is False
+    assert set(skilllearn.family_summaries) == set(
+        qualification_io.SKILLLEARN_FAMILIES
+    )
+    assert companion.baseline_fingerprints == {
+        "skillopt": "a" * 64,
+        "skilladaptor": "b" * 64,
+        "skilllearn_self_feedback": "c" * 64,
+    }
 
 
 @pytest.fixture(scope="module")

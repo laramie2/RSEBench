@@ -1052,6 +1052,14 @@ Expected: all replay and decision tests pass.
 - Consumes: passing candidate/generalization decisions, confirmation seal, exposure registry, resource hashes, and baseline fingerprints.
 - Produces: freeze_selection_release(...) -> FrozenSelectionRelease and benchmark/validation/noise_screen_v1/.
 
+Release decisions use a discriminated union: the three pool benchmarks retain
+their exact `CandidateDecision`, while SkillLearn uses an immutable
+`SkillLearnQualificationDecision` over all four fixed family summaries. The
+root-owned production command re-derives these decisions and baseline
+fingerprints from clean/replay evidence and requires byte-equivalent,
+hash-bound `release_qualification.json`; it never promotes a passing status
+into decision evidence.
+
 - [ ] **Step 1: Write failing barrier and portability tests**
 
 ~~~python
@@ -1096,12 +1104,13 @@ def freeze_selection_release(
     destination: Path,
     candidates: Mapping[str, StableSplitCandidate],
     confirmations: Mapping[str, ConfirmationSplit],
-    decisions: Mapping[str, CandidateDecision],
+    decisions: Mapping[str, ReleaseDomainDecision],
     domain_statuses: Mapping[str, str],
     exposure_registry: ExposureRegistry,
     confirmation_seal: ConfirmationSeal,
     resource_lock: ResourceLock,
     baseline_fingerprints: Mapping[str, str],
+    qualification_companion: QualificationReleaseCompanion | None = None,
 ) -> FrozenSelectionRelease:
     expected_domains = {
         "spreadsheetbench_verified",
@@ -1153,7 +1162,7 @@ def build_release_files(
     *,
     candidates: Mapping[str, StableSplitCandidate],
     confirmations: Mapping[str, ConfirmationSplit],
-    decisions: Mapping[str, CandidateDecision],
+    decisions: Mapping[str, ReleaseDomainDecision],
     domain_statuses: Mapping[str, str],
     exposure_registry: ExposureRegistry,
     confirmation_seal: ConfirmationSeal,

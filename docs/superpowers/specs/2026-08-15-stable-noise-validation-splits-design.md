@@ -202,6 +202,8 @@ sha256(canonical_json(["noise-screen-v1", benchmark, role,
 
 SkillLearn family clean-ready 要求三颗 seed 中至少两颗接受更新且 validation 合法执行；四个 family 中至少三个 clean-ready，领域才通过。
 
+发布资格决定保留这一方法差异：Spreadsheet、OfficeQA、WebShop 使用固定产物重评得到的 `CandidateDecision`；SkillLearn 没有 qualification-test 固定产物重评，不能伪造 `mean_clean_gain` 或 nondegrading seed，因此使用独立的 `SkillLearnQualificationDecision`，绑定四个固定 family 的逐 family/seed 资格摘要、执行覆盖率、N1–N4 适用性和 owned-evidence 哈希。发布层使用带 `decision_type` 的显式 union，并重新从 run/replay 证据派生后校验 aggregator 写出的 companion。
+
 三个候选均以完整、确定性的证据失败时，该领域标记为 `clean_blocked_after_three_candidates`，停止样本冻结，不继续更换数据。Candidate 3 证据缺失或不可读时仍返回 `run_candidate_3` 以重试同一候选，不能把不完整执行误记为三次确定性失败。
 
 ## 8. Screening test 首次评测后的约束

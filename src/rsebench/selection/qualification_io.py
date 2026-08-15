@@ -52,10 +52,14 @@ from rsebench.experiments.preflight import (
 )
 from rsebench.hashing import sha256_file
 from rsebench.selection.contracts import (
+    CandidateDecision,
     CandidateSeedEvidence,
     DomainSelectionStatus,
+    PoolCandidateDecision,
     ScreeningSeedEvidence,
     SelectionStatus,
+    SkillLearnFamilyQualificationSummary,
+    SkillLearnQualificationDecision,
     StableSplitCandidate,
 )
 from rsebench.selection.qualification import (
@@ -1963,14 +1967,14 @@ def _load_replay(
     return replay, list(dict.fromkeys(failures))
 
 
-def _candidate_result(
+def _candidate_decision_result(
     *,
     repository: SelectionRepository,
     candidate: StableSplitCandidate,
     runs: list[CleanRunEvidence],
     run_root: Path,
     family: str | None = None,
-) -> tuple[str, list[str]]:
+) -> tuple[str, list[str], CandidateDecision | None]:
     group_failures = _group_failures(candidate, runs, family=family)
     retryable_audit, deterministic_audit = _selection_audit_failure_groups(
         repository, candidate, runs
@@ -1979,11 +1983,11 @@ def _candidate_result(
         return sequential_incomplete_action(candidate.candidate_index), [
             *group_failures,
             *retryable_audit,
-        ]
+        ], None
     if deterministic_audit:
         return candidate_failure_action(
             candidate.candidate_index, deterministic=True
-        ), deterministic_audit
+        ), deterministic_audit, None
     seed_evidence: list[CandidateSeedEvidence] = []
     replay_failures: list[str] = []
     extend = False
@@ -2023,16 +2027,34 @@ def _candidate_result(
     if replay_failures:
         return sequential_incomplete_action(candidate.candidate_index), list(
             dict.fromkeys(replay_failures)
-        )
+        ), None
     if extend:
-        return "extend_replay_to_5", ["sign_inconsistent_three_repeat_replay"]
+        return "extend_replay_to_5", ["sign_inconsistent_three_repeat_replay"], None
     decision = decide_candidate(
         candidate_index=candidate.candidate_index,
         seeds=seed_evidence,
         execution_coverage=1.0,
         noise_applicability=1.0,
     )
-    return decision.next_action, decision.failure_reasons
+    return decision.next_action, decision.failure_reasons, decision
+
+
+def _candidate_result(
+    *,
+    repository: SelectionRepository,
+    candidate: StableSplitCandidate,
+    runs: list[CleanRunEvidence],
+    run_root: Path,
+    family: str | None = None,
+) -> tuple[str, list[str]]:
+    action, reasons, _ = _candidate_decision_result(
+        repository=repository,
+        candidate=candidate,
+        runs=runs,
+        run_root=run_root,
+        family=family,
+    )
+    return action, reasons
 
 
 def _records_for(
@@ -2617,6 +2639,219 @@ def aggregate_selection_roots(
     if mode == "screening-generalization":
         return _screening(repository, root)
     raise ValueError(f"unknown aggregation mode: {mode}")
+
+
+def derive_release_qualification_companion(
+    *,
+    selection_root: Path,
+    run_root: Path,
+) -> Any:
+    """Recompute release decisions and fingerprints from owned clean evidence."""
+
+    repository = load_selection_repository(selection_root)
+    root = Path(run_root).resolve()
+    stored_status = SelectionStatus.model_validate_json(
+        (root / "selection_status.json").read_text(encoding="utf-8")
+    )
+    derived_status = _qualification(repository, root)
+    if stored_status != derived_status:
+        raise ValueError("selection status differs from owned qualification evidence")
+    if any(
+        row.next_action != "freeze_candidate"
+        or row.selected_candidate_index is None
+        for row in stored_status.domains.values()
+    ):
+        raise ValueError("release qualification requires four freeze_candidate domains")
+
+    records = discover_clean_runs(root, repository)
+    records = _overlay_reused_records(
+        records, _rehydrate_reused_records(root, repository)
+    )
+    decisions: dict[
+        str, PoolCandidateDecision | SkillLearnQualificationDecision
+    ] = {}
+    decision_bases: dict[str, str] = {}
+    selection_hashes: dict[str, str] = {}
+    selected_indices: dict[str, int] = {}
+    evidence_hashes: dict[str, str] = {}
+    selected_records: dict[str, list[CleanRunEvidence]] = {}
+
+    for benchmark in POOL_BENCHMARKS:
+        selected_index = stored_status.domains[benchmark].selected_candidate_index
+        if selected_index is None:
+            raise ValueError(f"pool domain has no selected candidate: {benchmark}")
+        candidate = repository.candidates[benchmark][selected_index]
+        runs = _records_for(records, benchmark, selected_index)
+        action, reasons, decision = _candidate_decision_result(
+            repository=repository,
+            candidate=candidate,
+            runs=runs,
+            run_root=root,
+        )
+        if action != "freeze_candidate" or decision is None or not decision.passed:
+            raise ValueError(
+                f"pool decision is not release-ready: {benchmark}: {reasons}"
+            )
+        decisions[benchmark] = PoolCandidateDecision(
+            benchmark=benchmark,
+            decision=decision,
+        )
+        decision_bases[benchmark] = "candidate_fixed_replay_v1"
+        selection_hashes[benchmark] = candidate.selection_hash
+        selected_indices[benchmark] = selected_index
+        selected_records[benchmark] = runs
+        for run in sorted(runs, key=lambda row: row.method_seed):
+            evidence_hashes[f"clean:{benchmark}:{run.method_seed}"] = canonical_hash(
+                run.model_dump(mode="json")
+            )
+            replay_path = _replay_result_path(
+                root,
+                role="qualification_test",
+                benchmark=benchmark,
+                candidate_index=selected_index,
+                method_seed=run.method_seed,
+                family=None,
+            )
+            evidence_hashes[f"replay:{benchmark}:{run.method_seed}"] = sha256_file(
+                replay_path
+            )
+
+    skill_index = stored_status.domains[
+        "skilllearnbench"
+    ].selected_candidate_index
+    if skill_index != 1:
+        raise ValueError("SkillLearn release requires fixed Candidate 1")
+    skill_candidate = repository.candidates["skilllearnbench"][1]
+    family_summaries: dict[str, SkillLearnFamilyQualificationSummary] = {}
+    skill_records: list[CleanRunEvidence] = []
+    domain_failure_reasons: list[str] = []
+    for family in SKILLLEARN_FAMILIES:
+        family_runs = _records_for(records, "skilllearnbench", 1, family)
+        skill_records.extend(family_runs)
+        group_failures = _group_failures(
+            skill_candidate,
+            family_runs,
+            family=family,
+        )
+        audit_failures = _selection_audit_failures(
+            repository,
+            skill_candidate,
+            family_runs,
+        )
+        accepted = sorted(
+            run.method_seed
+            for run in family_runs
+            if run.accepted_update_count > 0
+            and run.artifact_changed
+            and run.validation_complete
+        )
+        validation_complete = sorted(
+            run.method_seed for run in family_runs if run.validation_complete
+        )
+        unique_seeds = {run.method_seed for run in family_runs}
+        execution_coverage = min(1.0, len(unique_seeds) / len(METHOD_SEEDS))
+        noise_applicability = 0.0 if audit_failures else 1.0
+        reasons = list(dict.fromkeys([*group_failures, *audit_failures]))
+        if len(accepted) < 2:
+            reasons.append("fewer_than_two_accepted_updates")
+        if execution_coverage != 1.0 or len(validation_complete) != len(METHOD_SEEDS):
+            reasons.append("incomplete_family_execution")
+        reasons = list(dict.fromkeys(reasons))
+        ready = (
+            len(accepted) >= 2
+            and len(validation_complete) == len(METHOD_SEEDS)
+            and execution_coverage == 1.0
+            and noise_applicability == 1.0
+            and not reasons
+        )
+        family_evidence_hash = canonical_hash(
+            [
+                run.model_dump(mode="json")
+                for run in sorted(family_runs, key=lambda row: row.method_seed)
+            ]
+        )
+        family_summaries[family] = SkillLearnFamilyQualificationSummary(
+            family=family,
+            ready=ready,
+            accepted_method_seeds=accepted,
+            validation_complete_method_seeds=validation_complete,
+            execution_coverage=execution_coverage,
+            noise_applicability=noise_applicability,
+            evidence_hash=family_evidence_hash,
+            failure_reasons=reasons,
+        )
+        domain_failure_reasons.extend(f"{family}:{reason}" for reason in reasons)
+        evidence_hashes[f"clean:skilllearnbench:{family}"] = family_evidence_hash
+    ready_families = sorted(
+        family for family, summary in family_summaries.items() if summary.ready
+    )
+    qualifying_summaries = [
+        family_summaries[family] for family in ready_families
+    ]
+    skill_execution_coverage = (
+        min(summary.execution_coverage for summary in qualifying_summaries)
+        if qualifying_summaries
+        else 0.0
+    )
+    skill_noise_applicability = (
+        min(summary.noise_applicability for summary in qualifying_summaries)
+        if qualifying_summaries
+        else 0.0
+    )
+    skill_passed = (
+        len(ready_families) >= 3
+        and skill_execution_coverage == 1.0
+        and skill_noise_applicability == 1.0
+    )
+    decisions["skilllearnbench"] = SkillLearnQualificationDecision(
+        candidate_index=1,
+        required_ready_family_count=3,
+        evaluated_family_count=4,
+        ready_families=ready_families,
+        family_summaries=family_summaries,
+        execution_coverage=skill_execution_coverage,
+        noise_applicability=skill_noise_applicability,
+        passed=skill_passed,
+        next_action=(
+            "freeze_candidate"
+            if skill_passed
+            else "clean_blocked_skilllearn_families"
+        ),
+        failure_reasons=list(dict.fromkeys(domain_failure_reasons)),
+    )
+    if not skill_passed:
+        raise ValueError("SkillLearn fixed-family decision is not release-ready")
+    decision_bases["skilllearnbench"] = "skilllearn_fixed_family_gate_v1"
+    selection_hashes["skilllearnbench"] = skill_candidate.selection_hash
+    selected_indices["skilllearnbench"] = 1
+    selected_records["skilllearnbench"] = skill_records
+
+    baseline_by_domain = {
+        "skillopt": [
+            *selected_records["spreadsheetbench_verified"],
+            *selected_records["officeqa_full"],
+        ],
+        "skilladaptor": selected_records["webshop"],
+        "skilllearn_self_feedback": selected_records["skilllearnbench"],
+    }
+    baseline_fingerprints: dict[str, str] = {}
+    for baseline, baseline_records in baseline_by_domain.items():
+        fingerprints = {record.baseline_fingerprint for record in baseline_records}
+        if len(fingerprints) != 1:
+            raise ValueError(f"baseline fingerprints differ in owned runs: {baseline}")
+        baseline_fingerprints[baseline] = fingerprints.pop()
+
+    from rsebench.selection.release import make_qualification_release_companion
+
+    return make_qualification_release_companion(
+        selection_status=stored_status,
+        selected_candidate_indices=selected_indices,
+        selection_hashes=selection_hashes,
+        decisions=decisions,
+        decision_bases=decision_bases,
+        baseline_fingerprints=baseline_fingerprints,
+        evidence_hashes=evidence_hashes,
+    )
 
 
 def _project_root() -> Path:

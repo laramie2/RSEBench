@@ -14,9 +14,12 @@ from rsebench.selection import (
     ConfirmationSeal,
     ConfirmationSplit,
     ExposureRegistry,
+    PoolCandidateDecision,
     ResourceLock,
     ResourceReference,
     SelectionReleaseManifest,
+    SkillLearnFamilyQualificationSummary,
+    SkillLearnQualificationDecision,
     StableSplitCandidate,
 )
 from rsebench.selection.release import (
@@ -135,19 +138,57 @@ def make_release_inputs() -> dict[str, Any]:
     }
     registry = ExposureRegistry(records=[], registry_hash=canonical_hash([]))
     decisions = {
-        benchmark: CandidateDecision(
-            candidate_index=1,
-            passed=True,
-            accepted_seed_count=2,
-            nondegrading_seed_count=3,
-            mean_clean_gain=0.1,
-            execution_coverage=1.0,
-            noise_applicability=1.0,
-            next_action="freeze_candidate",
-            failure_reasons=[],
+        benchmark: PoolCandidateDecision(
+            benchmark=benchmark,
+            decision=CandidateDecision(
+                candidate_index=1,
+                passed=True,
+                accepted_seed_count=2,
+                nondegrading_seed_count=3,
+                mean_clean_gain=0.1,
+                execution_coverage=1.0,
+                noise_applicability=1.0,
+                next_action="freeze_candidate",
+                failure_reasons=[],
+            ),
         )
         for benchmark in DOMAINS
+        if benchmark != "skilllearnbench"
     }
+    families = (
+        "organize-messy-files",
+        "offer-letter-generator",
+        "schedule-planning",
+        "dependency-vulnerability-check",
+    )
+    decisions["skilllearnbench"] = SkillLearnQualificationDecision(
+        candidate_index=1,
+        ready_families=list(families[:3]),
+        family_summaries={
+            family: SkillLearnFamilyQualificationSummary(
+                family=family,
+                ready=family in families[:3],
+                accepted_method_seeds=[20260813, 20260814],
+                validation_complete_method_seeds=[
+                    20260813,
+                    20260814,
+                    20260815,
+                ],
+                execution_coverage=1.0,
+                noise_applicability=1.0,
+                evidence_hash=hashlib.sha256(family.encode()).hexdigest(),
+                failure_reasons=(
+                    [] if family in families[:3] else ["fewer_than_two_accepted_updates"]
+                ),
+            )
+            for family in families
+        },
+        execution_coverage=1.0,
+        noise_applicability=1.0,
+        passed=True,
+        next_action="freeze_candidate",
+        failure_reasons=[],
+    )
     resource_lock = ResourceLock(
         resources=[
             ResourceReference(
@@ -288,22 +329,30 @@ def test_release_rejects_cross_release_overlap(
 def test_release_requires_exact_passing_decisions_and_matching_seal(
     tmp_path: Path, release_inputs: dict[str, Any]
 ) -> None:
-    release_inputs["decisions"]["webshop"] = release_inputs["decisions"][
-        "webshop"
-    ].model_copy(update={"passed": False, "next_action": "run_candidate_2"})
+    pool = release_inputs["decisions"]["webshop"]
+    release_inputs["decisions"]["webshop"] = pool.model_copy(
+        update={
+            "decision": pool.decision.model_copy(
+                update={"passed": False, "next_action": "run_candidate_2"}
+            )
+        }
+    )
     with pytest.raises(ValueError, match="passing freeze_candidate decision"):
         freeze_selection_release(destination=tmp_path / "failed", **release_inputs)
 
-    release_inputs["decisions"]["webshop"] = CandidateDecision(
-        candidate_index=1,
-        passed=True,
-        accepted_seed_count=2,
-        nondegrading_seed_count=2,
-        mean_clean_gain=0.1,
-        execution_coverage=1.0,
-        noise_applicability=1.0,
-        next_action="freeze_candidate",
-        failure_reasons=[],
+    release_inputs["decisions"]["webshop"] = PoolCandidateDecision(
+        benchmark="webshop",
+        decision=CandidateDecision(
+            candidate_index=1,
+            passed=True,
+            accepted_seed_count=2,
+            nondegrading_seed_count=2,
+            mean_clean_gain=0.1,
+            execution_coverage=1.0,
+            noise_applicability=1.0,
+            next_action="freeze_candidate",
+            failure_reasons=[],
+        ),
     )
     release_inputs["confirmation_seal"] = release_inputs[
         "confirmation_seal"

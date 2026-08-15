@@ -464,6 +464,110 @@ class CandidateDecision(_ImmutableSelectionModel):
     failure_reasons: list[str]
 
 
+class PoolCandidateDecision(_ImmutableSelectionModel):
+    """Domain-bound CandidateDecision for one of the three pool benchmarks."""
+
+    decision_type: Literal["pool_candidate"] = "pool_candidate"
+    benchmark: Literal[
+        "spreadsheetbench_verified",
+        "officeqa_full",
+        "webshop",
+    ]
+    decision: CandidateDecision
+
+
+class SkillLearnFamilyQualificationSummary(_ImmutableSelectionModel):
+    """Owned, hash-bound clean qualification summary for one fixed family."""
+
+    family: str
+    ready: bool
+    accepted_method_seeds: list[int]
+    validation_complete_method_seeds: list[int]
+    execution_coverage: float = Field(ge=0.0, le=1.0)
+    noise_applicability: float = Field(ge=0.0, le=1.0)
+    evidence_hash: str = Field(pattern=_HASH_PATTERN)
+    failure_reasons: list[str] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def validate_seed_sets(self) -> "SkillLearnFamilyQualificationSummary":
+        formal = {20260813, 20260814, 20260815}
+        for field_name in (
+            "accepted_method_seeds",
+            "validation_complete_method_seeds",
+        ):
+            seeds = list(getattr(self, field_name))
+            if len(seeds) != len(set(seeds)) or not set(seeds) <= formal:
+                raise ValueError(f"{field_name} must be unique formal method seeds")
+        expected_ready = (
+            len(self.accepted_method_seeds) >= 2
+            and len(self.validation_complete_method_seeds) == 3
+            and self.execution_coverage == 1.0
+            and self.noise_applicability == 1.0
+            and not self.failure_reasons
+        )
+        if self.ready != expected_ready:
+            raise ValueError("SkillLearn family ready flag differs from qualification")
+        return self
+
+
+class SkillLearnQualificationDecision(_ImmutableSelectionModel):
+    """The fixed-family SkillLearn gate; deliberately not CandidateDecision."""
+
+    decision_type: Literal["skilllearn_fixed_families"] = (
+        "skilllearn_fixed_families"
+    )
+    benchmark: Literal["skilllearnbench"] = "skilllearnbench"
+    candidate_index: Literal[1]
+    required_ready_family_count: Literal[3] = 3
+    evaluated_family_count: Literal[4] = 4
+    ready_families: list[str]
+    family_summaries: dict[str, SkillLearnFamilyQualificationSummary]
+    execution_coverage: float = Field(ge=0.0, le=1.0)
+    noise_applicability: float = Field(ge=0.0, le=1.0)
+    passed: bool
+    next_action: Literal[
+        "freeze_candidate",
+        "clean_blocked_skilllearn_families",
+    ]
+    failure_reasons: list[str] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def validate_family_gate(self) -> "SkillLearnQualificationDecision":
+        expected_families = {
+            "organize-messy-files",
+            "offer-letter-generator",
+            "schedule-planning",
+            "dependency-vulnerability-check",
+        }
+        if set(self.family_summaries) != expected_families:
+            raise ValueError("SkillLearn decision requires exactly four fixed families")
+        for family, summary in self.family_summaries.items():
+            if summary.family != family:
+                raise ValueError("SkillLearn summary key differs from family")
+        expected_ready = sorted(
+            family for family, summary in self.family_summaries.items() if summary.ready
+        )
+        if sorted(self.ready_families) != expected_ready or len(
+            self.ready_families
+        ) != len(set(self.ready_families)):
+            raise ValueError("SkillLearn ready families differ from family summaries")
+        expected_passed = (
+            len(expected_ready) >= 3
+            and self.execution_coverage == 1.0
+            and self.noise_applicability == 1.0
+        )
+        if self.passed != expected_passed:
+            raise ValueError("SkillLearn passed flag differs from fixed-family gate")
+        expected_action = (
+            "freeze_candidate"
+            if expected_passed
+            else "clean_blocked_skilllearn_families"
+        )
+        if self.next_action != expected_action:
+            raise ValueError("SkillLearn next action differs from fixed-family gate")
+        return self
+
+
 SelectionAction = Literal[
     "replay_candidate_1",
     "rerun_candidate_1",
@@ -596,6 +700,7 @@ __all__ = [
     "ExposureRecord",
     "ExposureRegistry",
     "ExposureSource",
+    "PoolCandidateDecision",
     "ResourceLock",
     "ResourceReference",
     "ScreeningGeneralizationDecision",
@@ -603,6 +708,8 @@ __all__ = [
     "SelectionAction",
     "SelectionReleaseManifest",
     "SelectionStatus",
+    "SkillLearnFamilyQualificationSummary",
+    "SkillLearnQualificationDecision",
     "StableSplitCandidate",
     "selection_key",
 ]
