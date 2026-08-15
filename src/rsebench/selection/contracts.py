@@ -2,16 +2,15 @@
 
 from __future__ import annotations
 
+import math
 from collections.abc import Iterable, Iterator, Mapping, Sequence
 from enum import Enum
 from pathlib import Path
 from typing import Any, Literal
 
 from pydantic import (
-    BaseModel,
     ConfigDict,
     Field,
-    FieldSerializationInfo,
     field_serializer,
     model_validator,
 )
@@ -151,44 +150,50 @@ def _deep_freeze(value: Any) -> Any:
     ):
         return value
     if isinstance(value, TaskManifest):
-        return _ImmutableTaskManifest.model_validate(value.model_dump(mode="python"))
-    if isinstance(value, Mapping):
+        immutable = _ImmutableTaskManifest.model_validate(
+            value.model_dump(mode="python")
+        )
+        object.__setattr__(
+            immutable,
+            "__pydantic_fields_set__",
+            set(value.model_fields_set),
+        )
+        return immutable
+    if isinstance(value, dict):
+        if any(not isinstance(key, str) for key in value):
+            raise ValueError(
+                "selection contracts require stable canonical values; "
+                "mapping keys must be strings"
+            )
         return _ImmutableMapping(
             (key, _deep_freeze(child)) for key, child in value.items()
         )
-    if isinstance(value, list):
+    if isinstance(value, (list, tuple)):
         return _ImmutableSequence(_deep_freeze(child) for child in value)
-    if isinstance(value, tuple):
-        return tuple(_deep_freeze(child) for child in value)
-    if isinstance(value, set):
-        return frozenset(_deep_freeze(child) for child in value)
-    return value
+    if value is None or isinstance(value, (str, bool, int, Path)):
+        return value
+    if isinstance(value, float) and math.isfinite(value):
+        return value
+    raise ValueError(
+        "selection contracts require stable canonical values; "
+        f"unsupported type: {type(value).__name__}"
+    )
 
 
-def _deep_thaw(value: Any, *, mode: str) -> Any:
-    if isinstance(value, BaseModel):
-        return value.model_dump(mode=mode)
+def _deep_thaw(value: Any) -> Any:
+    if isinstance(value, _ImmutableTaskManifest):
+        return TaskManifest.model_construct(
+            _fields_set=set(value.model_fields_set),
+            **{
+                field_name: _deep_thaw(field_value)
+                for field_name, field_value in value.__dict__.items()
+            },
+        )
     if isinstance(value, _ImmutableSequence):
-        return [_deep_thaw(child, mode=mode) for child in value]
+        return [_deep_thaw(child) for child in value]
     if isinstance(value, _ImmutableMapping):
-        return {
-            key: _deep_thaw(child, mode=mode) for key, child in value.items()
-        }
-    if isinstance(value, tuple):
-        return tuple(_deep_thaw(child, mode=mode) for child in value)
-    if isinstance(value, frozenset):
-        return frozenset(_deep_thaw(child, mode=mode) for child in value)
+        return {key: _deep_thaw(child) for key, child in value.items()}
     return value
-
-
-def _contains_model(value: Any) -> bool:
-    if isinstance(value, BaseModel):
-        return True
-    if isinstance(value, (_ImmutableSequence, tuple, frozenset)):
-        return any(_contains_model(child) for child in value)
-    if isinstance(value, _ImmutableMapping):
-        return any(_contains_model(child) for child in value.values())
-    return False
 
 
 class _ImmutableSelectionModel(StrictModel):
@@ -204,10 +209,8 @@ class _ImmutableSelectionModel(StrictModel):
         self,
         value: Any,
         serializer: Any,
-        info: FieldSerializationInfo,
     ):
-        thawed = _deep_thaw(value, mode=info.mode)
-        return thawed if _contains_model(value) else serializer(thawed)
+        return serializer(_deep_thaw(value))
 
 
 class _ImmutableTaskManifest(TaskManifest):
@@ -223,10 +226,8 @@ class _ImmutableTaskManifest(TaskManifest):
         self,
         value: Any,
         serializer: Any,
-        info: FieldSerializationInfo,
     ):
-        thawed = _deep_thaw(value, mode=info.mode)
-        return thawed if _contains_model(value) else serializer(thawed)
+        return serializer(_deep_thaw(value))
 
 
 class ExposureLevel(str, Enum):

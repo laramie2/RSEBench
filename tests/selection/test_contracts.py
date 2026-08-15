@@ -32,6 +32,11 @@ from rsebench.selection import (
 HASH = "a" * 64
 
 
+class _MutableMetadataValue:
+    def __init__(self) -> None:
+        self.values: list[str] = []
+
+
 def _task(
     task_id: str,
     *,
@@ -416,11 +421,13 @@ def test_deep_freeze_preserves_inputs_schema_serialization_and_hashes() -> None:
 
     candidate = StableSplitCandidate.model_validate(input_payload)
 
-    assert candidate.model_dump(mode="json") == {
+    assert candidate.model_dump(mode="json", warnings="error") == {
         "schema_version": "rsebench.stable-split-candidate.v1",
         **input_payload,
     }
-    assert json.loads(candidate.model_dump_json()) == candidate.model_dump(mode="json")
+    assert json.loads(candidate.model_dump_json(warnings="error")) == candidate.model_dump(
+        mode="json"
+    )
     assert canonical_hash(candidate) == canonical_hash(candidate.model_dump(mode="json"))
     for schema_mode in ("validation", "serialization"):
         schema = StableSplitCandidate.model_json_schema(mode=schema_mode)
@@ -433,6 +440,73 @@ def test_deep_freeze_preserves_inputs_schema_serialization_and_hashes() -> None:
     assert candidate.train[0].task_id == "train"
     assert candidate.train[0].gold_answers == ["answer"]
     assert candidate.train[0].metadata == {"nested": {"tags": ["original"]}}
+
+
+@pytest.mark.parametrize(
+    "bad_value_factory",
+    [
+        pytest.param(lambda: bytearray(b"mutable"), id="bytearray"),
+        pytest.param(_MutableMetadataValue, id="custom-mutable-object"),
+    ],
+)
+@pytest.mark.parametrize("location", ["candidate", "nested-task"])
+def test_candidate_rejects_noncanonical_mutable_metadata_values(
+    bad_value_factory: Callable[[], object],
+    location: str,
+) -> None:
+    bad_value = bad_value_factory()
+
+    with pytest.raises(ValidationError, match="stable canonical values"):
+        if location == "candidate":
+            _candidate(metadata={"bad": bad_value})
+        else:
+            _candidate(train=[_task("train", metadata={"bad": bad_value})])
+
+
+def test_supported_metadata_is_unaliased_and_canonical_output_remains_stable() -> None:
+    candidate_metadata = {"nested": {"values": [1]}}
+    task_metadata = {"nested": {"values": [2]}}
+    candidate = _candidate(
+        metadata=candidate_metadata,
+        train=[_task("train", metadata=task_metadata)],
+    )
+    original_dump = candidate.model_dump(mode="json")
+    original_hash = canonical_hash(candidate)
+
+    candidate_metadata["nested"]["values"].append(3)
+    task_metadata["nested"]["values"].append(4)
+
+    assert candidate.model_dump(mode="json") == original_dump
+    assert canonical_hash(candidate) == original_hash
+
+
+def test_nested_model_dump_honors_exclude_none() -> None:
+    candidate = _candidate()
+
+    dumped = candidate.model_dump(exclude_none=True)
+
+    assert "artifact_path" not in dumped["train"][0]
+    assert "verifier" not in dumped["train"][0]
+
+
+def test_nested_model_dump_honors_include_and_exclude() -> None:
+    candidate = _candidate(
+        train=[_task("train", metadata={"keep": True, "drop": False})],
+    )
+
+    included = candidate.model_dump(
+        include={"train": {0: {"task_id", "metadata"}}},
+    )
+    excluded = candidate.model_dump(
+        exclude={"train": {0: {"prompt", "metadata"}}},
+    )
+
+    assert included == {
+        "train": [{"task_id": "train", "metadata": {"keep": True, "drop": False}}]
+    }
+    assert excluded["train"][0]["task_id"] == "train"
+    assert "prompt" not in excluded["train"][0]
+    assert "metadata" not in excluded["train"][0]
 
 
 def test_confirmation_roles_must_be_disjoint_and_match_identity() -> None:
