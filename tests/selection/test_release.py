@@ -651,12 +651,12 @@ def test_release_requires_exact_passing_decisions_and_matching_seal(
             b'{"path":"prefix=C:\\\\Users\\\\person\\\\data"}\n',
             "absolute path",
         ),
-        ("worktree.json", b'{"path":"repo/.worktrees/run"}\n', "worktree"),
-        ("secret.json", b'{"token":"sk-secret-value"}\n', "secret"),
+        ("worktree.json", b'{"prompt":"repo/.worktrees/run"}\n', "worktree"),
+        ("secret.json", b'{"prompt":"sk-secret-value"}\n', "secret"),
         ("locator.json", b'{"path":"file:///tmp/data.json"}\n', "unresolved"),
         (
             "userinfo.json",
-            b'{"uri":"git+https://token@example.com/x"}\n',
+            b'{"prompt":"git+https://token@example.com/x"}\n',
             "userinfo",
         ),
     ],
@@ -677,6 +677,63 @@ def test_portability_barrier_allows_non_path_slashes_and_https_urls() -> None:
                     "uri": "rsebench-data://portable/task.json",
                 }
             ).encode()
+        }
+    )
+
+
+def test_portability_barrier_allows_absolute_path_literals_in_prose() -> None:
+    reject_secrets_and_absolute_paths(
+        {
+            "prompts.json": json.dumps(
+                {
+                    "prompt": "Read /root/test_input.json and write rows under /out/.",
+                    "instruction": (
+                        r"The example mentions C:\Users\person\input.json verbatim."
+                    ),
+                }
+            ).encode()
+        }
+    )
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"artifact_path": "/home/user/artifact.json"},
+        {"metadata": {"locator": "/etc/passwd"}},
+        {"metadata": {"materialization": r"C:\Users\person\artifact.json"}},
+        {"metadata": {"paths": {"input": "/etc/passwd"}}},
+        {"uri": "/etc/passwd"},
+    ],
+)
+def test_portability_barrier_rejects_nested_path_bearing_fields(
+    payload: dict[str, Any],
+) -> None:
+    with pytest.raises(ValueError, match="absolute path"):
+        reject_secrets_and_absolute_paths(
+            {"path-bearing.json": json.dumps(payload).encode()}
+        )
+
+
+def test_portability_barrier_rejects_machine_home_path_in_prompt() -> None:
+    content = json.dumps({"prompt": "Debug output saved at /home/user/run.json"}).encode()
+    with pytest.raises(ValueError, match="machine path"):
+        reject_secrets_and_absolute_paths({"machine.json": content})
+
+
+def test_portability_barrier_accepts_all_preregistered_task7_splits() -> None:
+    project_root = Path(__file__).resolve().parents[2]
+    selection_root = project_root / "benchmark/validation/noise_screen_v1"
+    paths = [
+        *sorted((selection_root / "candidates").glob("**/*.json")),
+        *sorted((selection_root / "confirmation").glob("*.json")),
+    ]
+
+    assert len(paths) == 14
+    reject_secrets_and_absolute_paths(
+        {
+            path.relative_to(selection_root).as_posix(): path.read_bytes()
+            for path in paths
         }
     )
 

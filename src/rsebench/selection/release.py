@@ -86,6 +86,45 @@ _NORMALIZED_CREDENTIAL_NAMES = frozenset(
         "authorization",
     }
 )
+_NORMALIZED_PATH_FIELD_NAMES = frozenset(
+    {
+        "artifact",
+        "cwd",
+        "directory",
+        "directories",
+        "dir",
+        "dirs",
+        "file",
+        "files",
+        "locator",
+        "locators",
+        "materialization",
+        "materializations",
+        "path",
+        "paths",
+        "root",
+        "uri",
+        "uris",
+        "workdir",
+        "workingdirectory",
+    }
+)
+_NORMALIZED_PATH_FIELD_SUFFIXES = (
+    "directory",
+    "directories",
+    "dir",
+    "dirs",
+    "locator",
+    "locators",
+    "materialization",
+    "materializations",
+    "path",
+    "paths",
+    "root",
+    "uri",
+    "uris",
+)
+_MACHINE_HOME_PATH = re.compile(r"(?:^|[^A-Za-z0-9:/])/home/")
 _UNRESOLVED_MARKERS = (
     "file://",
     "unresolved://",
@@ -784,20 +823,40 @@ def build_release_files(
     return dict(sorted(files.items()))
 
 
-def _walk_values(value: Any, *, key: str | None = None) -> None:
+def _normalized_field_name(key: str | None) -> str:
+    return re.sub(r"[^a-z0-9]", "", (key or "").casefold())
+
+
+def _is_path_bearing_field(key: str | None) -> bool:
+    normalized = _normalized_field_name(key)
+    return normalized in _NORMALIZED_PATH_FIELD_NAMES or normalized.endswith(
+        _NORMALIZED_PATH_FIELD_SUFFIXES
+    )
+
+
+def _walk_values(
+    value: Any,
+    *,
+    key: str | None = None,
+    path_context: bool = False,
+) -> None:
     if isinstance(value, dict):
         for child_key, child in value.items():
-            normalized = re.sub(r"[^a-z0-9]", "", str(child_key).casefold())
+            normalized = _normalized_field_name(str(child_key))
             if (
                 normalized in _NORMALIZED_CREDENTIAL_NAMES
                 and child not in (None, "", False)
             ):
                 raise ValueError(f"secret credential field detected: {child_key}")
-            _walk_values(child, key=str(child_key))
+            _walk_values(
+                child,
+                key=str(child_key),
+                path_context=path_context or _is_path_bearing_field(str(child_key)),
+            )
         return
     if isinstance(value, list):
         for child in value:
-            _walk_values(child, key=key)
+            _walk_values(child, key=key, path_context=path_context)
         return
     if not isinstance(value, str):
         return
@@ -808,13 +867,16 @@ def _walk_values(value: Any, *, key: str | None = None) -> None:
         raise ValueError(f"unresolved locator detected in {key or 'value'}")
     if _URL_USERINFO.search(value):
         raise ValueError(f"URL userinfo detected in {key or 'value'}")
-    if (
+    is_absolute_path = (
         value.startswith("/")
         or _WINDOWS_ABSOLUTE.match(value)
         or _EMBEDDED_ABSOLUTE.search(value)
         or _EMBEDDED_WINDOWS_ABSOLUTE.search(value)
-    ):
+    )
+    if path_context and is_absolute_path:
         raise ValueError(f"absolute path detected in {key or 'value'}")
+    if _MACHINE_HOME_PATH.search(value):
+        raise ValueError(f"machine path detected in {key or 'value'}")
 
 
 def _validate_relative_file_name(name: str) -> None:
