@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import shutil
 import statistics
 import time
 from datetime import datetime, timezone
@@ -162,6 +163,24 @@ def _clean_test_task_ids(clean_test: list[TaskManifest]) -> list[str]:
     return task_ids
 
 
+def _snapshot_artifacts(
+    *,
+    destination: Path,
+    artifacts: dict[str, Path],
+    hashes: dict[str, str],
+) -> dict[str, Path]:
+    snapshots: dict[str, Path] = {}
+    for label, source in artifacts.items():
+        snapshot = destination / "artifacts" / label / source.name
+        if not snapshot.is_file():
+            snapshot.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(source, snapshot)
+        if sha256_file(snapshot) != hashes[label]:
+            raise ValueError(f"artifact snapshot hash differs: {label}")
+        snapshots[label] = snapshot
+    return snapshots
+
+
 def evaluate_repeated_artifacts(
     *,
     executor: EvolutionExecutor,
@@ -249,6 +268,11 @@ def evaluate_repeated_artifacts(
             raise ValueError("resume repeat target must exceed existing repeat count")
     else:
         destination.mkdir(parents=True, exist_ok=False)
+    snapshots = _snapshot_artifacts(
+        destination=destination,
+        artifacts=resolved,
+        hashes=hashes,
+    )
     configure_token_run = getattr(executor, "configure_token_run", None)
     if callable(configure_token_run):
         configure_token_run(destination)
@@ -268,11 +292,13 @@ def evaluate_repeated_artifacts(
                 offset = (repeat - 1) % len(labels)
                 evaluation_order = labels[offset:] + labels[:offset]
                 for label in evaluation_order:
-                    artifact_path = resolved[label]
+                    artifact_path = snapshots[label]
                     stage = f"replay_{label}_r{repeat}"
                     evaluation_dir = destination / f"repeat-{repeat:03d}" / label
                     evaluation_started_at = datetime.now(timezone.utc)
                     evaluation_started_clock = time.monotonic()
+                    if sha256_file(artifact_path) != hashes[label]:
+                        raise ValueError(f"artifact snapshot hash differs: {label}")
                     with recorder.span(
                         level="stage",
                         name=stage,
@@ -288,6 +314,8 @@ def evaluate_repeated_artifacts(
                             output_dir=evaluation_dir,
                             stage=stage,
                         )
+                    if sha256_file(artifact_path) != hashes[label]:
+                        raise ValueError(f"artifact snapshot hash differs: {label}")
                     evaluation_ended_at = datetime.now(timezone.utc)
                     observation = FixedArtifactReplayObservation(
                         repeat=repeat,

@@ -191,3 +191,41 @@ def test_repeated_artifact_evaluation_resume_rejects_changed_artifact(
             output_dir=output_dir,
             resume=True,
         )
+
+
+def test_repeated_artifact_evaluation_uses_immutable_artifact_snapshots(
+    tmp_path: Path,
+) -> None:
+    seed = tmp_path / "seed.md"
+    candidate = tmp_path / "candidate.md"
+    seed.write_text("seed\n", encoding="utf-8")
+    candidate.write_text("candidate\n", encoding="utf-8")
+
+    class MutatingExecutor(_ReplayExecutor):
+        def __init__(self) -> None:
+            super().__init__()
+            self.contents: list[tuple[str, str]] = []
+
+        def evaluate(self, **kwargs) -> EvaluationResult:
+            skill_path = kwargs["skill_path"]
+            stage = kwargs["stage"]
+            self.contents.append((stage, skill_path.read_text(encoding="utf-8")))
+            if stage == "replay_seed_r1":
+                candidate.write_text("changed\n", encoding="utf-8")
+            return super().evaluate(**kwargs)
+
+    executor = MutatingExecutor()
+    result = artifact_evaluation.evaluate_repeated_artifacts(
+        executor=executor,
+        artifacts={"seed": seed, "candidate": candidate},
+        reference_label="seed",
+        clean_test=[_task("t1"), _task("t2")],
+        repeats=2,
+        output_dir=tmp_path / "replay",
+    )
+
+    assert candidate.read_text(encoding="utf-8") == "changed\n"
+    assert {
+        content for stage, content in executor.contents if "candidate" in stage
+    } == {"candidate\n"}
+    assert result.artifact_paths["candidate"] == str(candidate.resolve())

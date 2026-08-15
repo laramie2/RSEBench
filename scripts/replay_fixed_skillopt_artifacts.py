@@ -35,6 +35,9 @@ from scripts.baselines.common_env import (  # noqa: E402
 
 
 ORDER_POLICY = "cyclic_rotation"
+MODEL = "deepseek-v4-flash"
+TEMPERATURE = 0.0
+THINKING = "disabled"
 
 
 def parse_artifact_arguments(
@@ -122,22 +125,38 @@ def main() -> None:
     if args.reference not in artifacts:
         raise ValueError(f"reference artifact is missing: {args.reference}")
 
-    runtime = dict(split.metadata.get("runtime") or {})
+    runtime_metadata = dict(split.metadata.get("runtime") or {})
+    runtime = {
+        "max_steps": int(runtime_metadata.get("max_steps", 3)),
+        "batch_size": int(runtime_metadata.get("batch_size", 4)),
+        "workers": int(runtime_metadata.get("workers", 2)),
+        "max_tool_turns": int(runtime_metadata.get("max_tool_turns", 3)),
+        "max_completion_tokens": int(
+            runtime_metadata.get("max_completion_tokens", 2048)
+        ),
+    }
     budget = SkillOptBudget(
-        max_steps=int(runtime.get("max_steps", 3)),
-        batch_size=int(runtime.get("batch_size", 4)),
-        workers=int(runtime.get("workers", 2)),
-        max_turns=int(runtime.get("max_tool_turns", 3)),
-        max_completion_tokens=int(runtime.get("max_completion_tokens", 2048)),
+        max_steps=runtime["max_steps"],
+        batch_size=runtime["batch_size"],
+        workers=runtime["workers"],
+        max_turns=runtime["max_tool_turns"],
+        max_completion_tokens=runtime["max_completion_tokens"],
     )
     output_dir = args.output_dir.resolve()
     previous_repeat_count = 0
     previous_result: dict[str, object] | None = None
+    previous_plan: dict[str, object] | None = None
     if args.resume:
         result_path = output_dir / "result.json"
         if not result_path.is_file():
             raise FileNotFoundError(f"replay result not found for resume: {result_path}")
         previous_result = json.loads(result_path.read_text(encoding="utf-8"))
+        original_plan_path = output_dir / "plan.json"
+        if not original_plan_path.is_file():
+            raise FileNotFoundError(
+                f"original replay plan not found for resume: {original_plan_path}"
+            )
+        previous_plan = json.loads(original_plan_path.read_text(encoding="utf-8"))
         previous_repeat_count = int(previous_result["repeat_count"])  # type: ignore[arg-type]
         if args.repeats <= previous_repeat_count:
             raise ValueError("--repeats must exceed the existing repeat count")
@@ -169,9 +188,9 @@ def main() -> None:
         "artifact_paths": {label: str(path) for label, path in artifacts.items()},
         "artifact_hashes": {label: sha256_file(path) for label, path in artifacts.items()},
         "runtime": runtime,
-        "model": "deepseek-v4-flash",
-        "temperature": 0.0,
-        "thinking": "disabled",
+        "model": MODEL,
+        "temperature": TEMPERATURE,
+        "thinking": THINKING,
         "provider_calls": 0 if args.dry_run else None,
     }
 
@@ -193,24 +212,45 @@ def main() -> None:
             "order policy": previous_result.get("order_policy")
             == plan["order_policy"],
         }
+        assert previous_plan is not None
+        previous_runtime = previous_plan.get("runtime")
+        current_runtime = plan["runtime"]
+        checks.update(
+            {
+                "split source hash": previous_plan.get("split_source_hash")
+                == plan["split_source_hash"],
+                "runtime workers": isinstance(previous_runtime, dict)
+                and previous_runtime.get("workers")
+                == current_runtime["workers"],
+                "runtime max tool turns": isinstance(previous_runtime, dict)
+                and previous_runtime.get("max_tool_turns")
+                == current_runtime["max_tool_turns"],
+                "runtime max completion tokens": isinstance(previous_runtime, dict)
+                and previous_runtime.get("max_completion_tokens")
+                == current_runtime["max_completion_tokens"],
+                "model": previous_plan.get("model") == plan["model"],
+                "temperature": previous_plan.get("temperature")
+                == plan["temperature"],
+                "thinking": previous_plan.get("thinking") == plan["thinking"],
+            }
+        )
         mismatches = [name for name, matches in checks.items() if not matches]
         if mismatches:
             raise ValueError(
                 "resume preflight mismatch: " + ", ".join(mismatches)
             )
 
+    if args.resume:
+        plan_path = output_dir.with_name(f"{output_dir.name}.resume-plan.json")
+    else:
+        plan_path = output_dir.with_name(f"{output_dir.name}.plan.json")
     if args.dry_run:
-        if args.resume:
-            plan_path = output_dir.with_name(f"{output_dir.name}.resume-plan.json")
-        else:
-            output_dir.mkdir(parents=True, exist_ok=False)
-            plan_path = output_dir / "plan.json"
         _write_json(plan_path, plan)
         print(plan_path)
         print(json.dumps(plan, sort_keys=True))
         return
 
-    _write_json(output_dir.with_name(f"{output_dir.name}.plan.json"), plan)
+    _write_json(plan_path, plan)
     executor = SkillOptExecutor(
         method_root=external_methods / "skillopt",
         data_root=data_root,
@@ -226,7 +266,8 @@ def main() -> None:
         output_dir=output_dir,
         resume=args.resume,
     )
-    _write_json(output_dir / "plan.json", plan)
+    if not args.resume:
+        _write_json(output_dir / "plan.json", plan)
     print(output_dir)
     print(
         json.dumps(
