@@ -34,10 +34,7 @@ RUNTIME = {
 
 from rsebench.core1.dataset import resolve_clean_split_paths  # noqa: E402
 from rsebench.evolution.clean_bridge import build_clean_runtime_split  # noqa: E402
-from rsebench.evolution.clean_contracts import (  # noqa: E402
-    CleanEvolutionSplitManifest,
-    CleanQualificationPolicy,
-)
+from rsebench.evolution.clean_contracts import CleanQualificationPolicy  # noqa: E402
 from rsebench.evolution.clean_runner import CleanEvolutionRunner  # noqa: E402
 from rsebench.evolution.pairs import build_clean_arm_manifest  # noqa: E402
 from rsebench.evolution.skilllearn_executor import (  # noqa: E402
@@ -46,7 +43,11 @@ from rsebench.evolution.skilllearn_executor import (  # noqa: E402
 )
 from rsebench.hashing import sha256_file  # noqa: E402
 from rsebench.experiments.runtime import load_runtime_identity  # noqa: E402
+from rsebench.experiments.preflight import (  # noqa: E402
+    SUPPORTED_QUALIFICATION_VERSIONS,
+)
 from rsebench.providers.deepseek import DeepSeekClient  # noqa: E402
+from rsebench.selection.clean_view import load_clean_runtime_view  # noqa: E402
 from scripts.baselines.common_env import methods_root  # noqa: E402
 
 
@@ -57,6 +58,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--method-seed", type=int, choices=METHOD_SEEDS, required=True)
     parser.add_argument("--output-root", type=Path, required=True)
     parser.add_argument("--image-manifest", type=Path, default=DEFAULT_IMAGE_MANIFEST)
+    parser.add_argument("--family")
     parser.add_argument("--dry-run", action="store_true")
     return parser
 
@@ -76,13 +78,12 @@ def run_manifest(
     method_seed: int,
     output_root: Path,
     image_manifest: Path = DEFAULT_IMAGE_MANIFEST,
+    family: str | None = None,
     dry_run: bool = False,
 ) -> Path:
     if method_seed not in METHOD_SEEDS:
         raise ValueError(f"unsupported formal method seed: {method_seed}")
-    portable = CleanEvolutionSplitManifest.model_validate_json(
-        manifest.read_text(encoding="utf-8")
-    )
+    portable = load_clean_runtime_view(manifest, family=family)
     if portable.benchmark != "skilllearnbench" or portable.domain != "skill_learning":
         raise ValueError("clean SkillLearn launcher only supports SkillLearnBench")
     sizes = (
@@ -90,8 +91,11 @@ def run_manifest(
         len(portable.validation),
         len(portable.clean_test),
     )
-    if sizes not in {(2, 1, 2), (2, 1, 3)}:
-        raise ValueError("clean SkillLearn qualification requires 2/1/2-or-3")
+    validation_only = portable.metadata.get("evaluation_mode") == "validation_only"
+    if sizes not in {(2, 1, 2), (2, 1, 3)} and not (
+        sizes == (2, 1, 0) and validation_only
+    ):
+        raise ValueError("clean SkillLearn qualification requires 2/1/2-or-3 or 2/1/0 validation-only")
     if portable.metadata.get("feedback_mode") != "self":
         raise ValueError("clean SkillLearn qualification requires self feedback")
     if portable.metadata.get("runtime") != RUNTIME:
@@ -99,15 +103,15 @@ def run_manifest(
     qualification_version = str(
         portable.metadata.get("qualification_version") or "clean-qualification-v1"
     )
-    if qualification_version not in {
-        "clean-qualification-v1",
-        "clean-qualification-v2",
-    }:
+    if qualification_version not in SUPPORTED_QUALIFICATION_VERSIONS:
         raise ValueError(
             f"unsupported SkillLearn qualification version: {qualification_version}"
         )
     identity, attempt = load_runtime_identity(
-        required=qualification_version == "clean-qualification-v2" and not dry_run,
+        required=(
+            qualification_version in {"clean-qualification-v2", "noise-screen-v1"}
+            and not dry_run
+        ),
         benchmark=portable.benchmark,
         method_seed=method_seed,
     )
@@ -220,6 +224,7 @@ def main() -> None:
         method_seed=args.method_seed,
         output_root=args.output_root,
         image_manifest=args.image_manifest,
+        family=args.family,
         dry_run=args.dry_run,
     )
     print(run_dir)

@@ -72,6 +72,49 @@ def test_execution_audit_requires_unique_exact_task_ids() -> None:
         )
 
 
+def test_empty_clean_test_is_only_allowed_for_noise_screen_skilllearn_validation() -> None:
+    def skilllearn_task(task_id: str) -> TaskManifest:
+        return TaskManifest(
+            task_id=task_id,
+            benchmark="skilllearnbench",
+            domain="skill_learning",
+            prompt=task_id,
+            source_hash=hashlib.sha256(task_id.encode()).hexdigest(),
+            verifier="skilllearn_hidden_test_v1",
+            metadata={"task_family": "family"},
+        )
+
+    allowed = CleanEvolutionSplitManifest(
+        benchmark="skilllearnbench",
+        domain="skill_learning",
+        seed=7,
+        source_hash="a" * 64,
+        train=[skilllearn_task("train")],
+        validation=[skilllearn_task("validation")],
+        clean_test=[],
+        metadata={
+            "qualification_version": "noise-screen-v1",
+            "evaluation_mode": "validation_only",
+        },
+    )
+    assert allowed.clean_test == []
+
+    with pytest.raises(ValueError, match="non-empty clean_test"):
+        CleanEvolutionSplitManifest(
+            benchmark="fixture",
+            domain="document",
+            seed=7,
+            source_hash="a" * 64,
+            train=[_task("train")],
+            validation=[_task("validation")],
+            clean_test=[],
+            metadata={
+                "qualification_version": "noise-screen-v1",
+                "evaluation_mode": "validation_only",
+            },
+        )
+
+
 def test_office_runtime_policy_validates_thresholds() -> None:
     policy = CleanQualificationPolicy(
         min_parseable_answer_rate=0.80,

@@ -6,11 +6,13 @@ from types import SimpleNamespace
 import pytest
 
 from rsebench.contracts import TaskManifest
+from rsebench.evidence import canonical_hash
 from rsebench.evolution.clean_contracts import (
     CleanEvolutionSplitManifest,
     CleanQualificationPolicy,
 )
 from rsebench.evolution.skilladaptor_executor import SkillAdaptorBudget
+from rsebench.selection import StableSplitCandidate
 from scripts import run_clean_skilladaptor
 
 
@@ -68,6 +70,33 @@ def _manifest(
     )
     path = tmp_path / "manifest.json"
     path.write_text(split.model_dump_json(indent=2), encoding="utf-8")
+    return path
+
+
+def _candidate_manifest(tmp_path: Path) -> Path:
+    path = _manifest(tmp_path, qualification_version="noise-screen-v1")
+    split = CleanEvolutionSplitManifest.model_validate_json(path.read_text())
+    roles = {
+        "train": split.train,
+        "validation": split.validation,
+        "qualification_test": split.clean_test,
+        "screening_test": [_task("goal_31")],
+    }
+    candidate = StableSplitCandidate(
+        benchmark=split.benchmark,
+        domain=split.domain,
+        candidate_index=2,
+        source_hash=canonical_hash("candidate"),
+        selection_hash=canonical_hash("selection"),
+        metadata={
+            **split.metadata,
+            "selection_version": "noise-screen-v1",
+            "source_seed": split.seed,
+            "baseline": "skilladaptor",
+        },
+        **roles,
+    )
+    path.write_text(candidate.model_dump_json(indent=2), encoding="utf-8")
     return path
 
 
@@ -187,6 +216,35 @@ def test_clean_skilladaptor_launcher_rejects_unfixed_method_seed(
         )
 
 
+def test_noise_screen_skilladaptor_requires_runtime_identity(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    seed = tmp_path / "seed.json"
+    seed.write_text("{}", encoding="utf-8")
+    captured = {}
+
+    class IdentityBoundaryReached(Exception):
+        pass
+
+    def capture(**kwargs):
+        captured.update(kwargs)
+        raise IdentityBoundaryReached
+
+    monkeypatch.setattr(run_clean_skilladaptor, "load_runtime_identity", capture)
+
+    with pytest.raises(IdentityBoundaryReached):
+        run_clean_skilladaptor.run_manifest(
+            _candidate_manifest(tmp_path),
+            seed_skill=seed,
+            method_seed=20260813,
+            output_root=tmp_path / "runs",
+        )
+
+    assert captured["required"] is True
+    assert captured["benchmark"] == "webshop"
+
+
 def test_clean_skilladaptor_dry_run_makes_no_executor_or_provider_call(
     tmp_path: Path,
     monkeypatch,
@@ -203,7 +261,7 @@ def test_clean_skilladaptor_dry_run_makes_no_executor_or_provider_call(
     monkeypatch.setattr(run_clean_skilladaptor, "combined_method_env", forbidden)
 
     run_dir = run_clean_skilladaptor.run_manifest(
-        _manifest(tmp_path),
+        _manifest(tmp_path, qualification_version="noise-screen-v1"),
         seed_skill=seed,
         method_seed=20260813,
         output_root=tmp_path / "preflight",

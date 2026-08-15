@@ -497,6 +497,14 @@ def _candidate(
         validation=roles["validation"],
         test=roles["screening_test"],
     )
+    source_metadata = {
+        "source_seed": clean_split.seed,
+        **{
+            key: clean_split.metadata[key]
+            for key in ("runtime", "baseline", "feedback_mode")
+            if key in clean_split.metadata
+        },
+    }
     return StableSplitCandidate(
         benchmark=clean_split.benchmark,
         domain=clean_split.domain,
@@ -507,6 +515,7 @@ def _candidate(
             "qualification_version": "noise-screen-v1",
             "selection_version": "noise-screen-v1",
             "static_audit": audit,
+            **source_metadata,
         },
         **roles,
     )
@@ -888,6 +897,13 @@ def build_skilllearn_selection_candidates(
     confirmation_order = [
         confirmation_splits[name] for name in CONFIRMATION_SKILLLEARN_FAMILIES
     ]
+    reference = screening_order[0]
+    for split in screening_order[1:]:
+        if split.seed != reference.seed:
+            raise ValueError("SkillLearn screening source seeds differ")
+        for key in ("runtime", "baseline", "feedback_mode"):
+            if split.metadata.get(key) != reference.metadata.get(key):
+                raise ValueError(f"SkillLearn screening {key} differs")
     screening_roles = {
         "train": [task for split in screening_order for task in split.train],
         "validation": [task for split in screening_order for task in split.validation],
@@ -917,6 +933,10 @@ def build_skilllearn_selection_candidates(
         metadata={
             "qualification_version": "noise-screen-v1",
             "selection_version": "noise-screen-v1",
+            "source_seed": reference.seed,
+            "runtime": reference.metadata.get("runtime"),
+            "baseline": reference.metadata.get("baseline"),
+            "feedback_mode": reference.metadata.get("feedback_mode"),
             "families": list(SCREENING_SKILLLEARN_FAMILIES),
             "development_screening_exception": True,
             "static_audit": {

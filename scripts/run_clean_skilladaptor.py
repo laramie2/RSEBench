@@ -30,6 +30,10 @@ from rsebench.evolution.skilladaptor_executor import (  # noqa: E402
 from rsebench.experiments.bootstrap import patch_hashes_for_series  # noqa: E402
 from rsebench.hashing import sha256_file  # noqa: E402
 from rsebench.experiments.runtime import load_runtime_identity  # noqa: E402
+from rsebench.experiments.preflight import (  # noqa: E402
+    SUPPORTED_QUALIFICATION_VERSIONS,
+)
+from rsebench.selection.clean_view import load_clean_runtime_view  # noqa: E402
 from scripts.baselines.common_env import combined_method_env, methods_root  # noqa: E402
 
 
@@ -186,9 +190,7 @@ def run_manifest(
 
     if method_seed not in METHOD_SEEDS:
         raise ValueError(f"unsupported formal method seed: {method_seed}")
-    split = CleanEvolutionSplitManifest.model_validate_json(
-        manifest.read_text(encoding="utf-8")
-    )
+    split = load_clean_runtime_view(manifest)
     if split.benchmark != "webshop" or split.domain != "interactive":
         raise ValueError("clean SkillAdaptor launcher only supports WebShop")
     sizes = (len(split.train), len(split.validation), len(split.clean_test))
@@ -199,15 +201,15 @@ def run_manifest(
     qualification_version = str(
         split.metadata.get("qualification_version") or "clean-qualification-v1"
     )
-    if qualification_version not in {
-        "clean-qualification-v1",
-        "clean-qualification-v2",
-    }:
+    if qualification_version not in SUPPORTED_QUALIFICATION_VERSIONS:
         raise ValueError(
             f"unsupported WebShop qualification version: {qualification_version}"
         )
     identity, attempt = load_runtime_identity(
-        required=qualification_version == "clean-qualification-v2" and not dry_run,
+        required=(
+            qualification_version in {"clean-qualification-v2", "noise-screen-v1"}
+            and not dry_run
+        ),
         benchmark=split.benchmark,
         method_seed=method_seed,
     )

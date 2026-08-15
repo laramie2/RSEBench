@@ -6,6 +6,7 @@ from types import SimpleNamespace
 import pytest
 
 from rsebench.contracts import TaskManifest
+from rsebench.evidence import canonical_hash
 from rsebench.evolution.clean_contracts import (
     CleanEvolutionSplitManifest,
     CleanQualificationPolicy,
@@ -14,6 +15,7 @@ from rsebench.evolution.skillopt_executor import (
     SkillOptBudget,
     SkillOptExecutor as RealSkillOptExecutor,
 )
+from rsebench.selection import StableSplitCandidate
 from scripts import run_clean_skillopt
 
 
@@ -47,7 +49,12 @@ def _task(task_id: str, benchmark: str) -> TaskManifest:
     )
 
 
-def _manifest(tmp_path: Path, benchmark: str) -> Path:
+def _manifest(
+    tmp_path: Path,
+    benchmark: str,
+    *,
+    qualification_version: str | None = None,
+) -> Path:
     budget = EXPECTED[benchmark]
     domain = "spreadsheet" if benchmark == "spreadsheetbench_verified" else "document"
 
@@ -83,11 +90,47 @@ def _manifest(tmp_path: Path, benchmark: str) -> Path:
                 "workers": budget.workers,
                 "max_tool_turns": budget.max_turns,
                 "max_completion_tokens": budget.max_completion_tokens,
-            }
+            },
+            **(
+                {"qualification_version": qualification_version}
+                if qualification_version is not None
+                else {}
+            ),
         },
     )
     path = tmp_path / f"{benchmark}.json"
     path.write_text(split.model_dump_json(indent=2), encoding="utf-8")
+    return path
+
+
+def _candidate_manifest(tmp_path: Path, benchmark: str) -> Path:
+    path = _manifest(
+        tmp_path,
+        benchmark,
+        qualification_version="noise-screen-v1",
+    )
+    split = CleanEvolutionSplitManifest.model_validate_json(path.read_text())
+    roles = {
+        "train": split.train,
+        "validation": split.validation,
+        "qualification_test": split.clean_test,
+        "screening_test": [_task("screening", benchmark)],
+    }
+    candidate = StableSplitCandidate(
+        benchmark=split.benchmark,
+        domain=split.domain,
+        candidate_index=2,
+        source_hash=canonical_hash("candidate"),
+        selection_hash=canonical_hash("selection"),
+        metadata={
+            **split.metadata,
+            "selection_version": "noise-screen-v1",
+            "source_seed": split.seed,
+            "baseline": "skillopt",
+        },
+        **roles,
+    )
+    path.write_text(candidate.model_dump_json(indent=2), encoding="utf-8")
     return path
 
 
@@ -181,6 +224,32 @@ def test_clean_skillopt_cli_has_no_seed_gate_or_noise_stage() -> None:
         "output_root",
         "dry_run",
     }
+
+
+def test_noise_screen_skillopt_requires_runtime_identity(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    captured = {}
+
+    class IdentityBoundaryReached(Exception):
+        pass
+
+    def capture(**kwargs):
+        captured.update(kwargs)
+        raise IdentityBoundaryReached
+
+    monkeypatch.setattr(run_clean_skillopt, "load_runtime_identity", capture)
+
+    with pytest.raises(IdentityBoundaryReached):
+        run_clean_skillopt.run_manifest(
+            _candidate_manifest(tmp_path, "officeqa_full"),
+            method_seed=20260813,
+            output_root=tmp_path / "runs",
+        )
+
+    assert captured["required"] is True
+    assert captured["benchmark"] == "officeqa_full"
 
 
 def test_clean_skillopt_launcher_rejects_runtime_drift(

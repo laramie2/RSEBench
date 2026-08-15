@@ -51,14 +51,15 @@ def _fixture_project(tmp_path: Path) -> tuple[Path, Path, BaselineFingerprint]:
         ),
         encoding="utf-8",
     )
-    task = lambda task_id: {
-        "task_id": task_id,
-        "benchmark": "fixture",
-        "domain": "document",
-        "prompt": task_id,
-        "gold_answers": ["answer"],
-        "source_hash": _hash(task_id),
-    }
+    def task(task_id: str) -> dict[str, object]:
+        return {
+            "task_id": task_id,
+            "benchmark": "fixture",
+            "domain": "document",
+            "prompt": task_id,
+            "gold_answers": ["answer"],
+            "source_hash": _hash(task_id),
+        }
     manifest = root / "benchmark/fixture.json"
     manifest.write_text(
         json.dumps(
@@ -162,6 +163,133 @@ def test_preflight_builds_three_identities_without_provider_calls(
     assert not (root / "outputs/fixture").exists()
 
 
+def test_preflight_accepts_matrix_declared_noise_screen_version(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    root, matrix_path, fingerprint = _fixture_project(tmp_path)
+    monkeypatch.setenv("FIXTURE_API_KEY", "declared")
+    matrix_payload = yaml.safe_load(matrix_path.read_text(encoding="utf-8"))
+    matrix_payload["qualification_version"] = "noise-screen-v1"
+    matrix_payload["candidate_index"] = 2
+    matrix_path.write_text(
+        yaml.safe_dump(matrix_payload, sort_keys=False),
+        encoding="utf-8",
+    )
+    manifest_path = root / "benchmark/fixture.json"
+    manifest_payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    qualification_test = manifest_payload.pop("clean_test")
+    source_seed = manifest_payload.pop("seed")
+    manifest_payload.update(
+        {
+            "schema_version": "rsebench.stable-split-candidate.v1",
+            "candidate_index": 2,
+            "qualification_test": qualification_test,
+            "screening_test": [
+                {
+                    "task_id": "screening",
+                    "benchmark": "fixture",
+                    "domain": "document",
+                    "prompt": "screening",
+                    "gold_answers": ["answer"],
+                    "source_hash": _hash("screening"),
+                }
+            ],
+            "selection_hash": _hash("selection"),
+        }
+    )
+    manifest_payload["metadata"].update(
+        {
+            "qualification_version": "noise-screen-v1",
+            "selection_version": "noise-screen-v1",
+            "source_seed": source_seed,
+            "baseline": "fixture",
+        }
+    )
+    manifest_path.write_text(json.dumps(manifest_payload), encoding="utf-8")
+    _git(root, "add", ".")
+    _git(root, "commit", "-q", "-m", "noise screen fixture")
+
+    result = preflight_matrix(
+        matrix_path,
+        project_root=root,
+        package_file=root / "src/rsebench/__init__.py",
+        fingerprint_resolver=lambda baseline: fingerprint,
+    )
+
+    assert result.provider_calls == 0
+    assert result.units[0].identity.inputs.stage == "clean"
+
+
+def test_preflight_rejects_manifest_version_different_from_matrix(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    root, matrix_path, fingerprint = _fixture_project(tmp_path)
+    monkeypatch.setenv("FIXTURE_API_KEY", "declared")
+    manifest_path = root / "benchmark/fixture.json"
+    manifest_payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest_payload["metadata"]["qualification_version"] = "noise-screen-v1"
+    manifest_path.write_text(json.dumps(manifest_payload), encoding="utf-8")
+    _git(root, "add", ".")
+    _git(root, "commit", "-q", "-m", "mismatched manifest version")
+
+    with pytest.raises(ValueError, match="manifest qualification version differs"):
+        preflight_matrix(
+            matrix_path,
+            project_root=root,
+            package_file=root / "src/rsebench/__init__.py",
+            fingerprint_resolver=lambda baseline: fingerprint,
+        )
+
+
+def test_preflight_rejects_arbitrary_matrix_qualification_version(
+    tmp_path: Path,
+) -> None:
+    _, matrix_path, _ = _fixture_project(tmp_path)
+    matrix_payload = yaml.safe_load(matrix_path.read_text(encoding="utf-8"))
+    matrix_payload["qualification_version"] = "future-version"
+    matrix_path.write_text(
+        yaml.safe_dump(matrix_payload, sort_keys=False),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="qualification_version"):
+        load_experiment_matrix(matrix_path)
+
+
+def test_preflight_rejects_zero_clean_test_outside_skilllearn_validation(
+    tmp_path: Path,
+) -> None:
+    _, matrix_path, _ = _fixture_project(tmp_path)
+    matrix_payload = yaml.safe_load(matrix_path.read_text(encoding="utf-8"))
+    matrix_payload["cells"][0]["task_counts"]["clean_test"] = 0
+    matrix_path.write_text(
+        yaml.safe_dump(matrix_payload, sort_keys=False),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="zero clean_test is only valid"):
+        load_experiment_matrix(matrix_path)
+
+
+@pytest.mark.parametrize("candidate_index", [0, 4])
+def test_preflight_rejects_out_of_range_candidate_index(
+    tmp_path: Path,
+    candidate_index: int,
+) -> None:
+    _, matrix_path, _ = _fixture_project(tmp_path)
+    matrix_payload = yaml.safe_load(matrix_path.read_text(encoding="utf-8"))
+    matrix_payload["candidate_index"] = candidate_index
+    matrix_path.write_text(
+        yaml.safe_dump(matrix_payload, sort_keys=False),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="candidate_index"):
+        load_experiment_matrix(matrix_path)
+
+
 def test_preflight_rejects_dirty_repository_before_identity_generation(
     monkeypatch,
     tmp_path: Path,
@@ -254,6 +382,16 @@ def test_clean_v2_matrix_declares_four_portable_cells() -> None:
     skilllearn = matrix.cells[-1]
     assert skilllearn.family == "offer-letter-generator"
     assert "{method_seed}" in skilllearn.mutable_resource_keys[0]
+
+
+def test_noise_screen_candidate_matrix_declares_candidate_index() -> None:
+    matrix = load_experiment_matrix(
+        PROJECT_ROOT / "configs/experiments/noise-screen-v1-candidate2.yaml"
+    )
+
+    assert matrix.qualification_version == "noise-screen-v1"
+    assert matrix.candidate_index == 2
+    assert len(matrix.cells) == 7
 
 
 def test_clean_v2_canary_matrix_selects_one_preregistered_seed_per_cell() -> None:

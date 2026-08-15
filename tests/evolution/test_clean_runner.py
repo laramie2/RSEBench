@@ -133,7 +133,7 @@ class FixtureExecutor:
         )
 
 
-def _identity(method_seed: int = 20260813):
+def _identity(method_seed: int = 20260813, *, benchmark: str = "fixture"):
     baseline = BaselineFingerprint(
         baseline="fixture",
         repository="https://example.com/fixture.git",
@@ -155,7 +155,7 @@ def _identity(method_seed: int = 20260813):
             model="deepseek-v4-flash",
             provider="deepseek",
             runtime={"workers": 1},
-            benchmark="fixture",
+            benchmark=benchmark,
             stage="clean",
             method_seed=method_seed,
         )
@@ -218,6 +218,62 @@ def test_clean_runner_executes_one_arm_and_persists_qualification(tmp_path: Path
     assert result.token_usage["billed_tokens"]["total_tokens"] == 6
     assert (run_dir / "timing/events.jsonl").is_file()
     assert (run_dir / "timing/summary.json").is_file()
+
+
+def test_clean_runner_validation_only_uses_evolution_audit_without_evaluation(
+    tmp_path: Path,
+) -> None:
+    def task(task_id: str) -> TaskManifest:
+        return TaskManifest(
+            task_id=task_id,
+            benchmark="skilllearnbench",
+            domain="skill_learning",
+            prompt=task_id,
+            source_hash=_hash(task_id),
+            verifier="skilllearn_hidden_test_v1",
+            metadata={"task_family": "family"},
+        )
+
+    split = CleanEvolutionSplitManifest(
+        benchmark="skilllearnbench",
+        domain="skill_learning",
+        seed=7,
+        source_hash=_hash("validation-only"),
+        train=[task("train-1"), task("train-2")],
+        validation=[task("validation")],
+        clean_test=[],
+        metadata={
+            "qualification_version": "noise-screen-v1",
+            "evaluation_mode": "validation_only",
+        },
+    )
+    executor = FixtureExecutor(
+        audit=EvolutionExecutionAudit(
+            train_task_ids=["train-1", "train-2"],
+            validation_task_ids=["validation"],
+            accepted_update_count=1,
+        )
+    )
+    seed = tmp_path / "seed.md"
+    seed.write_text("seed skill", encoding="utf-8")
+    identity, attempt = _identity(benchmark="skilllearnbench")
+
+    result = CleanEvolutionRunner(executor).run(
+        method="skilllearn_self_feedback",
+        split=split,
+        seed_skill_path=seed,
+        method_seed=20260813,
+        parameters={"model": "deepseek-v4-flash", "thinking": "disabled"},
+        output_root=tmp_path / "runs",
+        identity=identity,
+        attempt=attempt,
+    )
+
+    assert executor.evaluate_calls == []
+    assert result.seed_evaluation.per_task_scores == {}
+    assert result.clean_evaluation.per_task_scores == {}
+    assert result.qualification.passed is True
+    assert result.qualification.clean_gain == 0
 
 
 @pytest.mark.parametrize(

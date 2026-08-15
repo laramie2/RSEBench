@@ -30,9 +30,17 @@ from rsebench.experiments.contracts import (
 from rsebench.experiments.scheduler import ScheduledUnit
 from rsebench.hashing import sha256_file
 from rsebench.registry import load_registry
+from rsebench.selection.clean_view import load_clean_runtime_view
 
 
 FORMAL_METHOD_SEEDS = (20260813, 20260814, 20260815)
+SUPPORTED_QUALIFICATION_VERSIONS = frozenset(
+    {
+        "clean-qualification-v1",
+        "clean-qualification-v2",
+        "noise-screen-v1",
+    }
+)
 _CHECKOUT_NAMES = {
     "skilllearn_self_feedback": "skilllearnbench",
     "skilllearn_teacher_feedback": "skilllearnbench",
@@ -42,7 +50,7 @@ _CHECKOUT_NAMES = {
 class TaskCounts(StrictModel):
     train: int = Field(ge=1)
     validation: int = Field(ge=1)
-    clean_test: int = Field(ge=1)
+    clean_test: int = Field(ge=0)
 
 
 class ExperimentCell(StrictModel):
@@ -81,7 +89,12 @@ class ExperimentCell(StrictModel):
 
 class ExperimentMatrix(StrictModel):
     schema_version: Literal["rsebench.experiment-matrix.v1"]
-    qualification_version: Literal["clean-qualification-v2"]
+    qualification_version: Literal[
+        "clean-qualification-v1",
+        "clean-qualification-v2",
+        "noise-screen-v1",
+    ]
+    candidate_index: int | None = Field(default=None, ge=1, le=3)
     purpose: Literal["formal", "canary"] = "formal"
     stage: Literal["clean"]
     method_seeds: list[int]
@@ -106,6 +119,14 @@ class ExperimentMatrix(StrictModel):
             raise ValueError("experiment cell keys must be unique")
         formal_seeds = set(self.method_seeds)
         for cell in self.cells:
+            if cell.task_counts.clean_test == 0 and not (
+                self.qualification_version == "noise-screen-v1"
+                and cell.benchmark == "skilllearnbench"
+                and cell.family is not None
+            ):
+                raise ValueError(
+                    "zero clean_test is only valid for noise-screen SkillLearn families"
+                )
             if self.purpose == "formal" and cell.method_seeds is not None:
                 raise ValueError("formal matrix cannot override cell seeds")
             if self.purpose == "canary":
@@ -158,6 +179,18 @@ FingerprintResolver = Callable[[str], BaselineFingerprint]
 def load_experiment_matrix(path: Path | str) -> ExperimentMatrix:
     payload = yaml.safe_load(Path(path).read_text(encoding="utf-8"))
     return ExperimentMatrix.model_validate(payload)
+
+
+def require_manifest_version(*, expected: str, actual: str, cell_key: str) -> None:
+    """Require exact equality between two explicitly supported versions."""
+
+    if expected not in SUPPORTED_QUALIFICATION_VERSIONS:
+        raise ValueError(f"unsupported matrix qualification version: {expected}")
+    if actual != expected:
+        raise ValueError(
+            f"manifest qualification version differs: {cell_key}: "
+            f"{actual} != {expected}"
+        )
 
 
 def _git(root: Path, *args: str) -> str:
@@ -368,13 +401,14 @@ def preflight_matrix(
                 raise FileNotFoundError(
                     f"SkillLearn image manifest is missing: {image_manifest}"
                 )
-        split = CleanEvolutionSplitManifest.model_validate_json(
-            manifest.read_text(encoding="utf-8")
-        )
+        split = load_clean_runtime_view(manifest, family=cell.family)
         if split.benchmark != cell.benchmark:
             raise ValueError(f"cell benchmark differs from manifest: {cell.key}")
-        if split.metadata.get("qualification_version") != matrix.qualification_version:
-            raise ValueError(f"manifest is not clean-qualification-v2: {cell.key}")
+        require_manifest_version(
+            expected=matrix.qualification_version,
+            actual=str(split.metadata.get("qualification_version") or ""),
+            cell_key=cell.key,
+        )
         actual_counts = TaskCounts(
             train=len(split.train),
             validation=len(split.validation),
@@ -435,6 +469,8 @@ def preflight_matrix(
                 command.extend(["--seed-skill", str(seed_skill)])
             if image_manifest is not None:
                 command.extend(["--image-manifest", str(image_manifest)])
+            if cell.family is not None:
+                command.extend(["--family", cell.family])
             scheduled = ScheduledUnit(
                 key=key,
                 experiment_id=identity.experiment_id,
@@ -477,7 +513,9 @@ __all__ = [
     "PreflightReport",
     "PreflightUnit",
     "ProviderConfiguration",
+    "SUPPORTED_QUALIFICATION_VERSIONS",
     "TaskCounts",
     "load_experiment_matrix",
     "preflight_matrix",
+    "require_manifest_version",
 ]

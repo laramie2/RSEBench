@@ -34,10 +34,16 @@ class CleanEvolutionSplitManifest(StrictModel):
         for task in self.train + self.validation + self.clean_test:
             if task.benchmark != self.benchmark or task.domain != self.domain:
                 raise ValueError("task benchmark/domain does not match clean split")
-        if not self.train or not self.validation or not self.clean_test:
-            raise ValueError(
-                "clean qualification requires non-empty train, validation, and clean_test"
-            )
+        validation_only = (
+            self.benchmark == "skilllearnbench"
+            and self.domain == "skill_learning"
+            and self.metadata.get("qualification_version") == "noise-screen-v1"
+            and self.metadata.get("evaluation_mode") == "validation_only"
+        )
+        if not self.train or not self.validation:
+            raise ValueError("clean qualification requires non-empty train and validation")
+        if not self.clean_test and not validation_only:
+            raise ValueError("clean qualification requires non-empty clean_test")
         return self
 
 

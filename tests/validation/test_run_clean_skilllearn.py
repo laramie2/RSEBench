@@ -7,10 +7,12 @@ import pytest
 import yaml
 
 from rsebench.contracts import TaskManifest
+from rsebench.evidence import canonical_hash
 from rsebench.evolution.clean_contracts import (
     CleanEvolutionSplitManifest,
     CleanQualificationPolicy,
 )
+from rsebench.selection import StableSplitCandidate
 from scripts import run_clean_skilllearn
 
 
@@ -75,6 +77,44 @@ def _manifest(
     )
     path = tmp_path / "family.json"
     path.write_text(split.model_dump_json(indent=2), encoding="utf-8")
+    return path
+
+
+def _candidate_manifest(tmp_path: Path) -> Path:
+    path = _manifest(tmp_path, qualification_version="noise-screen-v1")
+    split = CleanEvolutionSplitManifest.model_validate_json(path.read_text())
+    family = "family"
+    roles = {
+        "train": split.train,
+        "validation": split.validation,
+        "qualification_test": [],
+        "screening_test": split.clean_test,
+    }
+    candidate = StableSplitCandidate(
+        benchmark=split.benchmark,
+        domain=split.domain,
+        candidate_index=1,
+        source_hash=canonical_hash("candidate"),
+        selection_hash=canonical_hash("selection"),
+        metadata={
+            **split.metadata,
+            "selection_version": "noise-screen-v1",
+            "source_seed": split.seed,
+            "baseline": "skilllearn_self_feedback",
+            "families": [family],
+            "static_audit": {
+                "family_allocations": {
+                    family: {
+                        "train": [task.task_id for task in split.train],
+                        "validation": [task.task_id for task in split.validation],
+                        "screening_test": [task.task_id for task in split.clean_test],
+                    }
+                }
+            },
+        },
+        **roles,
+    )
+    path.write_text(candidate.model_dump_json(indent=2), encoding="utf-8")
     return path
 
 
@@ -223,7 +263,7 @@ def test_clean_skilllearn_dry_run_has_no_provider_or_executor_calls(
     monkeypatch.setattr(run_clean_skilllearn, "SkillLearnExecutor", forbidden)
 
     run_dir = run_clean_skilllearn.run_manifest(
-        _manifest(tmp_path),
+        _manifest(tmp_path, qualification_version="noise-screen-v1"),
         seed_skill=seed,
         method_seed=20260813,
         output_root=tmp_path / "preflight",
@@ -236,3 +276,34 @@ def test_clean_skilllearn_dry_run_has_no_provider_or_executor_calls(
     assert payload["provider_calls"] == 0
     assert payload["task_counts"] == {"train": 2, "validation": 1, "clean_test": 2}
     assert list(run_dir.rglob("*.jsonl")) == []
+
+
+def test_noise_screen_skilllearn_requires_runtime_identity(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    seed = tmp_path / "seed.md"
+    seed.write_text("seed", encoding="utf-8")
+    captured = {}
+
+    class IdentityBoundaryReached(Exception):
+        pass
+
+    def capture(**kwargs):
+        captured.update(kwargs)
+        raise IdentityBoundaryReached
+
+    monkeypatch.setattr(run_clean_skilllearn, "load_runtime_identity", capture)
+
+    with pytest.raises(IdentityBoundaryReached):
+        run_clean_skilllearn.run_manifest(
+            _candidate_manifest(tmp_path),
+            seed_skill=seed,
+            method_seed=20260813,
+            output_root=tmp_path / "runs",
+            image_manifest=tmp_path / "images.json",
+            family="family",
+        )
+
+    assert captured["required"] is True
+    assert captured["benchmark"] == "skilllearnbench"

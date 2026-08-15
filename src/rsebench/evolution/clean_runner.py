@@ -115,6 +115,23 @@ def _has_execution_failure(evaluation: EvaluationResult) -> bool:
     return bool(evaluation.diagnostics.get("execution_failures"))
 
 
+def _validation_only(split: CleanEvolutionSplitManifest) -> bool:
+    return (
+        not split.clean_test
+        and split.benchmark == "skilllearnbench"
+        and split.metadata.get("qualification_version") == "noise-screen-v1"
+        and split.metadata.get("evaluation_mode") == "validation_only"
+    )
+
+
+def _skipped_evaluation() -> EvaluationResult:
+    return EvaluationResult(
+        score=0.0,
+        per_task_scores={},
+        diagnostics={"evaluation_mode": "validation_only", "skipped": True},
+    )
+
+
 def _threshold_failed(
     evaluations: tuple[EvaluationResult, EvaluationResult],
     *,
@@ -164,7 +181,8 @@ def _qualify(
         if not validation_covered:
             reasons.append("validation_execution_coverage")
 
-    test_covered = (
+    validation_only = _validation_only(split)
+    test_covered = validation_only or (
         set(seed_evaluation.per_task_scores) == expected_test
         and set(clean_evaluation.per_task_scores) == expected_test
     )
@@ -178,7 +196,7 @@ def _qualify(
         reasons.append("no_accepted_update")
 
     clean_gain = clean_evaluation.score - seed_evaluation.score
-    nondegrading = clean_gain >= 0.0
+    nondegrading = validation_only or clean_gain >= 0.0
     if not nondegrading:
         reasons.append("clean_score_decreased")
 
@@ -311,12 +329,15 @@ class CleanEvolutionRunner:
                 seed_eval_dir = seed_dir / "evaluation"
                 seed_eval_dir.mkdir()
                 with recorder.span(level="stage", name="seed_evaluation"):
-                    seed_evaluation = self.executor.evaluate(
-                        skill_path=canonical_seed,
-                        clean_test=split.clean_test,
-                        output_dir=seed_eval_dir,
-                        stage="seed",
-                    )
+                    if _validation_only(split):
+                        seed_evaluation = _skipped_evaluation()
+                    else:
+                        seed_evaluation = self.executor.evaluate(
+                            skill_path=canonical_seed,
+                            clean_test=split.clean_test,
+                            output_dir=seed_eval_dir,
+                            stage="seed",
+                        )
                     self._write_json(seed_eval_dir / "result.json", seed_evaluation)
 
                 with recorder.span(level="stage", name="evolution"):
@@ -347,7 +368,9 @@ class CleanEvolutionRunner:
                 evaluation_dir = clean_dir / "clean_test_evaluation"
                 evaluation_dir.mkdir(exist_ok=False)
                 with recorder.span(level="stage", name="clean_test_evaluation"):
-                    if artifact.skill_hash == seed_hash:
+                    if _validation_only(split):
+                        clean_evaluation = _skipped_evaluation()
+                    elif artifact.skill_hash == seed_hash:
                         clean_evaluation = seed_evaluation
                         self._write_json(
                             evaluation_dir / "reused.json",

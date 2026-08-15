@@ -1,0 +1,44 @@
+schema_version: rsebench.experiment-matrix.v1
+qualification_version: noise-screen-v1
+candidate_index: 1
+stage: clean
+method_seeds: [20260813, 20260814, 20260815]
+provider: deepseek
+model: deepseek-v4-flash
+temperature: 0.0
+thinking: disabled
+provider_config: configs/pilot/deepseek-v4-flash-4096.yaml
+output_root: outputs/runs/noise-screen-v1-qualification
+cells:
+  - key: officeqa-candidate1-skillopt
+    benchmark: officeqa_full
+    baseline: skillopt
+    launcher: scripts/run_clean_skillopt.py
+    manifest: benchmark/validation/noise_screen_v1/candidates/officeqa_full/candidate_1.json
+    seed_skill: methods://skillopt/skillopt/envs/officeqa/skills/initial.md
+    seed_skill_argument: false
+    task_counts: {train: 12, validation: 12, clean_test: 20}
+    runtime:
+      max_steps: 3
+      batch_size: 4
+      workers: 2
+      max_tool_turns: 12
+      max_completion_tokens: 4096
+    adapter_key: skillopt
+    adapter_max_parallel: 2
+    mutable_resource_keys: []
+
+  - key: webshop-candidate1-skilladaptor
+    benchmark: webshop
+    baseline: skilladaptor
+    launcher: scripts/run_clean_skilladaptor.py
+    manifest: benchmark/validation/noise_screen_v1/candidates/webshop/candidate_1.json
+    seed_skill: benchmark/core1/seeds/skilladaptor_webshop.json
+    task_counts: {train: 5, validation: 5, clean_test: 20}
+    runtime:
+      max_iterations: 3
+      max_episode_steps: 15
+      min_sample_size: 5
+    adapter_key: skilladaptor
+    adapter_max_parallel: 1
+    mutable_resource_keys: []

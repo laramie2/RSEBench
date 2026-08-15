@@ -263,6 +263,7 @@ def test_candidate_two_changes_train_only() -> None:
     )
     assert task_ids(first.screening_test) == task_ids(second.screening_test)
     assert task_ids(first.train) != task_ids(second.train)
+    assert second.metadata["source_seed"] == 20260813
 
 
 def test_confirmation_is_reserved_before_candidates() -> None:
@@ -584,6 +585,14 @@ def test_skilllearn_uses_fixed_families_and_instance_allocation() -> None:
     )
 
     assert bundle.candidates[0].metadata["families"] == list(screening_names)
+    assert bundle.candidates[0].metadata["source_seed"] == screening[
+        screening_names[0]
+    ].seed
+    assert bundle.candidates[0].metadata["runtime"] == screening[
+        screening_names[0]
+    ].metadata["runtime"]
+    assert bundle.candidates[0].metadata["baseline"] == "skilllearn_self_feedback"
+    assert bundle.candidates[0].metadata["feedback_mode"] == "self"
     assert bundle.confirmation.metadata["families"] == list(confirmation_names)
     assert len(bundle.candidates) == 1
     for family, split in {**screening, **confirmation}.items():
