@@ -145,7 +145,6 @@ def _deep_freeze(value: Any) -> Any:
             _ImmutableSequence,
             _ImmutableMapping,
             _ImmutableSelectionModel,
-            _ImmutableTaskManifest,
         ),
     ):
         return value
@@ -257,6 +256,22 @@ class _ImmutableTaskManifest(TaskManifest):
         del context
         for field_name, value in self.__dict__.items():
             object.__setattr__(self, field_name, _deep_freeze(value))
+
+    def model_copy(
+        self,
+        *,
+        update: Mapping[str, Any] | None = None,
+        deep: bool = False,
+    ) -> Self:
+        if not update:
+            return super().model_copy(deep=deep)
+
+        fields_set = self.model_fields_set | set(update)
+        payload = self.model_dump(mode="python")
+        payload.update(update)
+        copied = type(self).model_validate(payload)
+        object.__setattr__(copied, "__pydantic_fields_set__", fields_set)
+        return copied
 
     @field_serializer("*", mode="wrap", check_fields=False)
     def serialize_immutable_field(

@@ -62,6 +62,18 @@ class _StatefulStrKey(str):
         return self.rendered == str(other)
 
 
+class _CollidingStrKey(str):
+    normalized: str
+
+    def __new__(cls, value: str, *, normalized: str) -> "_CollidingStrKey":
+        instance = super().__new__(cls, value)
+        instance.normalized = normalized
+        return instance
+
+    def __str__(self) -> str:
+        return self.normalized
+
+
 class _StatefulPath(PosixPath):
     rendered: str
 
@@ -357,6 +369,70 @@ def test_model_copy_update_refreezes_metadata_and_rejects_unsupported_values() -
         candidate.model_copy(update={"metadata": {"bad": bytearray(b"mutable")}})
 
 
+@pytest.mark.parametrize(
+    "update",
+    [
+        pytest.param({"source_hash": "not-a-hash"}, id="invalid-source-hash"),
+        pytest.param(
+            {"gold_answers": [], "verifier": None},
+            id="missing-answer-and-verifier",
+        ),
+        pytest.param(
+            {"metadata": {"bad": bytearray(b"mutable")}},
+            id="unsupported-metadata",
+        ),
+    ],
+)
+def test_nested_task_model_copy_revalidates_before_candidate_entry(
+    update: dict[str, object],
+) -> None:
+    candidate = _candidate()
+
+    with pytest.raises(ValidationError):
+        copied_task = candidate.train[0].model_copy(update=update)
+        candidate.model_copy(update={"train": [copied_task]})
+
+
+@pytest.mark.parametrize(
+    ("update", "message"),
+    [
+        pytest.param({"benchmark": "webshop"}, "benchmark", id="benchmark"),
+        pytest.param({"domain": "spreadsheet"}, "domain", id="domain"),
+    ],
+)
+def test_nested_task_model_copy_cannot_bypass_parent_identity(
+    update: dict[str, object],
+    message: str,
+) -> None:
+    candidate = _candidate()
+    copied_task = candidate.train[0].model_copy(update=update)
+
+    with pytest.raises(ValidationError, match=message):
+        candidate.model_copy(update={"train": [copied_task]})
+
+
+def test_valid_nested_task_model_copy_is_deeply_immutable_and_unaliased() -> None:
+    candidate = _candidate()
+    source_metadata = {"nested": {"tags": ["original"]}}
+    copied_task = candidate.train[0].model_copy(
+        update={"task_id": "updated-train", "metadata": source_metadata}
+    )
+    copied_candidate = candidate.model_copy(update={"train": [copied_task]})
+    original_dump = copied_candidate.model_dump(mode="json", warnings="error")
+    original_hash = canonical_hash(copied_candidate)
+    source_metadata["nested"]["tags"].append("caller-change")
+
+    assert copied_candidate.train[0].task_id == "updated-train"
+    assert copied_candidate.model_dump(mode="json", warnings="error") == original_dump
+    assert canonical_hash(copied_candidate) == original_hash
+    with pytest.raises(TypeError, match="immutable"):
+        copied_task.metadata["nested"]["tags"].append("task-change")
+    with pytest.raises(TypeError, match="immutable"):
+        copied_candidate.train[0].metadata["nested"]["tags"].append(
+            "candidate-change"
+        )
+
+
 def _registry() -> ExposureRegistry:
     return ExposureRegistry(
         records=[
@@ -595,6 +671,14 @@ def test_nested_metadata_keys_are_normalized_without_aliases() -> None:
     assert task_mapping["task-outer"]["task-inner"] == "task-value"
     assert candidate.model_dump(mode="json") == original_dump
     assert canonical_hash(candidate) == original_hash
+
+
+def test_metadata_rejects_distinct_keys_with_same_normalized_string() -> None:
+    left = _CollidingStrKey("left-identity", normalized="collision")
+    right = _CollidingStrKey("right-identity", normalized="collision")
+
+    with pytest.raises(ValidationError, match="duplicate normalized mapping key"):
+        _candidate(metadata={"nested": {left: 1, right: 2}})
 
 
 def test_scalar_and_path_subclasses_are_normalized_without_aliases() -> None:
