@@ -158,6 +158,73 @@ def test_parse_complete_evolution_arm(tmp_path: Path) -> None:
     assert arm.token_usage.observed_coverage == 1.0
 
 
+def test_parse_native_harbor_trial_patch_ids_and_run_command_skill_reads(
+    tmp_path: Path,
+) -> None:
+    """Native Harbor suffixes trial names and passes shell commands as argv."""
+
+    job_dir = tmp_path / "job"
+    _write_job(job_dir)
+    native_trial_names = {
+        "task-1": "task-1-truncated__AbC1234",
+        "task-2": "task-2-truncated__DeF5678",
+    }
+    for task_id, trial_name in native_trial_names.items():
+        (job_dir / f"trial-{task_id}").rename(job_dir / trial_name)
+    rows = [
+        {
+            "trial_name": native_trial_names[task_id],
+            "task_name": native_trial_names[task_id],
+            "upsert_paths": [f"{task_id}/SKILL.md"],
+            "delete_paths": [],
+            "started_at": "2026-08-16T10:00:07Z",
+            "ended_at": "2026-08-16T10:00:09Z",
+            "status": "applied",
+        }
+        for task_id in ("task-1", "task-2")
+    ]
+    (job_dir / "skill_patch_history.jsonl").write_text(
+        "".join(json.dumps(row) + "\n" for row in rows), encoding="utf-8"
+    )
+    trajectory_path = job_dir / native_trial_names["task-2"] / "agent" / "trajectory.json"
+    trajectory_path.write_text(
+        json.dumps(
+            {
+                "steps": [
+                    {
+                        "tool_calls": [
+                            {
+                                "function_name": "run_command",
+                                "arguments": {
+                                    "argv": [
+                                        "cat",
+                                        "/root/.agents/skills/shared-checklist/SKILL.md",
+                                    ]
+                                },
+                            }
+                        ]
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    arm = parse_arm_result(
+        job_dir,
+        _family(),
+        arm="clean_evolution",
+        replicate_id="r1",
+        expected_task_checksums={"task-1": HASH_A, "task-2": HASH_B},
+    )
+
+    assert arm.complete is True
+    assert arm.patch_count == 2
+    assert arm.nonempty_patch_count == 2
+    assert arm.skill_used_task_count == 1
+    assert arm.task_results[1].skills_used == ["shared-checklist"]
+
+
 @pytest.mark.parametrize(
     ("mutation", "reason_prefix"),
     [

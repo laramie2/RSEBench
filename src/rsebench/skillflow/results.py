@@ -246,9 +246,10 @@ def _analyze_skill_usage(path: Path) -> tuple[int, list[str]]:
             extracted = _skill_names(arguments)
             explicit_skill = normalized == "skill"
             direct_read = normalized in {"read", "readfile"} and bool(extracted)
-            shell_read = any(
-                _SKILL_PATH_PATTERN.search(text) and _SHELL_READ_PATTERN.search(text)
-                for text in _iter_strings(arguments)
+            shell_command = " ".join(_iter_strings(arguments))
+            shell_read = bool(
+                _SKILL_PATH_PATTERN.search(shell_command)
+                and _SHELL_READ_PATTERN.search(shell_command)
             )
             if explicit_skill or direct_read or shell_read:
                 calls += 1
@@ -258,9 +259,13 @@ def _analyze_skill_usage(path: Path) -> tuple[int, list[str]]:
 
 def _load_patch_history(
     path: Path,
+    *,
+    expected_task_ids: Iterable[str] = (),
+    trial_task_ids: Mapping[str, str] | None = None,
 ) -> tuple[dict[str, Mapping[str, Any]], list[str]]:
     rows: dict[str, Mapping[str, Any]] = {}
     reasons: list[str] = []
+    expected = tuple(expected_task_ids)
     for line_number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
         if not line.strip():
             continue
@@ -277,6 +282,15 @@ def _load_patch_history(
             reasons.append(f"missing_patch_task_id:line-{line_number}")
             continue
         task_id = task_id.strip()
+        if trial_task_ids is not None and task_id in trial_task_ids:
+            task_id = trial_task_ids[task_id]
+        elif task_id not in expected:
+            matches = [item for item in expected if task_id.startswith(f"{item}__")]
+            if len(matches) == 1:
+                task_id = matches[0]
+            elif len(matches) > 1:
+                reasons.append(f"ambiguous_patch_task_id:{task_id}")
+                continue
         if task_id in rows:
             reasons.append(f"duplicate_patch_record:{task_id}")
             continue
@@ -351,6 +365,7 @@ def parse_arm_result(
 
     expected_ids = [task.task_id for task in family_manifest.tasks]
     trial_payloads: dict[str, tuple[Path, Mapping[str, Any]]] = {}
+    trial_task_ids: dict[str, str] = {}
     top_result = root / "result.json"
     if not top_result.is_file():
         reasons.append("missing_job_result")
@@ -382,6 +397,7 @@ def parse_arm_result(
                 reasons.append(f"duplicate_task:{task_id}")
                 continue
             trial_payloads[task_id] = (child, payload)
+            trial_task_ids[child.name] = task_id
 
     for task_id in expected_ids:
         if task_id not in trial_payloads:
@@ -395,7 +411,11 @@ def parse_arm_result(
         if not history_path.is_file():
             reasons.append("missing_patch_history")
         else:
-            loaded_rows, patch_reasons = _load_patch_history(history_path)
+            loaded_rows, patch_reasons = _load_patch_history(
+                history_path,
+                expected_task_ids=expected_ids,
+                trial_task_ids=trial_task_ids,
+            )
             patch_rows = loaded_rows
             reasons.extend(patch_reasons)
             for task_id in expected_ids:
