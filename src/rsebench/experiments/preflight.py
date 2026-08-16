@@ -82,6 +82,7 @@ class ExperimentCell(StrictModel):
     mutable_resource_keys: list[str] = Field(default_factory=list)
     family: str | None = None
     method_seeds: list[int] | None = Field(default=None, min_length=1)
+    command_timeout_seconds: int | None = Field(default=None, ge=1, le=1800)
 
     @field_validator("mutable_resource_keys")
     @classmethod
@@ -480,6 +481,8 @@ def preflight_matrix(
             runtime["family"] = cell.family
         if image_manifest is not None:
             runtime["image_manifest_hash"] = sha256_file(image_manifest)
+        if cell.command_timeout_seconds is not None:
+            runtime["command_timeout_seconds"] = cell.command_timeout_seconds
         selected_seeds = cell.method_seeds or matrix.method_seeds
         for method_seed in selected_seeds:
             identity = build_experiment_identity(
@@ -520,6 +523,13 @@ def preflight_matrix(
                 command.extend(["--image-manifest", str(image_manifest)])
             if cell.family is not None:
                 command.extend(["--family", cell.family])
+            if cell.command_timeout_seconds is not None:
+                command.extend(
+                    [
+                        "--command-timeout-seconds",
+                        str(cell.command_timeout_seconds),
+                    ]
+                )
             scheduled = ScheduledUnit(
                 key=key,
                 experiment_id=identity.experiment_id,

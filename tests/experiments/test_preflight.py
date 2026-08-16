@@ -586,6 +586,37 @@ def test_skilllearn_round2_matrices_declare_twelve_formal_and_two_replay_units()
     )
 
 
+def test_skilllearn_recovery_matrix_scopes_long_timeout_to_dbscan() -> None:
+    matrix_path = (
+        PROJECT_ROOT / "configs/experiments/skilllearn-recovery-round2.yaml"
+    )
+    matrix = load_experiment_matrix(matrix_path)
+    report = preflight_matrix(matrix_path, require_clean_worktree=False)
+
+    assert matrix.purpose == "canary"
+    assert [cell.method_seeds for cell in matrix.cells] == [
+        [20260814],
+        [20260815],
+        [20260813],
+        [20260814],
+    ]
+    assert [cell.command_timeout_seconds for cell in matrix.cells] == [
+        900,
+        900,
+        None,
+        None,
+    ]
+    by_key = {unit.key: unit for unit in report.units}
+    for seed in (20260814, 20260815):
+        unit = by_key[f"skilllearn-dbscan-retry-{seed}:{seed}"]
+        assert unit.identity.inputs.runtime["command_timeout_seconds"] == 900
+        assert unit.scheduled.command[-2:] == ["--command-timeout-seconds", "900"]
+    for seed in (20260813, 20260814):
+        unit = by_key[f"skilllearn-offer-replay-{seed}:{seed}"]
+        assert "command_timeout_seconds" not in unit.identity.inputs.runtime
+        assert "--command-timeout-seconds" not in unit.scheduled.command
+
+
 def test_noise_screen_candidate_matrix_declares_candidate_index() -> None:
     matrix = load_experiment_matrix(
         PROJECT_ROOT / "configs/experiments/noise-screen-v1-candidate2.yaml"

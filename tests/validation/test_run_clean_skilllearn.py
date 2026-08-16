@@ -207,22 +207,40 @@ def test_clean_skilllearn_launcher_is_self_feedback_floor_tolerant(
         method_seed=20260813,
         output_root=tmp_path / "runs",
         image_manifest=image_manifest,
+        command_timeout_seconds=900,
     )
 
     assert run_dir.name == "run-1"
     assert captured["backend"]["max_turns"] == 16
     assert captured["backend"]["require_prebuilt"] is True
     assert captured["backend"]["verifier_wheelhouse"] == wheelhouse.resolve()
+    assert captured["backend"]["command_timeout"] == 900
     assert captured["executor"]["feedback_mode"] == "self"
     assert captured["executor"]["evidence_spec"] is None
     assert captured["run"]["policy"] == CleanQualificationPolicy()
     assert "seed_score_interval" not in captured["run"]
     assert captured["run"]["parameters"]["family"] == "family"
+    assert captured["run"]["parameters"]["command_timeout_seconds"] == 900
     assert captured["run"]["parameters"]["qualification_version"] == (
         "clean-qualification-v1"
     )
     assert captured["run"]["identity"] is identity
     assert captured["run"]["attempt"] is attempt
+
+
+@pytest.mark.parametrize("value", [0, 1801])
+def test_clean_skilllearn_rejects_out_of_bounds_command_timeout(
+    tmp_path: Path,
+    value: int,
+) -> None:
+    with pytest.raises(ValueError, match="command timeout"):
+        run_clean_skilllearn.run_manifest(
+            tmp_path / "unused.json",
+            seed_skill=tmp_path / "unused.md",
+            method_seed=20260813,
+            output_root=tmp_path / "runs",
+            command_timeout_seconds=value,
+        )
 
 
 def test_clean_skilllearn_rejects_drifted_verifier_wheelhouse_before_provider(

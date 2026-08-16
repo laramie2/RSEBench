@@ -34,6 +34,7 @@ OFFLINE_VERIFIER_PACKAGES = [
     "pytest==8.4.1",
     "pytest-json-ctrf==0.3.5",
 ]
+MAX_COMMAND_TIMEOUT_SECONDS = 1800
 
 
 from rsebench.core1.dataset import resolve_clean_split_paths  # noqa: E402
@@ -63,6 +64,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--output-root", type=Path, required=True)
     parser.add_argument("--image-manifest", type=Path, default=DEFAULT_IMAGE_MANIFEST)
     parser.add_argument("--family")
+    parser.add_argument("--command-timeout-seconds", type=int)
     parser.add_argument("--dry-run", action="store_true")
     return parser
 
@@ -125,8 +127,16 @@ def run_manifest(
     output_root: Path,
     image_manifest: Path = DEFAULT_IMAGE_MANIFEST,
     family: str | None = None,
+    command_timeout_seconds: int | None = None,
     dry_run: bool = False,
 ) -> Path:
+    if command_timeout_seconds is not None and not (
+        1 <= command_timeout_seconds <= MAX_COMMAND_TIMEOUT_SECONDS
+    ):
+        raise ValueError(
+            "SkillLearn command timeout must be between 1 and "
+            f"{MAX_COMMAND_TIMEOUT_SECONDS} seconds"
+        )
     if method_seed not in METHOD_SEEDS:
         raise ValueError(f"unsupported formal method seed: {method_seed}")
     portable = load_clean_runtime_view(manifest, family=family)
@@ -207,6 +217,8 @@ def run_manifest(
     }
     if verifier_identity is not None:
         parameters["verifier"] = verifier_identity
+    if command_timeout_seconds is not None:
+        parameters["command_timeout_seconds"] = command_timeout_seconds
     if dry_run:
         runtime_split = build_clean_runtime_split(split)
         seed_hash = sha256_file(seed_skill)
@@ -241,11 +253,16 @@ def run_manifest(
         return run_dir
 
     client = DeepSeekClient.from_yaml(PROVIDER_CONFIG)
+    backend_kwargs: dict[str, Any] = {
+        "client": client,
+        "max_turns": 16,
+        "require_prebuilt": True,
+        "verifier_wheelhouse": verifier_wheelhouse,
+    }
+    if command_timeout_seconds is not None:
+        backend_kwargs["command_timeout"] = command_timeout_seconds
     backend = DockerSkillLearnBackend(
-        client=client,
-        max_turns=16,
-        require_prebuilt=True,
-        verifier_wheelhouse=verifier_wheelhouse,
+        **backend_kwargs,
     )
     executor = SkillLearnExecutor(
         client=client,
@@ -278,6 +295,7 @@ def main() -> None:
         output_root=args.output_root,
         image_manifest=args.image_manifest,
         family=args.family,
+        command_timeout_seconds=args.command_timeout_seconds,
         dry_run=args.dry_run,
     )
     print(run_dir)
