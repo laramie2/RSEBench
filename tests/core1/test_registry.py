@@ -60,8 +60,7 @@ def test_active_adapters_use_deepseek_v4_flash() -> None:
 
     assert set(active) == {
         "skillopt",
-        "skilllearn_self_feedback",
-        "skilllearn_teacher_feedback",
+        "skillflow",
         "skilladaptor",
     }
     assert all(row["model"] == "deepseek-v4-flash" for row in active.values())

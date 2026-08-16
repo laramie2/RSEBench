@@ -47,6 +47,17 @@ def validate_registries(root: Path | str) -> None:
         benchmark = row.get("benchmark")
         if benchmark not in benchmarks:
             raise ValueError(f"split {name} references unknown benchmark {benchmark}")
+        if row.get("selection_mode") == "ordered_family_qualification":
+            candidate_families = int(row.get("candidate_families", 0))
+            target_families = int(row.get("target_qualified_families", 0))
+            replicates = int(row.get("replicates", 0))
+            if candidate_families < target_families or target_families < 1:
+                raise ValueError(
+                    f"split {name} has invalid family qualification counts"
+                )
+            if replicates != 3:
+                raise ValueError(f"split {name} requires exactly three replicates")
+            continue
         total = int(row["total"])
         partition_total = (
             int(row["evolution"]) + int(row["validation"]) + int(row["test"])

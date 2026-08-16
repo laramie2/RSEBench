@@ -1,6 +1,28 @@
 # Current Robust Self-Evolution Validation Status
 
-Date: 2026-08-13
+Current scope update: 2026-08-16
+Historical result snapshot below: 2026-08-13
+
+## 2026-08-16 fourth-domain migration
+
+The active fourth clean-validation domain is now **SkillFlow-Task / SkillFlow
+iterative shared-skill evolution**, replacing SkillLearnBench / Self-Feedback in
+the main four-domain target. This is a scope migration, not a rewrite of prior
+evidence: every SkillLearn Self-Feedback and Teacher-Feedback manifest, patch,
+operator, run, and report remains retained as diagnostic history.
+
+SkillFlow has a pinned upstream commit, a replayable provider/evidence patch
+series, a frozen candidate-family input manifest, and one control plane for
+`preflight`, `screen`, `confirm`, `aggregate`, and `freeze`. The current clean
+gate requires r1/r2/r3 paired base/evolution evidence, nonempty persisted updates
+in all three evolution replicates, later skill use in at least two, positive late
+gain in at least two with no negative remaining replicate, and positive pooled
+full gain. SkillFlow is **not frozen until two families qualify**. N1–N4 runs for
+this domain must not start before that condition is met.
+
+The 2026-08-13 material below is preserved verbatim as a historical validation
+snapshot. Its SkillLearn and earlier SkillFlow statements describe that older
+scope and must not be read as the current registry state.
 
 ## Executive conclusion
 

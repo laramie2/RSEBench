@@ -58,15 +58,15 @@ methods:
     native_domains: [skill_native]
     code_status: benchmark
   skillflow:
-    active: false
+    active: true
     repository: https://github.com/ZhangZi-a/SkillFlow.git
     commit: 7b49ff5a7e26cd7706e959bfa0dba4746d18440d
     git_lfs: false
     native_domains: [skill_native]
-    code_status: benchmark
+    code_status: runnable_with_deepseek_adapter
     patch_series: patches/baselines/skillflow/series.yaml
   skilllearn_self_feedback:
-    active: true
+    active: false
     repository: https://github.com/cxcscmu/SkillLearnBench.git
     commit: a0da045a8bf64b8a8ff20730c4d6ef10dc4e2c5b
     git_lfs: false
@@ -74,7 +74,7 @@ methods:
     code_status: runnable_with_deepseek_adapter
     patch_series: patches/baselines/skilllearn_self_feedback/series.yaml
   skilllearn_teacher_feedback:
-    active: true
+    active: false
     repository: https://github.com/cxcscmu/SkillLearnBench.git
     commit: a0da045a8bf64b8a8ff20730c4d6ef10dc4e2c5b
     git_lfs: false

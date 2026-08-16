@@ -60,8 +60,17 @@ splits:
     pilot_eval: 10
     validation: 60
     test: 348
-  skilllearnbench:
+  skillflow_tasks:
     active: true
+    benchmark: skillflow_tasks
+    total: 48
+    group_key: task_family
+    selection_mode: ordered_family_qualification
+    candidate_families: 6
+    target_qualified_families: 2
+    replicates: 3
+  skilllearnbench:
+    active: false
     benchmark: skilllearnbench
     total: 100
     group_key: task_family

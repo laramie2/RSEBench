@@ -96,7 +96,11 @@ benchmarks:
     gated: false
     license_review_required: true
   skillflow_tasks:
-    active: false
+    active: true
+    tier: core1
+    primary_method: skillflow
+    noise_ready: false
+    clean_selection_status: screening
     domain: skill_native
     source_kind: huggingface
     source_id: zhang-ziao/SkillFlow-Task
@@ -105,9 +109,11 @@ benchmarks:
     gated: false
     license_review_required: true
   skilllearnbench:
-    active: true
-    tier: core1
+    active: false
+    tier: diagnostic
     primary_method: skilllearn_self_feedback
+    noise_profile_active: true
+    historical_results_retained: true
     operators:
       N1: skilllearn_n1_brittle_handover
       N2: skilllearn_n2_competing_stale_resource

@@ -1,6 +1,12 @@
 # RSEBench 项目路线图
 
-> 状态基准：2026-08-14。机器可读的 active registry 和实验 YAML 是可执行事实的最终来源；本文负责解释范围、依赖关系和协作者下一步工作。
+> 状态基准：2026-08-16。机器可读的 active registry 和实验 YAML 是可执行事实的最终来源；本文负责解释范围、依赖关系和协作者下一步工作。
+
+> 2026-08-16 迁移说明：第四个主 clean-validation 领域已从
+> `SkillLearnBench / Self-Feedback` 调整为 `SkillFlow-Task / SkillFlow`。
+> SkillLearn 的代码、manifest 和既有报告全部保留为 diagnostic history；它们不是被删除或
+> 重写。SkillFlow is not frozen until two families qualify under the fixed r1/r2/r3 gate，
+> 因而当前不得启动或宣称其 N1–N4 正式结果。
 
 ## 1. 项目目标
 
@@ -40,7 +46,7 @@ Clean arm 与 noisy arm 必须从相同 seed skill 出发，使用相同任务 I
 | Spreadsheet | SpreadsheetBench-Verified | SkillOpt | 20/10/30 |
 | Document QA | OfficeQA Full | SkillOpt | 12/12/20 |
 | Interactive | WebShop | SkillAdaptor | 5/5/20 |
-| Skill Learning | SkillLearnBench (`offer-letter-generator`) | self-feedback | 2/1/3 |
+| Longitudinal Skill Evolution | SkillFlow-Task | SkillFlow iterative shared-skill evolution | 每 family 8–9 个官方排序任务，r1/r2/r3 paired replicates |
 
 Clean-v2 使用固定 method seed `20260813`、`20260814`、`20260815`，当前统一模型为 `deepseek-v4-flash`，`temperature=0.0`，thinking disabled。上表是 clean qualification 的正式规模，不是 Core-1 噪声筛选的小样本规模。
 
@@ -51,7 +57,7 @@ Clean-v2 使用固定 method seed `20260813`、`20260814`、`20260815`，当前�
 | SpreadsheetBench-Verified | 5/3/10 | Core-1 operator applicability/efficacy pilot |
 | OfficeQA Full | 6/3/10 | Core-1 operator applicability/efficacy pilot |
 | WebShop | 5/3/10 | Core-1 operator applicability/efficacy pilot |
-| SkillLearnBench | 1/0/4 | 一个 acquisition instance，其他 instance 作 clean evaluation |
+| SkillLearnBench（historical diagnostic） | 1/0/4 | 保留旧 operator 与报告，不再作为第四个主领域 |
 
 Pilot scale 只用于 operator 筛选，不能替代后续 frozen benchmark 的正式规模与统计结果。
 
@@ -87,7 +93,19 @@ WebShop 是交互式购物环境。Agent 需要把包含多个 hard constraint �
 - **当前 baseline：** SkillAdaptor；
 - **后续 comparison：** RethinkSkill，激活前仍需完成统一 adapter 与方法机制审计。
 
-### 3.4 SkillLearnBench
+### 3.4 SkillFlow-Task
+
+SkillFlow-Task 将专业任务组织成有官方难度顺序的 family。`base` 与
+`clean_evolution` 都从独立空 skill library 开始；后者在每个任务结束后根据原生
+Harbor trajectory 和 verifier result 更新同一个 shared-skill 目录，并在后续任务中读取它。
+
+- **任务载体：** 8–9 个同 family Harbor tasks、官方排序、task Docker environment 和 verifier；
+- **执行证据：** ATIF trajectory、逐任务 reward、shared-skill patch history、后续 skill read/use、token 与三级时间记录；
+- **clean screening：** Batch A 先跑 r1，只有产生非空落盘 patch、后续实际使用 skill 且 `delta_late > 0` 的 family 才进入 r2/r3 confirmation；
+- **正式冻结：** 至少两个 family 满足 2/3 正向、其余不负迁移、pooled full delta 为正、三次均更新且至少两次实际使用 skill；
+- **当前状态：** control plane 和证据 patch 已建立，但 two families qualify 之前仍是 not frozen。
+
+### 3.5 SkillLearnBench（diagnostic history）
 
 SkillLearnBench 以 task family 为 self-evolution 单位。方法只能使用 acquisition instance 的 instruction、environment 和执行轨迹生成或修订 reusable skill，hidden tests 和 reference solution 不得暴露给 learner；其余 instance 使用官方 verifier 评估迁移能力。
 
@@ -105,11 +123,12 @@ SkillLearnBench 以 task family 为 self-evolution 单位。方法只能使用 a
 |---|---|---|---|
 | 当前 reference | SkillOpt | Spreadsheet、Document QA | active；当前 clean-v2 reference |
 | 当前 reference | SkillAdaptor | Interactive/WebShop | active；当前 clean-v2 reference |
-| 当前 reference | SkillLearnBench self-/teacher-feedback | Skill Learning | active；teacher-feedback 主要用于 N4 |
+| 当前 reference | SkillFlow | Longitudinal Skill Evolution | active adapter；clean family screening 中，尚未 frozen |
+| 历史 diagnostic | SkillLearnBench self-/teacher-feedback | Skill Learning | 旧结果和 N1–N4 定义保留；不再作为主 clean 域 |
 | 计划 comparison | Trace2Skill、SkillGrad | Spreadsheet | inactive；待统一 harness 正式验证 |
 | 计划 comparison | EvoSkill | Document QA | inactive；待 shared OfficeQA manifest adapter |
 | 计划 comparison | RethinkSkill | Interactive/WebShop | inactive secondary baseline |
-| 计划 diagnostic | Skills-Coach、SkillFlow、FederatedSkill | Skill-native | inactive；不替代四域主结果 |
+| 计划 diagnostic | Skills-Coach、FederatedSkill | Skill-native | inactive；完成 native reproduction 后再比较 |
 | 研究参考 | CoEvoSkills | Skill-native | paper-only |
 
 `active` 只表示 registry 中已有当前执行路径，不等于已经满足 `efficacy_ready`。`inactive` 也不表示方法无效，而是尚未进入当前统一正式矩阵。
@@ -120,7 +139,9 @@ SkillLearnBench 以 task family 为 self-evolution 单位。方法只能使用 a
 
 **SkillAdaptor** 在 WebShop episode 后依次执行 Localizer、Linker 和 Reviser：先定位 actionable fault，再连接已有 skill/candidate，最后生成候选 skill bank；候选需通过原生 validation/adoption 逻辑。RSEBench 适配负责 DeepSeek provider、task ID 边界、action parser recovery、候选隔离、retrieval audit 和 N3/N4 hook，并在该 hook 边界保存原生及归一化 ordered trajectory/localized feedback，供 provider-free 资格审计重放 exact selector。
 
-**SkillLearnBench Self-Feedback** 先生成 skill，使用它完成 acquisition task，再根据自己的 trajectory 识别问题并修订，当前 clean-v2 使用两轮 separated execution/revision。**Teacher-Feedback** 在失败后提供方向性指导，但不能泄露 ground-truth skill 或 hidden verifier details；它主要用于验证 N4 的 feedback corruption boundary。
+**SkillFlow** 使用官方 iterative shared-skills runner 串行执行同一 family，依据每个任务的 trajectory 与 verifier outcome 生成并应用 skill patch。RSEBench 只增加 DeepSeek provider compatibility、空初始 skill 隔离、调用级 token ledger、patch timing/status 和统一结果判定，不改变 prompt、官方任务顺序、verifier 或 patch 接受算法。
+
+**SkillLearnBench Self-Feedback / Teacher-Feedback** 仍作为 diagnostic weak baseline 保存。此前能够更新但未稳定提升的结果，是将它移出主 clean 域的依据；历史 N1–N4 operator、运行产物和报告继续可审计，不能被当作 SkillFlow 的 clean 或 noise 证据。
 
 ### 4.3 计划接入的 comparison/diagnostic baseline
 
@@ -131,7 +152,6 @@ SkillLearnBench 以 task family 为 self-evolution 单位。方法只能使用 a
 | EvoSkill | 维护 skill/prompt frontier，反复提出候选并通过 evaluation 选择 | 使用 shared OfficeQA Full manifest，保留算法但替换 demo-only 数据边界 |
 | RethinkSkill | Registry 中固定为 runnable secondary WebShop 方法 | 激活前完成方法机制审计、DeepSeek 路径和统一 WebShop adapter；不直接替换当前 clean qualification baseline |
 | Skills-Coach | 为输入 skill 生成训练/测试任务，比较多 rollout advantage，只在多维标准改善时保留优化 skill | 用于 skill-native mechanism study，不与四域结果按样本量混合 |
-| SkillFlow | 在有顺序的 professional task family 上迭代共享 skill | 用于 longitudinal contamination、transfer 和 recovery 诊断 |
 | FederatedSkill | 在 SkillFlow 类任务上维护 client-specific library，并通过 merger 汇总 | 用于 federated/merger contamination 诊断 |
 | CoEvoSkills | 论文描述 generator/verifier co-evolution | 当前 checkout 没有可执行方法代码；只可作 paper-only 参考或明确标注 reimplementation |
 
@@ -158,6 +178,11 @@ N1/N2 可随 benchmark 直接分发；N3/N4 的输入依赖被测方法生成的
 四个 stage 是独立实验 arm，不默认组合成 N1×N2×N3×N4。`add`、`stale`、`omit`、`replace` 是 operator 实现机制，不是额外实验维度。
 
 ## 6. 四领域加噪矩阵
+
+本节中 SkillLearnBench 行是 2026-08-16 以前的 historical diagnostic matrix，
+用于保留既有定义和结果可追溯性。它不会自动迁移为 SkillFlow noise。SkillFlow 的
+N1–N4 注入边界必须在两个 clean family 正式冻结后，根据共享 skill 的纵向执行证据
+重新定义和验证；当前 registry 明确为 `noise_ready: false`。
 
 ### 6.1 Operator matrix
 
@@ -233,7 +258,7 @@ Pilot 中的 `candidate`、`weak signal`、`null`、`opposite`、`blocked` 和 `
 
 ## 8. 当前状态与已知限制
 
-截至 2026-08-14，统一 clean-v2 formal matrix 尚在运行，尚未冻结可供 N1–N4 引用的 clean release。当前状态必须按以下四层理解：
+截至 2026-08-16，统一 clean qualification 尚未冻结可供 N1–N4 引用的四域 release。当前状态必须按以下四层理解：
 
 - **Execution/interface：** 统一 runner、scheduler、identity、timing、token ledger、baseline patch replay 和四域 canary 已建立；个别模型输出仍可能触发 typed interface failure，需要按 experiment identity 重跑受影响单元。
 - **Clean update：** 四域主流程均已观察到可执行的 evolution/update 路径，但 accepted update 的出现率并不稳定。
@@ -245,7 +270,8 @@ Pilot 中的 `candidate`、`weak signal`、`null`、`opposite`、`blocked` 和 `
 - **Spreadsheet：** SkillOpt 可以产生 update，但独立 seed 中仍会出现 no-update 或 accepted artifact 在 clean test 上回退；
 - **OfficeQA：** 主要工具参数/最终轮恢复路径已增强，但长多轮检索仍可能出现 answer recovery 或 failure-diagnostic interface 问题；
 - **WebShop：** 20 条独立 episode 的 ID/解析执行链已在正式 seed 上观察到有效运行，但 SkillAdaptor episode 成本高，仍需等待完整三 seed 的 adoption/efficacy 证据；
-- **SkillLearnBench：** 可以生成并接受 skill update，但现有 family 上尚未得到跨 seed 稳定 clean gain；单一 `offer-letter-generator` N1 强信号不能外推为整个领域结论。
+- **SkillFlow-Task：** provider、原生 runner、结果 parser、token/patch timing 和自适应 family control plane 已就绪；当前等待两个 family 通过固定三 replicate clean 门槛，尚未 frozen；
+- **SkillLearnBench（diagnostic）：** 可以生成并接受 skill update，但现有 family 上尚未得到跨 seed 稳定 clean gain；单一 `offer-letter-generator` N1 强信号仅保留为历史机制候选，不能外推为主领域结论。
 
 详细数字应以带日期报告和 frozen release summary 为准，本文不随每个 live episode 更新。
 
@@ -253,22 +279,25 @@ Pilot 中的 `candidate`、`weak signal`、`null`、`opposite`、`blocked` 和 `
 
 以下任务按依赖关系排序。前一阶段未通过时，不应通过扩大 noisy run 数量绕过门槛。
 
-### P0：完成 clean-v2 qualification
+### P0：完成四域 clean qualification
 
-- [ ] 等待当前 12 个正式单元结束并生成 aggregate；
+- [ ] Spreadsheet / SkillOpt、OfficeQA / SkillOpt、WebShop / SkillAdaptor 继续引用各自已验证的 clean identity 与 typed evidence；
+- [ ] 按 `skillflow-clean-qualification-v1` 先运行 Batch A r1；preliminary-positive 少于 2 个时才运行 Batch B；
+- [ ] 只给 preliminary-positive SkillFlow family 补齐缺失的 r2/r3，直到两个 family qualified 或候选耗尽；
 - [ ] 对每个 method seed 分开记录 artifact hash、accepted/rejected update、seed/evolved task score、typed failure、三层 timing 和 token coverage；
 - [ ] 区分 ordinary low score、no update、clean regression 与 systemic interface failure；
 - [ ] 若修复代码、patch、manifest、task 或 runtime，给受影响 cell 生成新 experiment identity，并完整重跑三个 seed；
-- [ ] 只有四个 cell 都达到 `engineering_ready` 与 `efficacy_ready` 后才冻结 clean release。
+- [ ] SkillFlow two families qualify 之前保持 not frozen；只有四个主领域都达到对应 clean 门槛后才冻结 clean release。
 
 **交付物：** `releases/clean/<release-id>/` 下的 manifest、qualification、aggregate、timing/token summary 和 report。
 
 ### P1：首先重新验证 N1
 
 - [ ] 所有 N1 run 引用同一个 frozen clean release；
+- [ ] SkillFlow 先基于 frozen family 定义 N1 候选，不复用 SkillLearn operator，也不在 clean 结果之前创建正式 noise；
 - [ ] 按 frozen task ID 和单轴 operator 运行 clean/noisy paired evolution；
-- [ ] 不按 noisy outcome 选择 SkillLearn family、WebShop goal 或其他样本；
-- [ ] 对 Spreadsheet/OfficeQA 的弱信号和 SkillLearn family-level candidate 做独立重复；
+- [ ] 不按 noisy outcome 选择 SkillFlow family、WebShop goal 或其他样本；
+- [ ] 对 Spreadsheet/OfficeQA 的弱信号做独立重复；SkillLearn family-level candidate 只在 diagnostic history 中单独报告；
 - [ ] 只有通过 validity、applicability、clean update、noise effect 和 replication 的 cell 才晋级。
 
 **交付物：** 固定 N1 manifest、paired result、applicability audit、rejected/null log 和晋级决策。
@@ -291,7 +320,7 @@ Pilot 中的 `candidate`、`weak signal`、`null`、`opposite`、`blocked` 和 `
 1. Spreadsheet：Trace2Skill，然后 SkillGrad；
 2. Document QA：EvoSkill + shared OfficeQA Full adapter；
 3. Interactive：审计并适配 RethinkSkill，保留 SkillAdaptor 作为当前 reference；
-4. Skill-native diagnostic：Skills-Coach、SkillFlow、FederatedSkill；
+4. Skill-native comparison：在 frozen SkillFlow families 上接入 Skills-Coach、FederatedSkill；
 5. CoEvoSkills 只有在代码发布或明确 reimplementation 后进入可执行比较。
 
 每个新 baseline 必须先完成 native reproduction、identity-hook parity、DeepSeek/provider smoke、统一 result/timing/token contract，再进入 clean/noisy 正式矩阵。
@@ -334,6 +363,9 @@ Benchmark freeze 后再实现 Reliability-aware Experience Audit、Reliability-w
 - [Expanded N1 report](reports/2026-08-13-expanded-n1-validation.md)
 - [Baseline–benchmark audit](reports/baseline-benchmark-audit.md)
 - [Baseline patch model](../patches/baselines/README.md)
+- [SkillFlow clean design](superpowers/specs/2026-08-16-skillflow-clean-qualification-design.md)
+- [SkillFlow clean implementation plan](superpowers/plans/2026-08-16-skillflow-clean-qualification.md)
+- [SkillFlow frozen input manifest](../benchmark/validation/skillflow_clean_qualification_v1/input_manifest.json)
 
 统一控制流程：
 
@@ -356,13 +388,24 @@ python -m rsebench.cli release freeze \
   --matrix configs/experiments/clean-v2.yaml
 ```
 
-正式 provider call 只能由显式 `experiment run` 触发。Bootstrap、verify、preflight、status、aggregate 和 release validation 不应调用模型。
+SkillFlow 第四域使用独立但同样 cost-gated 的控制入口：
+
+```bash
+python scripts/run_skillflow_clean.py preflight
+python scripts/run_skillflow_clean.py screen --dry-run
+python scripts/run_skillflow_clean.py screen --confirm-provider-cost
+python scripts/run_skillflow_clean.py confirm --confirm-provider-cost
+python scripts/run_skillflow_clean.py aggregate
+python scripts/run_skillflow_clean.py freeze
+```
+
+正式 provider call 只能由显式、带 cost confirmation 的 `experiment run` 或 SkillFlow `screen/confirm` 触发。Bootstrap、verify、preflight、dry-run、status、aggregate、freeze validation 不应调用模型。
 
 Git 跟踪代码、registry、patch、dependency lock、frozen manifest、compact aggregate 和报告；`methods/external/`、`data/`、`outputs/`、credential 和大规模运行产物保持 gitignored。
 
 ## 11. 候选扩展
 
-以下对象保留在 registry/历史设计中，但当前均为 inactive，不阻塞 Core-1：
+以下对象保留在 registry/历史设计中，处于 inactive 或 diagnostic 状态，不阻塞当前四域 clean qualification：
 
 | 候选方向 | Benchmark/方法 | 当前证据与激活条件 |
 |---|---|---|
@@ -371,7 +414,7 @@ Git 跟踪代码、registry、patch、dependency lock、frozen manifest、compac
 | Table OOD | WikiTableQuestions | 可作 OOD test；需要冻结 table-ID split 和 denotation-preserving noise |
 | Mathematics | DAPO-Math、LiveMathematicianBench、AIME | DAPO 可作 calibration；当前没有足够的 native self-evolution 方法交集，不进入 Core-1 |
 | Skill integrity | SkillsBench | 适合 static skill integrity diagnostic，不与四域主结果微平均 |
-| Longitudinal skill | SkillFlow-Task | 适合 contamination propagation、family AUC 和 recovery time 诊断 |
-| Additional methods | Trace2Skill、SkillGrad、EvoSkill、RethinkSkill、Skills-Coach、SkillFlow、FederatedSkill | 按第 4、9 节要求完成 native reproduction 与统一适配后逐项激活 |
+| Historical skill learning | SkillLearnBench Self-/Teacher-Feedback | 既有 clean/N1–N4 结果保留为 diagnostic，不作为 SkillFlow 替代证据 |
+| Additional methods | Trace2Skill、SkillGrad、EvoSkill、RethinkSkill、Skills-Coach、FederatedSkill | 按第 4、9 节要求完成 native reproduction 与统一适配后逐项激活 |
 
 新 benchmark 进入 active 范围前必须具有可靠 verifier、冻结且无泄漏的 split、至少两个可信方法交集或明确标记的 adapted baseline，并遵循相同的 clean/noise qualification、identity、timing 和成本合同。

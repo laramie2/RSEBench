@@ -42,7 +42,11 @@ def load_core1_profiles(registry_root: str | Path) -> dict[str, Core1Profile]:
     operators = load_registry(root / "noise_operators.yaml")["operators"]
     profiles: dict[str, Core1Profile] = {}
     for benchmark, row in benchmarks.items():
-        if not row.get("active") or row.get("tier") != "core1":
+        noise_profile_active = row.get(
+            "noise_profile_active",
+            bool(row.get("active") and row.get("tier") == "core1"),
+        )
+        if not noise_profile_active or row.get("noise_ready") is False:
             continue
         primary_method = row.get("primary_method")
         if primary_method not in methods:
@@ -84,4 +88,3 @@ def load_core1_profiles(registry_root: str | Path) -> dict[str, Core1Profile]:
             },
         )
     return profiles
-
