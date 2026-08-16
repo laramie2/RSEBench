@@ -1,12 +1,15 @@
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
+
 import rsebench.providers.deepseek as deepseek
 from rsebench.providers.deepseek import (
     DeepSeekClient,
     DeepSeekConfig,
     _parse_tool_arguments,
 )
+from rsebench.usage import aggregate_token_usage, token_context_scope
 
 
 READ_TOOL = {
@@ -102,3 +105,62 @@ def test_cached_tool_call_round_trips_as_typed_data(tmp_path: Path, monkeypatch)
     assert not first.cache_hit
     assert second.cache_hit
     assert second.tool_calls[0].arguments == {"path": "note.txt"}
+
+
+def test_malformed_tool_response_is_still_recorded_as_a_billed_call(
+    tmp_path: Path, monkeypatch
+) -> None:
+    class Usage:
+        def model_dump(self):
+            return {
+                "prompt_tokens": 101,
+                "completion_tokens": 7,
+                "total_tokens": 108,
+            }
+
+    class FakeCompletions:
+        def create(self, **kwargs):
+            tool_call = SimpleNamespace(
+                id="call-bad",
+                type="function",
+                function=SimpleNamespace(name="read_text", arguments='{"path":'),
+            )
+            return SimpleNamespace(
+                choices=[
+                    SimpleNamespace(
+                        message=SimpleNamespace(content=None, tool_calls=[tool_call]),
+                        finish_reason="tool_calls",
+                    )
+                ],
+                usage=Usage(),
+                model="deepseek-v4-flash",
+            )
+
+    class FakeOpenAI:
+        def __init__(self, **kwargs):
+            self.chat = SimpleNamespace(completions=FakeCompletions())
+
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "test-key")
+    monkeypatch.setattr(deepseek, "OpenAI", FakeOpenAI)
+    client = DeepSeekClient(DeepSeekConfig(thinking="disabled"), tmp_path / "cache")
+    ledger = tmp_path / "ledger"
+
+    with token_context_scope(
+        ledger_dir=ledger,
+        run_id="malformed-tool",
+        domain="skill_native",
+        benchmark="skillflow_tasks",
+        arm="base",
+        stage="worker",
+    ):
+        with pytest.raises(RuntimeError, match="invalid JSON arguments"):
+            client.complete(
+                [{"role": "user", "content": "read it"}],
+                tools=[READ_TOOL],
+                role="worker",
+            )
+
+    summary = aggregate_token_usage(ledger)
+    assert summary["attempted_calls"] == 1
+    assert summary["observed_coverage"] == 1.0
+    assert summary["billed_tokens"]["total_tokens"] == 108

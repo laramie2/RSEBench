@@ -247,6 +247,19 @@ class DeepSeekClient:
         if not completion.choices:
             raise RuntimeError("DeepSeek request returned no choices")
         choice = completion.choices[0]
+        usage = completion.usage.model_dump() if completion.usage else {}
+        response_model = completion.model or self.config.model
+        record_token_event(
+            usage=usage,
+            cache_hit=False,
+            billed=True,
+            status="success",
+            source="rsebench.deepseek",
+            provider="deepseek",
+            model=response_model,
+            stage=os.environ.get("RSEBENCH_TOKEN_STAGE") or role,
+            request_key=key,
+        )
         normalized_tool_calls: list[ToolCall] = []
         for item in getattr(choice.message, "tool_calls", None) or []:
             arguments = _parse_tool_arguments(
@@ -262,20 +275,9 @@ class DeepSeekClient:
         response = ModelResponse(
             content=choice.message.content or "",
             tool_calls=normalized_tool_calls,
-            usage=completion.usage.model_dump() if completion.usage else {},
-            model=completion.model or self.config.model,
+            usage=usage,
+            model=response_model,
             finish_reason=choice.finish_reason,
-        )
-        record_token_event(
-            usage=response.usage,
-            cache_hit=False,
-            billed=True,
-            status="success",
-            source="rsebench.deepseek",
-            provider="deepseek",
-            model=response.model,
-            stage=os.environ.get("RSEBENCH_TOKEN_STAGE") or role,
-            request_key=key,
         )
         self.write_cache(key, response.model_dump(exclude={"cache_hit"}))
         return response

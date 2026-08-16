@@ -80,7 +80,7 @@ def _runtime() -> SkillFlowRuntimeConfig:
         model="deepseek-v4-flash",
         thinking="disabled",
         temperature=0.0,
-        max_turns=30,
+        max_turns=60,
         max_completion_tokens=2048,
         patch_temperature=0.2,
         patch_max_tokens=8192,
@@ -253,7 +253,7 @@ def test_native_configs_are_serial_empty_skill_and_secret_free(tmp_path: Path) -
     for payload in (base, evolution):
         assert payload["agents"][0]["import_path"].endswith(":DeepSeekAPIAgent")
         assert payload["agents"][0]["model_name"] == "deepseek-v4-flash"
-        assert payload["agents"][0]["kwargs"]["max_turns"] == 30
+        assert payload["agents"][0]["kwargs"]["max_turns"] == 60
         assert payload["environment"]["force_build"] is True
         assert payload["orchestrator"]["n_concurrent_trials"] == 1
         assert payload["datasets"] == [{"path": str(family_path)}]

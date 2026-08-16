@@ -21,7 +21,10 @@ class ScriptedClient:
 
     def complete(self, messages, **kwargs):
         self.calls.append((messages, kwargs))
-        return next(self.responses)
+        response = next(self.responses)
+        if isinstance(response, BaseException):
+            raise response
+        return response
 
 
 class FakeEnvironment:
@@ -73,6 +76,40 @@ def test_harbor_agent_uses_merger_role():
     asyncio.run(agent.run("merge", FakeEnvironment()))
 
     assert client.calls[0][1]["role"] == "merger"
+
+
+def test_harbor_agent_retries_malformed_tool_json_with_a_bounded_prompt():
+    client = ScriptedClient(
+        [
+            RuntimeError(
+                "DeepSeek tool call 'run_command' returned invalid JSON arguments"
+            ),
+            ModelResponse(content="done"),
+        ]
+    )
+    agent = DeepSeekHarborAgent(client, HarborAgentConfig(max_turns=3))
+
+    result = asyncio.run(agent.run("do it", FakeEnvironment()))
+
+    assert result.final_text == "done"
+    assert len(client.calls) == 2
+    retry_message = client.calls[1][0][-1]
+    assert retry_message["role"] == "user"
+    assert "one short single-line command" in retry_message["content"]
+    assert result.trajectory["steps"][1]["kind"] == "provider_protocol_recovery"
+
+
+def test_harbor_agent_stops_after_two_malformed_tool_json_retries():
+    malformed = RuntimeError(
+        "DeepSeek tool call 'run_command' returned invalid JSON arguments"
+    )
+    client = ScriptedClient([malformed, malformed, malformed])
+    agent = DeepSeekHarborAgent(client, HarborAgentConfig(max_turns=4))
+
+    with pytest.raises(RuntimeError, match="invalid JSON arguments"):
+        asyncio.run(agent.run("do it", FakeEnvironment()))
+
+    assert len(client.calls) == 3
 
 
 def test_sandbox_runner_uses_merger_role_and_writes_audit_log(tmp_path: Path):

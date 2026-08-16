@@ -38,6 +38,18 @@ RUN_COMMAND_TOOL = {
 }
 
 
+def _tool_argument_recovery_prompt(error: Exception) -> str | None:
+    """Return the narrow retry used for malformed provider tool JSON."""
+
+    if "returned invalid JSON arguments" not in str(error):
+        return None
+    return (
+        "Your previous tool call arguments were malformed JSON. Retry the same "
+        "step with one short single-line command and a valid JSON object. Do "
+        "not combine multiple shell programs into one tool call."
+    )
+
+
 class HarborEnvironment(Protocol):
     async def exec(self, *, command: str, **kwargs: Any) -> Any: ...
 
@@ -142,14 +154,31 @@ class DeepSeekHarborAgent:
         ]
         input_tokens = output_tokens = call_count = 0
         errors: list[str] = []
+        tool_argument_retries = 0
         for turn in range(1, self.config.max_turns + 1):
-            response = await asyncio.to_thread(
-                self.client.complete,
-                messages,
-                tools=[RUN_COMMAND_TOOL],
-                tool_choice="auto",
-                role=self.config.role,
-            )
+            try:
+                response = await asyncio.to_thread(
+                    self.client.complete,
+                    messages,
+                    tools=[RUN_COMMAND_TOOL],
+                    tool_choice="auto",
+                    role=self.config.role,
+                )
+            except RuntimeError as exc:
+                recovery = _tool_argument_recovery_prompt(exc)
+                if recovery is None or tool_argument_retries >= 2:
+                    raise
+                tool_argument_retries += 1
+                messages.append({"role": "user", "content": recovery})
+                steps.append(
+                    {
+                        "source": "user",
+                        "message": recovery,
+                        "tool_calls": [],
+                        "kind": "provider_protocol_recovery",
+                    }
+                )
+                continue
             input_tokens += int(response.usage.get("prompt_tokens", 0) or 0)
             output_tokens += int(response.usage.get("completion_tokens", 0) or 0)
             step: dict[str, Any] = {
