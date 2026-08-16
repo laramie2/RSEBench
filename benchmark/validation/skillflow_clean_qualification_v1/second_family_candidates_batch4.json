@@ -1,0 +1,92 @@
+{
+  "schema_version": "rsebench.skillflow-second-family-candidates.v1",
+  "created_at": "2026-08-16T18:20:00Z",
+  "benchmark": "skillflow_tasks",
+  "baseline": "skillflow",
+  "goal": "select_one_additional_family_for_noise_validation",
+  "already_qualified_family": "HWPX-Document-Automation",
+  "parent_candidate_manifest": "benchmark/validation/skillflow_clean_qualification_v1/second_family_candidates_batch3.json",
+  "previous_batch_outcome": {
+    "Production-Capacity-Planning": "screened_out_evolution_incomplete_invalid_tool_arguments",
+    "Inventory-&-Finance-Integration": "screened_out_evolution_incomplete_max_turns",
+    "DMAIC-Quality-Analysis": "screened_out_no_positive_delta"
+  },
+  "coverage": "all_remaining_ready_official_families",
+  "upstream_revision": "7b49ff5a7e26cd7706e959bfa0dba4746d18440d",
+  "baseline_patch_fingerprint": "e329b830e2a65748f5fc8736a2dd7f56781a28f400281b9ee608a85c98aca875",
+  "config_hash": "76ee4e8077fef77cce7a0b2bceb56ec2cdc30118f3a7778d40e85dda3444bd5d",
+  "screening_policy": {
+    "ordered_prefix_length": 6,
+    "screen_replicate": "r1",
+    "stop_on_input_invalid": true,
+    "stop_on_incomplete_arm": true,
+    "stop_on_base_ceiling": true,
+    "confirm_only_if_r1_full_delta_positive": true,
+    "confirmation_replicates": ["r2", "r3"],
+    "qualification_gate": {
+      "minimum_positive_replicates": 2,
+      "minimum_nonnegative_replicates": 3,
+      "minimum_patch_replicates": 3,
+      "minimum_skill_use_replicates": 2,
+      "require_positive_pooled_full_delta": true
+    }
+  },
+  "runtime": {
+    "model": "deepseek-v4-flash",
+    "thinking": "disabled",
+    "temperature": 0.0,
+    "max_turns": 60,
+    "max_completion_tokens": 8192,
+    "patch_temperature": 0.2,
+    "patch_max_tokens": 8192,
+    "patch_max_steps": 60,
+    "patch_max_observation_chars": 3000,
+    "docker_image": "skillevlove/harbor-cli-openhands:ubuntu24.04",
+    "n_concurrent_trials": 1
+  },
+  "candidates": [
+    {
+      "priority": 1,
+      "family": "Healthcare-Cost-Benefit-Analysis",
+      "selection_reason": "repeated deterministic cost-benefit calculations with structured JSON and summary outputs",
+      "ranking_hash": "b09072858cfe511e58895aa8cc25027452de99bfdf84eff99b2ecea8d5cbb76b",
+      "tasks": [
+        {"order": 1, "task_id": "harbor_cyclemargin_30v90", "relative_path": "Healthcare-Cost-Benefit-Analysis/harbor_cyclemargin_30v90", "task_hash": "5b3079b1588614b3460b630be311ab04256c973932b5d28affa6c99cf44537d7"},
+        {"order": 2, "task_id": "harbor_gdpval_42", "relative_path": "Healthcare-Cost-Benefit-Analysis/harbor_gdpval_42", "task_hash": "39bf9a3c5ccf752bdba8eafc4099225fdf924872714510f7f041f29e847945a4"},
+        {"order": 3, "task_id": "harbor_syncpack_28v56", "relative_path": "Healthcare-Cost-Benefit-Analysis/harbor_syncpack_28v56", "task_hash": "08f872e6f60b6bc47a5d720fe4e7cdddc483200cb9b92db4da75a02fcf9312cf"},
+        {"order": 4, "task_id": "harbor_mailerfill_45v90", "relative_path": "Healthcare-Cost-Benefit-Analysis/harbor_mailerfill_45v90", "task_hash": "6db1c43b7b21e834ee8c7c404fc3b7f67f8be439eb1aeb6c2939ab466e56953c"},
+        {"order": 5, "task_id": "harbor_infusionbatch_7v14", "relative_path": "Healthcare-Cost-Benefit-Analysis/harbor_infusionbatch_7v14", "task_hash": "cf8addece7217e81b64eeb79c4f1892c3a450728a47a67b3a90528bfba53b860"},
+        {"order": 6, "task_id": "harbor_oncocooler_10v20", "relative_path": "Healthcare-Cost-Benefit-Analysis/harbor_oncocooler_10v20", "task_hash": "ba37c37c5f9ed4cd2fead952ebe7b01881ea40d1bbf94ff50d969f209a98a8b8"}
+      ]
+    },
+    {
+      "priority": 2,
+      "family": "Industry-Correlation-Analysis",
+      "selection_reason": "six correlated time-series tasks share one extraction, detrending, and Pearson workflow",
+      "ranking_hash": "e3515e527489e1c337af7b17adef3268ef8dae983ada7a5b52f0720648ecb10f",
+      "tasks": [
+        {"order": 1, "task_id": "econ-service-hospitality-correlation", "relative_path": "Industry-Correlation-Analysis/econ-service-hospitality-correlation", "task_hash": "dd7f9520cdeb98b3c1043af43267b498c58c33ad62c2e36e3b4849104a119e80"},
+        {"order": 2, "task_id": "econ-equipment-software-correlation", "relative_path": "Industry-Correlation-Analysis/econ-equipment-software-correlation", "task_hash": "d9721bd192049c0e08a95fb3ca44f4a0774275bcd31acd8f5dedaff214abda0d"},
+        {"order": 3, "task_id": "econ-broadcasting-advertising-correlation", "relative_path": "Industry-Correlation-Analysis/econ-broadcasting-advertising-correlation", "task_hash": "45fdcea3df16cf3e3065ca63dfbba4497c6e1e09bfe64c98476cd0c47b7a5603"},
+        {"order": 4, "task_id": "econ-housing-materials-correlation", "relative_path": "Industry-Correlation-Analysis/econ-housing-materials-correlation", "task_hash": "ef28e3127ad31026ff426ee31ece77132649408b148e1d890e3e5e4c038eb1b7"},
+        {"order": 5, "task_id": "econ-utilities-telecom-correlation", "relative_path": "Industry-Correlation-Analysis/econ-utilities-telecom-correlation", "task_hash": "f0aa91675ea7cc236b93327acda5dfdd4f5ba194be6f72770be82d0680e62e10"},
+        {"order": 6, "task_id": "econ-logistics-warehousing-correlation", "relative_path": "Industry-Correlation-Analysis/econ-logistics-warehousing-correlation", "task_hash": "dc7ccd382afe92bd2ce29e42113da5141a42c627d04ccee536536b402da837db"}
+      ]
+    },
+    {
+      "priority": 3,
+      "family": "Medical-Data-Standardization",
+      "selection_reason": "six medical-table harmonization tasks share parsing, unit conversion, filtering, and formatting rules",
+      "ranking_hash": "ab2f69b6308649095f1f05983ec1afe1aae1e1acd00ada97328e52cb899db9f3",
+      "tasks": [
+        {"order": 1, "task_id": "electrolyte-rounding-harmonization", "relative_path": "Medical-Data-Standardization/electrolyte-rounding-harmonization", "task_hash": "0c27575adb61253cf6132fd68cdc92f143deace9e8fd522102fc1a7310ad12df"},
+        {"order": 2, "task_id": "hepatic-panel-harmonization", "relative_path": "Medical-Data-Standardization/hepatic-panel-harmonization", "task_hash": "bcc99773178fb6b45c28cf408c9c52a6b116f45a765662777325b24f80d05eaf"},
+        {"order": 3, "task_id": "thyroid-monitoring-harmonization", "relative_path": "Medical-Data-Standardization/thyroid-monitoring-harmonization", "task_hash": "23d124c23277dfdcb12d00ef9b3fc98cbf487c17e3280fb7742d3353fe0cf120"},
+        {"order": 4, "task_id": "cardio-panel-template-harmonization", "relative_path": "Medical-Data-Standardization/cardio-panel-template-harmonization", "task_hash": "f469205b39cd8a7288894a887ccfda6ccfb3ab1ff02b5f2854546adea9b967f3"},
+        {"order": 5, "task_id": "oncology-followup-dedup-harmonization", "relative_path": "Medical-Data-Standardization/oncology-followup-dedup-harmonization", "task_hash": "bd318d165db414985dcc84703239c1a3bd68bd4a80e895e81b4f4d62be72157d"},
+        {"order": 6, "task_id": "icu-metabolic-harmonization", "relative_path": "Medical-Data-Standardization/icu-metabolic-harmonization", "task_hash": "25a0394c912e6afb3c31b4ff855cd6e4db64e7b1a0f09bd216aee13cd3a79f39"}
+      ]
+    }
+  ],
+  "provider_calls": 0
+}

@@ -1,0 +1,91 @@
+{
+  "schema_version": "rsebench.skillflow-second-family-candidates.v1",
+  "created_at": "2026-08-16T17:22:00Z",
+  "benchmark": "skillflow_tasks",
+  "baseline": "skillflow",
+  "goal": "select_one_additional_family_for_noise_validation",
+  "already_qualified_family": "HWPX-Document-Automation",
+  "parent_candidate_manifest": "benchmark/validation/skillflow_clean_qualification_v1/second_family_candidates_batch2.json",
+  "previous_batch_outcome": {
+    "Distribution-Center-Auditing": "screened_out_no_positive_delta",
+    "PPT-Formatting-Optimization": "screened_out_base_incomplete_max_turns",
+    "Embedded-Data-Repair": "screened_out_no_positive_delta"
+  },
+  "upstream_revision": "7b49ff5a7e26cd7706e959bfa0dba4746d18440d",
+  "baseline_patch_fingerprint": "e329b830e2a65748f5fc8736a2dd7f56781a28f400281b9ee608a85c98aca875",
+  "config_hash": "76ee4e8077fef77cce7a0b2bceb56ec2cdc30118f3a7778d40e85dda3444bd5d",
+  "screening_policy": {
+    "ordered_prefix_length": 6,
+    "screen_replicate": "r1",
+    "stop_on_input_invalid": true,
+    "stop_on_incomplete_arm": true,
+    "stop_on_base_ceiling": true,
+    "confirm_only_if_r1_full_delta_positive": true,
+    "confirmation_replicates": ["r2", "r3"],
+    "qualification_gate": {
+      "minimum_positive_replicates": 2,
+      "minimum_nonnegative_replicates": 3,
+      "minimum_patch_replicates": 3,
+      "minimum_skill_use_replicates": 2,
+      "require_positive_pooled_full_delta": true
+    }
+  },
+  "runtime": {
+    "model": "deepseek-v4-flash",
+    "thinking": "disabled",
+    "temperature": 0.0,
+    "max_turns": 60,
+    "max_completion_tokens": 8192,
+    "patch_temperature": 0.2,
+    "patch_max_tokens": 8192,
+    "patch_max_steps": 60,
+    "patch_max_observation_chars": 3000,
+    "docker_image": "skillevlove/harbor-cli-openhands:ubuntu24.04",
+    "n_concurrent_trials": 1
+  },
+  "candidates": [
+    {
+      "priority": 1,
+      "family": "Production-Capacity-Planning",
+      "selection_reason": "six deterministic capacity schedules share one reusable carryover and staffing algorithm",
+      "ranking_hash": "ee140990dd66dc66db11c0a2c5a3945aa9138d988ba9a84bc8f5b361b4701e32",
+      "tasks": [
+        {"order": 1, "task_id": "harbor_gdpval_36_task1", "relative_path": "Production-Capacity-Planning/harbor_gdpval_36_task1", "task_hash": "acf188e59368f64f359fa642e4056229a2f20ea110a6818c6ad973b07e04cf02"},
+        {"order": 2, "task_id": "harbor_gdpval_36", "relative_path": "Production-Capacity-Planning/harbor_gdpval_36", "task_hash": "6cde222a98ffc1a4f19e8b81106117b775472f18612a00d8523e4343b4461846"},
+        {"order": 3, "task_id": "harbor_gdpval_36_task2", "relative_path": "Production-Capacity-Planning/harbor_gdpval_36_task2", "task_hash": "5388b86198bdec45d31c6ad503a773e5c0d424b0e18081036d52a492242b54de"},
+        {"order": 4, "task_id": "harbor_gdpval_36_task5", "relative_path": "Production-Capacity-Planning/harbor_gdpval_36_task5", "task_hash": "8acfbd1ac9caf72ae8bae80f471032bccdffc1a9c94c4039c0ebc791047f3fbd"},
+        {"order": 5, "task_id": "harbor_gdpval_36_task3", "relative_path": "Production-Capacity-Planning/harbor_gdpval_36_task3", "task_hash": "e748851161729bb01d548c613d529b8f18afdc7cf6d6e8982ddc7cf9295ec279"},
+        {"order": 6, "task_id": "harbor_gdpval_36_task4", "relative_path": "Production-Capacity-Planning/harbor_gdpval_36_task4", "task_hash": "6dcbd880ae56559a3392f055e1e6d9a3e7f341371b7da56f0a25c0feaadd57eb"}
+      ]
+    },
+    {
+      "priority": 2,
+      "family": "Inventory-&-Finance-Integration",
+      "selection_reason": "ordered spreadsheet integration tasks retain headroom while sharing repeatable reconciliation logic",
+      "ranking_hash": "0c3247410955ad0db4815f49a7ca33aa27edf322d2b784634a8c8133a1a414c8",
+      "tasks": [
+        {"order": 1, "task_id": "harbor_gdpval_21", "relative_path": "Inventory-&-Finance-Integration/harbor_gdpval_21", "task_hash": "bcb91cb316075bb1d294adcbeae72fcb91bc181b4d7a2d94d3bf8f7ee94b7eee"},
+        {"order": 2, "task_id": "new_task_9_hospital_staffing_resilience", "relative_path": "Inventory-&-Finance-Integration/new_task_9_hospital_staffing_resilience", "task_hash": "ca575621a513111d685a2e79aa6e2778606bb95f47ef9e23b7105e6a9c108043"},
+        {"order": 3, "task_id": "new_task_10_maintenance_calcfields_restock", "relative_path": "Inventory-&-Finance-Integration/new_task_10_maintenance_calcfields_restock", "task_hash": "4dc931441d36e471a9358536221c60c1d3c7eed1eee3fb6b478e03bb1f697781"},
+        {"order": 4, "task_id": "new_task_9_datacenter_capacity_rollforward", "relative_path": "Inventory-&-Finance-Integration/new_task_9_datacenter_capacity_rollforward", "task_hash": "a392161059e80e8f6060f3b62a5650deca4c749b0d7bb7632a579ba4894965bc"},
+        {"order": 5, "task_id": "new_task_10_transit_subsidy_rollforward", "relative_path": "Inventory-&-Finance-Integration/new_task_10_transit_subsidy_rollforward", "task_hash": "11de55a395353b983c12cd42cd794277cbe18e8be9cf5ce45942507bcc245343"},
+        {"order": 6, "task_id": "new_task_11_media_rights_rollforward", "relative_path": "Inventory-&-Finance-Integration/new_task_11_media_rights_rollforward", "task_hash": "1166a204875e2fb612395085e5b8a68a62f8bd512494e92013503a4d484e37e4"}
+      ]
+    },
+    {
+      "priority": 3,
+      "family": "DMAIC-Quality-Analysis",
+      "selection_reason": "repeated deterministic statistical analysis and structured reporting workflow",
+      "ranking_hash": "c8a88c821059b1babac4dcf36e988fb75861c4190d1570629230638ef2ce746a",
+      "tasks": [
+        {"order": 1, "task_id": "harbor_soc_alert_analyze_01", "relative_path": "DMAIC-Quality-Analysis/harbor_soc_alert_analyze_01", "task_hash": "8aec42015fdd4a9179cb23058ff4ead2214b464ac682e2e2b607349b3ade6468"},
+        {"order": 2, "task_id": "harbor_hospital_lab_analyze_02", "relative_path": "DMAIC-Quality-Analysis/harbor_hospital_lab_analyze_02", "task_hash": "6165dcdf36b7a617804b15a3d495260891cdcda33d9f438cd5348371b5efc4d1"},
+        {"order": 3, "task_id": "harbor_field_service_analyze_03", "relative_path": "DMAIC-Quality-Analysis/harbor_field_service_analyze_03", "task_hash": "0108cc72ccb71234c2341c0fc1f7d22fefa59fe8200a690cdfbee41ccc3d750f"},
+        {"order": 4, "task_id": "harbor_university_it_analyze_04", "relative_path": "DMAIC-Quality-Analysis/harbor_university_it_analyze_04", "task_hash": "221eb917e3e8c8cbe92df6e9f555f65a0d572f28837aea826f00e20b3e050485"},
+        {"order": 5, "task_id": "harbor_gdpval_35", "relative_path": "DMAIC-Quality-Analysis/harbor_gdpval_35", "task_hash": "d76bd4413a433cf02c17a4d8fa18249b6053186c5f8b6f598eea2bd937d747a4"},
+        {"order": 6, "task_id": "harbor_hospital_safety_01", "relative_path": "DMAIC-Quality-Analysis/harbor_hospital_safety_01", "task_hash": "1a520b537a7b2a6ff109ab777a3495d9bac25227de50841377f2ecb1aff8e771"}
+      ]
+    }
+  ],
+  "provider_calls": 0
+}

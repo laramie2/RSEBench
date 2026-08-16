@@ -1,0 +1,91 @@
+{
+  "schema_version": "rsebench.skillflow-second-family-candidates.v1",
+  "created_at": "2026-08-16T16:45:00Z",
+  "benchmark": "skillflow_tasks",
+  "baseline": "skillflow",
+  "goal": "select_one_additional_family_for_noise_validation",
+  "already_qualified_family": "HWPX-Document-Automation",
+  "parent_candidate_manifest": "benchmark/validation/skillflow_clean_qualification_v1/second_family_candidates.json",
+  "previous_batch_outcome": {
+    "Sales-Pivot-Analysis": "screened_out_base_incomplete_max_turns",
+    "Compensation-Scenario-Modeling": "screened_out_no_positive_delta",
+    "Weighted-Risk-Assessment": "screened_out_evolution_incomplete_max_turns"
+  },
+  "upstream_revision": "7b49ff5a7e26cd7706e959bfa0dba4746d18440d",
+  "baseline_patch_fingerprint": "e329b830e2a65748f5fc8736a2dd7f56781a28f400281b9ee608a85c98aca875",
+  "config_hash": "76ee4e8077fef77cce7a0b2bceb56ec2cdc30118f3a7778d40e85dda3444bd5d",
+  "screening_policy": {
+    "ordered_prefix_length": 6,
+    "screen_replicate": "r1",
+    "stop_on_input_invalid": true,
+    "stop_on_incomplete_arm": true,
+    "stop_on_base_ceiling": true,
+    "confirm_only_if_r1_full_delta_positive": true,
+    "confirmation_replicates": ["r2", "r3"],
+    "qualification_gate": {
+      "minimum_positive_replicates": 2,
+      "minimum_nonnegative_replicates": 3,
+      "minimum_patch_replicates": 3,
+      "minimum_skill_use_replicates": 2,
+      "require_positive_pooled_full_delta": true
+    }
+  },
+  "runtime": {
+    "model": "deepseek-v4-flash",
+    "thinking": "disabled",
+    "temperature": 0.0,
+    "max_turns": 60,
+    "max_completion_tokens": 8192,
+    "patch_temperature": 0.2,
+    "patch_max_tokens": 8192,
+    "patch_max_steps": 60,
+    "patch_max_observation_chars": 3000,
+    "docker_image": "skillevlove/harbor-cli-openhands:ubuntu24.04",
+    "n_concurrent_trials": 1
+  },
+  "candidates": [
+    {
+      "priority": 1,
+      "family": "Distribution-Center-Auditing",
+      "selection_reason": "repeated spreadsheet-audit and brief-generation workflow with moderate verifier difficulty",
+      "ranking_hash": "8199d3c2a3e5db83d2fdf73e33d11afb6ce0a77842ba4d4206fccb1f20c0405f",
+      "tasks": [
+        {"order": 1, "task_id": "harbor_receiving_exception_audit", "relative_path": "Distribution-Center-Auditing/harbor_receiving_exception_audit", "task_hash": "d69f368e4202ab50cc9df305f8fbab0a77f976df20379fd76bf4470614e18dfd"},
+        {"order": 2, "task_id": "harbor_trailer_detention_audit", "relative_path": "Distribution-Center-Auditing/harbor_trailer_detention_audit", "task_hash": "195759349a593b93b07e01e757a95fd1440e3dcf5d4e4df001a60f82c4d68202"},
+        {"order": 3, "task_id": "harbor_promo_register_audit", "relative_path": "Distribution-Center-Auditing/harbor_promo_register_audit", "task_hash": "7a2274f9f22c31f504a0090a6266584011c17ed286c9d09d2ce68832006cf031"},
+        {"order": 4, "task_id": "harbor_service_queue_sla_audit", "relative_path": "Distribution-Center-Auditing/harbor_service_queue_sla_audit", "task_hash": "fd2f8dd8c9d6a594b5db6bf1bada6443c323014cfad7655a3320f7201ec9657f"},
+        {"order": 5, "task_id": "harbor_timesheet_policy_audit", "relative_path": "Distribution-Center-Auditing/harbor_timesheet_policy_audit", "task_hash": "710fa3e71fd8ac2ff8bac43779fe278df8c2190bd706566b8e761c7cfb05e2a4"},
+        {"order": 6, "task_id": "harbor_returns_disposition_audit", "relative_path": "Distribution-Center-Auditing/harbor_returns_disposition_audit", "task_hash": "80281ce6de8739ecdb883b47ca383c881d3d4d685407a4ac6c365c6575715bce"}
+      ]
+    },
+    {
+      "priority": 2,
+      "family": "PPT-Formatting-Optimization",
+      "selection_reason": "repeated PowerPoint XML formatting workflow with later skill reuse and nontrivial headroom",
+      "ranking_hash": "e08a8d9a19ee3eace202197acfe2dd863def98b38bcf693aa627514044703848",
+      "tasks": [
+        {"order": 1, "task_id": "museum-exhibit-caption-cleanup", "relative_path": "PPT-Formatting-Optimization/museum-exhibit-caption-cleanup", "task_hash": "08976d88639b2e84cfe8955a8ae6bdf6598a12a3d231238b7e011c9071203229"},
+        {"order": 2, "task_id": "wildlife-field-guide-caption-cleanup", "relative_path": "PPT-Formatting-Optimization/wildlife-field-guide-caption-cleanup", "task_hash": "08b1bc2ed1bff0c2928d7ced03cb25a06a234c80e4f3b65ea5e642a87c2bd926"},
+        {"order": 3, "task_id": "coastal-trail-caption-cleanup", "relative_path": "PPT-Formatting-Optimization/coastal-trail-caption-cleanup", "task_hash": "a485bd357690a03835d5cac0b598d216bc5e4c568e54f42cdf20464996ff01e6"},
+        {"order": 4, "task_id": "property-portfolio-caption-cleanup", "relative_path": "PPT-Formatting-Optimization/property-portfolio-caption-cleanup", "task_hash": "a517585eefea1c541abaa216f09daaa81a557686cef3238857e1dc84a5e1e79b"},
+        {"order": 5, "task_id": "transit-platform-caption-cleanup", "relative_path": "PPT-Formatting-Optimization/transit-platform-caption-cleanup", "task_hash": "95fd2771e32ed02f07f67295d71232d0156bd617f37b143c98661b28cbbb2940"},
+        {"order": 6, "task_id": "incident-briefing-caption-cleanup", "relative_path": "PPT-Formatting-Optimization/incident-briefing-caption-cleanup", "task_hash": "cdcbc650e2c710b653bdea357eaa62a4bad4a2392add0e70d1314d5eed4a1bff"}
+      ]
+    },
+    {
+      "priority": 3,
+      "family": "Embedded-Data-Repair",
+      "selection_reason": "repeated PPTX-embedded-workbook repair workflow with strong cross-task procedural reuse",
+      "ranking_hash": "2ee982794cc85c83ee64f44710d822861748ac8c5852d83442aa618ebe6cf465",
+      "tasks": [
+        {"order": 1, "task_id": "fx-spot-matrix-refresh", "relative_path": "Embedded-Data-Repair/fx-spot-matrix-refresh", "task_hash": "c5523eacfbf2eaa419a439550c561e5b07d1241fb279d8436dc5e5354fa396b4"},
+        {"order": 2, "task_id": "fx-cross-rate-inverse-fix", "relative_path": "Embedded-Data-Repair/fx-cross-rate-inverse-fix", "task_hash": "9e669031111a9c78330cd0493f615047ab17b45372cb9f936ce4c10caa8f8829"},
+        {"order": 3, "task_id": "warehouse-slot-factor-refresh", "relative_path": "Embedded-Data-Repair/warehouse-slot-factor-refresh", "task_hash": "0952fb2ad06cbe02b328e3a4864fecd37a5a6ba21a492e76be27408c4bf347ff"},
+        {"order": 4, "task_id": "supplier-pack-matrix-refresh", "relative_path": "Embedded-Data-Repair/supplier-pack-matrix-refresh", "task_hash": "c42e7e22e58813b56f9aa2490b6c2b6da6646e5debba0a705b13d90697e279ce"},
+        {"order": 5, "task_id": "catalyst-balance-matrix-sync", "relative_path": "Embedded-Data-Repair/catalyst-balance-matrix-sync", "task_hash": "5551bb7199f162c4d04f3dc2dff55deb8ff72b66f0e6f4edce08e9c785936fdd"},
+        {"order": 6, "task_id": "buffer-dilution-matrix-repair", "relative_path": "Embedded-Data-Repair/buffer-dilution-matrix-repair", "task_hash": "1e6565fda1e5b121189b56fb70381278d886e409d5a158153f4b24ea84ed5b3e"}
+      ]
+    }
+  ],
+  "provider_calls": 0
+}

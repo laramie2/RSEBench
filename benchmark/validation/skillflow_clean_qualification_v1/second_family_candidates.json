@@ -1,0 +1,85 @@
+{
+  "schema_version": "rsebench.skillflow-second-family-candidates.v1",
+  "created_at": "2026-08-16T15:15:00Z",
+  "benchmark": "skillflow_tasks",
+  "baseline": "skillflow",
+  "goal": "select_one_additional_family_for_noise_validation",
+  "already_qualified_family": "HWPX-Document-Automation",
+  "upstream_revision": "7b49ff5a7e26cd7706e959bfa0dba4746d18440d",
+  "baseline_patch_fingerprint": "e329b830e2a65748f5fc8736a2dd7f56781a28f400281b9ee608a85c98aca875",
+  "config_hash": "76ee4e8077fef77cce7a0b2bceb56ec2cdc30118f3a7778d40e85dda3444bd5d",
+  "screening_policy": {
+    "ordered_prefix_length": 6,
+    "screen_replicate": "r1",
+    "stop_on_input_invalid": true,
+    "stop_on_incomplete_arm": true,
+    "stop_on_base_ceiling": true,
+    "confirm_only_if_r1_full_delta_positive": true,
+    "confirmation_replicates": ["r2", "r3"],
+    "qualification_gate": {
+      "minimum_positive_replicates": 2,
+      "minimum_nonnegative_replicates": 3,
+      "minimum_patch_replicates": 3,
+      "minimum_skill_use_replicates": 2,
+      "require_positive_pooled_full_delta": true
+    }
+  },
+  "runtime": {
+    "model": "deepseek-v4-flash",
+    "thinking": "disabled",
+    "temperature": 0.0,
+    "max_turns": 60,
+    "max_completion_tokens": 8192,
+    "patch_temperature": 0.2,
+    "patch_max_tokens": 8192,
+    "patch_max_steps": 60,
+    "patch_max_observation_chars": 3000,
+    "docker_image": "skillevlove/harbor-cli-openhands:ubuntu24.04",
+    "n_concurrent_trials": 1
+  },
+  "candidates": [
+    {
+      "priority": 1,
+      "family": "Sales-Pivot-Analysis",
+      "selection_reason": "moderate multimodal data-reconciliation difficulty with a reusable pivot-report workflow",
+      "ranking_hash": "5c875f7692b3aed8095e688ae8f033142fe7cac9bf608e89e6eee5701b430b29",
+      "tasks": [
+        {"order": 1, "task_id": "product-sales-pivot", "relative_path": "Sales-Pivot-Analysis/product-sales-pivot", "task_hash": "d6f01dcfac826c8ebe8771f46d531f1e3d8a094ba9f54ac4e2b2fa6d333c92f2"},
+        {"order": 2, "task_id": "student-performance-pivot", "relative_path": "Sales-Pivot-Analysis/student-performance-pivot", "task_hash": "71ffa3034d9aa7cb4717413da25e0e9e5591ca98a02c7fdeefbca82eae6762ac"},
+        {"order": 3, "task_id": "library-circulation-pivot", "relative_path": "Sales-Pivot-Analysis/library-circulation-pivot", "task_hash": "df5519d3d24befedbabdd6d789834ea2400ee4d649d1c1ab19df571597047bc4"},
+        {"order": 4, "task_id": "inventory-multi-warehouse-pivot", "relative_path": "Sales-Pivot-Analysis/inventory-multi-warehouse-pivot", "task_hash": "9cea4ece1a5cc3f8918133d9c1e607d1c2bc6cd037aab1e0e65858b5b4b1bd93"},
+        {"order": 5, "task_id": "quality-control-pivot", "relative_path": "Sales-Pivot-Analysis/quality-control-pivot", "task_hash": "a113d3d12e59b93389e0ebd7836f5d766e2b33c95729c851deb2433e3b7f4df3"},
+        {"order": 6, "task_id": "employee-compensation-pivot", "relative_path": "Sales-Pivot-Analysis/employee-compensation-pivot", "task_hash": "ed6d396208b237d389d65c5dff561ff1e2033ef56c987cd04b53b9c4b43ec265"}
+      ]
+    },
+    {
+      "priority": 2,
+      "family": "Compensation-Scenario-Modeling",
+      "selection_reason": "formula-driven Excel tasks provide headroom and reusable workbook-construction skills",
+      "ranking_hash": "a69b6c6d28bf7fdded2f19bd08828c82d60b8ddaea452928bba45357a9feec8c",
+      "tasks": [
+        {"order": 1, "task_id": "01_orchestra_foundation_model", "relative_path": "Compensation-Scenario-Modeling/01_orchestra_foundation_model", "task_hash": "a5c3fc06863d6266c46bf800a5da88ebe907b041d8844e615ce90fea015a8068"},
+        {"order": 2, "task_id": "02_orchestra_archive_refresh_model", "relative_path": "Compensation-Scenario-Modeling/02_orchestra_archive_refresh_model", "task_hash": "90362a2eab5f6706dddcf9d06c4dd4f56580ada45346780d923bcf75748af35d"},
+        {"order": 3, "task_id": "03_university_faculty_model", "relative_path": "Compensation-Scenario-Modeling/03_university_faculty_model", "task_hash": "b32f17b5d380e13d0d93a330b34c431a8d17c19a2cc871c76a83f951aadeaec2"},
+        {"order": 4, "task_id": "04_university_termload_refresh_model", "relative_path": "Compensation-Scenario-Modeling/04_university_termload_refresh_model", "task_hash": "02356a57f40df63ed8ddb2331eaa3572aae2810508ca972cccee3ef8c1d56d0f"},
+        {"order": 5, "task_id": "05_property_management_model", "relative_path": "Compensation-Scenario-Modeling/05_property_management_model", "task_hash": "8b9625a2615a5f67a7a6b46f1d76967d7a7730a5202f2ec8055723be925fb9d7"},
+        {"order": 6, "task_id": "06_property_portfolio_refresh_model", "relative_path": "Compensation-Scenario-Modeling/06_property_portfolio_refresh_model", "task_hash": "0019eeab8bc9608d6eff20a75f5458ec0fb3dd096487e13192d51d2c9f7893cf"}
+      ]
+    },
+    {
+      "priority": 3,
+      "family": "Weighted-Risk-Assessment",
+      "selection_reason": "highly reusable spreadsheet-formula workflow with a known base-ceiling risk",
+      "ranking_hash": "b191aad2370d87deebdc75cc5d9cf90f9ac76e4334d985ac1852909cb3e304b0",
+      "tasks": [
+        {"order": 1, "task_id": "weighted-cloud-reliability-calc", "relative_path": "Weighted-Risk-Assessment/weighted-cloud-reliability-calc", "task_hash": "bde6ab3b410ae131e3529f564a3c841660376dfd4bba01baebe652b07d2bdff5"},
+        {"order": 2, "task_id": "weighted-hospital-bedflow-calc", "relative_path": "Weighted-Risk-Assessment/weighted-hospital-bedflow-calc", "task_hash": "fd00d68674ed15081e254a1c189cebad9ddb9ca832e88282af01993e105761aa"},
+        {"order": 3, "task_id": "weighted-campus-energy-balance-calc", "relative_path": "Weighted-Risk-Assessment/weighted-campus-energy-balance-calc", "task_hash": "f56e4960af3873ed4c96956d24244df3a522f0a516fdacdcb0629ad47d38a20b"},
+        {"order": 4, "task_id": "weighted-port-throughput-calc", "relative_path": "Weighted-Risk-Assessment/weighted-port-throughput-calc", "task_hash": "3ffbad7bfdf356c6ef1e29fe126f5609a038ea04336f16b9edd4363df0526c99"},
+        {"order": 5, "task_id": "api-sla-at-risk-calc", "relative_path": "Weighted-Risk-Assessment/api-sla-at-risk-calc", "task_hash": "1f91da3518d2f3b4921e495d3d0e6d31ae117abfc03806d8f100a82e55b26c5b"},
+        {"order": 6, "task_id": "campus-budget-at-risk-calc", "relative_path": "Weighted-Risk-Assessment/campus-budget-at-risk-calc", "task_hash": "ef5e82338b01d83d56665313d93778d2eb731f738b77225c25af7daa24732d02"}
+      ]
+    }
+  ],
+  "provider_calls": 0
+}

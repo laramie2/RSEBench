@@ -1,0 +1,191 @@
+{
+  "schema_version": "rsebench.skillflow-second-family-screening-results.v1",
+  "created_at": "2026-08-16T19:00:00Z",
+  "benchmark": "skillflow_tasks",
+  "baseline": "skillflow",
+  "goal": "select_one_additional_family_for_noise_validation",
+  "result": "no_additional_family_qualified",
+  "preliminary_positive_families": [],
+  "already_qualified_family": "HWPX-Document-Automation",
+  "screening_scope": {
+    "official_families_total": 20,
+    "official_families_accounted_for": 20,
+    "new_candidate_families_screened": 12,
+    "new_candidate_replicates_confirmed": 0,
+    "remaining_ready_unscreened_families": 0
+  },
+  "runtime": {
+    "model": "deepseek-v4-flash",
+    "thinking": "disabled",
+    "temperature": 0.0,
+    "max_turns": 60,
+    "max_completion_tokens": 8192,
+    "patch_temperature": 0.2,
+    "patch_max_tokens": 8192,
+    "patch_max_steps": 60,
+    "patch_max_observation_chars": 3000,
+    "ordered_prefix_length": 6
+  },
+  "new_screening_usage": {
+    "provider_calls": 1928,
+    "observed_calls": 1928,
+    "token_observation_coverage": 1.0,
+    "prompt_tokens": 18770571,
+    "completion_tokens": 935129,
+    "total_tokens": 19705700,
+    "summed_attempt_duration_seconds": 10798.300379453227
+  },
+  "candidate_results": [
+    {
+      "family": "Sales-Pivot-Analysis",
+      "decision": "screened_out_base_incomplete",
+      "reason": "student-performance-pivot exceeded max_turns=60",
+      "base_rewards": [0.0],
+      "evolution_rewards": [],
+      "provider_calls": 96,
+      "total_tokens": 1327988,
+      "duration_seconds": 453.3738232497126
+    },
+    {
+      "family": "Compensation-Scenario-Modeling",
+      "decision": "screened_out_no_positive_delta",
+      "reason": "complete base and evolution arms both scored 0/6",
+      "base_rewards": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+      "evolution_rewards": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+      "provider_calls": 147,
+      "total_tokens": 2680051,
+      "duration_seconds": 1290.337779123336
+    },
+    {
+      "family": "Weighted-Risk-Assessment",
+      "decision": "screened_out_evolution_incomplete",
+      "reason": "weighted-port-throughput-calc exceeded max_turns=60",
+      "base_rewards": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+      "evolution_rewards": [0.0, 0.0, 0.0],
+      "provider_calls": 321,
+      "total_tokens": 4161383,
+      "duration_seconds": 1787.5164799783379
+    },
+    {
+      "family": "Distribution-Center-Auditing",
+      "decision": "screened_out_no_positive_delta",
+      "reason": "complete arms had identical 5/6 reward vectors",
+      "base_rewards": [1.0, 1.0, 1.0, 1.0, 1.0, 0.0],
+      "evolution_rewards": [1.0, 1.0, 1.0, 1.0, 1.0, 0.0],
+      "provider_calls": 170,
+      "total_tokens": 1079366,
+      "duration_seconds": 865.5341315865517
+    },
+    {
+      "family": "PPT-Formatting-Optimization",
+      "decision": "screened_out_base_incomplete",
+      "reason": "museum-exhibit-caption-cleanup exceeded max_turns=60",
+      "base_rewards": [],
+      "evolution_rewards": [],
+      "provider_calls": 60,
+      "total_tokens": 1835256,
+      "duration_seconds": 225.53975626081228
+    },
+    {
+      "family": "Embedded-Data-Repair",
+      "decision": "screened_out_no_positive_delta",
+      "reason": "complete arms had identical 4/6 reward vectors",
+      "base_rewards": [1.0, 0.0, 1.0, 1.0, 0.0, 1.0],
+      "evolution_rewards": [1.0, 0.0, 1.0, 1.0, 0.0, 1.0],
+      "provider_calls": 266,
+      "total_tokens": 1966649,
+      "duration_seconds": 1169.1374858934432
+    },
+    {
+      "family": "Production-Capacity-Planning",
+      "decision": "screened_out_evolution_incomplete",
+      "reason": "harbor_gdpval_36_task5 returned invalid JSON tool arguments",
+      "base_rewards": [0.0, 0.0, 0.0, 0.0, 0.0, 1.0],
+      "evolution_rewards": [0.0, 0.0, 0.0],
+      "provider_calls": 175,
+      "total_tokens": 1118528,
+      "duration_seconds": 729.1945403032005
+    },
+    {
+      "family": "Inventory-&-Finance-Integration",
+      "decision": "screened_out_evolution_incomplete",
+      "reason": "new_task_9_hospital_staffing_resilience exceeded max_turns=60",
+      "base_rewards": [1.0, 1.0, 1.0, 0.0, 0.0, 0.0],
+      "evolution_rewards": [1.0],
+      "provider_calls": 190,
+      "total_tokens": 1558937,
+      "duration_seconds": 982.803500616923
+    },
+    {
+      "family": "DMAIC-Quality-Analysis",
+      "decision": "screened_out_no_positive_delta",
+      "reason": "complete base and evolution arms both scored 0/6",
+      "base_rewards": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+      "evolution_rewards": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+      "provider_calls": 223,
+      "total_tokens": 1975366,
+      "duration_seconds": 1255.3204984143376
+    },
+    {
+      "family": "Healthcare-Cost-Benefit-Analysis",
+      "decision": "screened_out_base_incomplete",
+      "reason": "harbor_oncocooler_10v20 exceeded max_turns=60",
+      "base_rewards": [0.0, 0.0, 1.0, 1.0, 0.0],
+      "evolution_rewards": [],
+      "provider_calls": 118,
+      "total_tokens": 932636,
+      "duration_seconds": 471.037236770615
+    },
+    {
+      "family": "Industry-Correlation-Analysis",
+      "decision": "screened_out_base_ceiling",
+      "reason": "base scored 6/6, so positive clean gain was impossible",
+      "base_rewards": [1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
+      "evolution_rewards": [],
+      "provider_calls": 84,
+      "total_tokens": 381642,
+      "duration_seconds": 430.0399876963347
+    },
+    {
+      "family": "Medical-Data-Standardization",
+      "decision": "screened_out_no_positive_delta",
+      "reason": "complete base and evolution arms both scored 0/6",
+      "base_rewards": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+      "evolution_rewards": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+      "provider_calls": 78,
+      "total_tokens": 687898,
+      "duration_seconds": 1138.4651595596224
+    }
+  ],
+  "official_family_census": {
+    "qualified": ["HWPX-Document-Automation"],
+    "base_ceiling": [
+      "Document-Fraud-Detection",
+      "Cross-Format-Data-Reconciliation",
+      "Industry-Correlation-Analysis"
+    ],
+    "complete_without_positive_delta": [
+      "Compensation-Scenario-Modeling",
+      "Distribution-Center-Auditing",
+      "Embedded-Data-Repair",
+      "DMAIC-Quality-Analysis",
+      "Medical-Data-Standardization"
+    ],
+    "incomplete_execution": [
+      "SEC-13F-Financial-Analysis",
+      "OCR-Data-Extraction",
+      "Sales-Pivot-Analysis",
+      "Weighted-Risk-Assessment",
+      "PPT-Formatting-Optimization",
+      "Production-Capacity-Planning",
+      "Inventory-&-Finance-Integration",
+      "Healthcare-Cost-Benefit-Analysis"
+    ],
+    "input_invalid": [
+      "Operational-Recovery-Planning",
+      "Financial-Statement-Rolling",
+      "Supply-Chain-Replenishment"
+    ]
+  },
+  "conclusion": "Under the frozen six-task prefix and runtime contract, HWPX-Document-Automation remains the only qualified SkillFlow family. No second official family should be frozen without changing the protocol or sample-construction rule."
+}

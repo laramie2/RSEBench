@@ -93,3 +93,28 @@ SkillFlow 已经能够在当前 DeepSeek 接口下完整执行“完成任务 �
 3. 每种噪声必须在同一任务顺序上运行，并分别记录 patch、skill 读取、逐任务 reward、时间和 token。
 4. 将“执行有效性”和“噪声效应”分开：任何 task exception、缺失 verifier、缺失 patch 或 token 覆盖率不足都判为无效运行，不计作噪声无效。
 5. 额外的 base-ceiling 诊断必须作为限制条件随结果报告，避免夸大 clean 稳定性。
+
+## 第二个独立 family 的扩展筛选
+
+在冻结 HWPX 后，又按相同 runtime、相同 6-task 有序前缀和相同有效性规则，筛完了其余 12 个当时尚未验证且可构造前缀的候选。没有任何候选达到 r1 preliminary-positive，因此没有启动选择性的 r2/r3 复验，也没有冻结第二个 family。
+
+| Family | Base | Evolution | 结论 |
+|---|---|---|---|
+| Sales Pivot Analysis | `[0]` 后中断 | 未运行 | base 第 2 题超 60 turns |
+| Compensation Scenario Modeling | `[0,0,0,0,0,0]` | `[0,0,0,0,0,0]` | 完整闭环但无增益 |
+| Weighted Risk Assessment | `[0,0,0,0,0,0]` | `[0,0,0]` 后中断 | evolution 第 4 题超 60 turns |
+| Distribution Center Auditing | `[1,1,1,1,1,0]` | `[1,1,1,1,1,0]` | 完整闭环但无增益 |
+| PPT Formatting Optimization | 首题中断 | 未运行 | base 首题超 60 turns |
+| Embedded Data Repair | `[1,0,1,1,0,1]` | `[1,0,1,1,0,1]` | 完整闭环但无增益 |
+| Production Capacity Planning | `[0,0,0,0,0,1]` | `[0,0,0]` 后中断 | evolution 返回非法 tool JSON |
+| Inventory & Finance Integration | `[1,1,1,0,0,0]` | `[1]` 后中断 | evolution 第 2 题超 60 turns |
+| DMAIC Quality Analysis | `[0,0,0,0,0,0]` | `[0,0,0,0,0,0]` | 完整闭环但无增益 |
+| Healthcare Cost Benefit Analysis | `[0,0,1,1,0]` 后中断 | 未运行 | base 第 6 题超 60 turns |
+| Industry Correlation Analysis | `[1,1,1,1,1,1]` | 未运行 | base ceiling |
+| Medical Data Standardization | `[0,0,0,0,0,0]` | `[0,0,0,0,0,0]` | 完整闭环但无增益 |
+
+扩展筛选还发现 `Financial-Statement-Rolling` 与 `Supply-Chain-Replenishment` 的官方目录含未进入 ranking 的额外任务；连同此前缺失 ranking 任务的 `Operational-Recovery-Planning`，这 3 个 family 按输入合同判为无效，不调用模型。
+
+至此 20 个官方 family 均已归类：1 个合格（HWPX）、3 个 base ceiling、5 个完整但无正增益、8 个运行不完整、3 个输入无效。当前证据不支持为了凑足两个 family 而继续重采样；在不修改协议的前提下，SkillFlow 后续 N1–N4 应只使用已冻结 HWPX。若项目仍强制要求第二个独立 family，需要显式选择新的研究设计，例如修改 turn/runtime 合同后重新筛选，或改用 task-level/prefix 选择规则，并将其标记为新的实验协议。
+
+本次 12-family 扩展筛选共记录 1,928 次 provider 调用、18,770,571 prompt tokens、935,129 completion tokens，总计 19,705,700 tokens，观测覆盖率 100%。各 attempt 的 run/stage 时间总和为 10,798.30 秒；逐 family 耗时、token 与判定保存在 `benchmark/validation/skillflow_clean_qualification_v1/second_family_screening_results.json`。
