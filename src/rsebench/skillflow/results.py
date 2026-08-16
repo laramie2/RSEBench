@@ -296,11 +296,14 @@ def _patch_is_nonempty(row: Mapping[str, Any]) -> bool:
 
 
 def _patch_duration(row: Mapping[str, Any], task_id: str) -> tuple[float | None, str | None]:
-    has_any = "started_at" in row or "finished_at" in row
+    has_any = "started_at" in row or "ended_at" in row or "finished_at" in row
     if not has_any:
         return None, None
+    normalized = dict(row)
+    if "finished_at" not in normalized and "ended_at" in normalized:
+        normalized["finished_at"] = normalized["ended_at"]
     try:
-        _, _, seconds = _duration(row, f"patch:{task_id}")
+        _, _, seconds = _duration(normalized, f"patch:{task_id}")
     except ValueError as exc:
         return None, str(exc)
     return seconds, None
@@ -398,6 +401,13 @@ def parse_arm_result(
             for task_id in expected_ids:
                 if task_id not in patch_rows:
                     reasons.append(f"missing_patch_record:{task_id}")
+                else:
+                    row = patch_rows[task_id]
+                    if row.get("status") in {"failed", "skipped", "error"}:
+                        error_type = row.get("error_type") or row.get("reason") or "unknown"
+                        reasons.append(
+                            f"patch_execution_invalid:{task_id}:{error_type}"
+                        )
             for task_id in sorted(set(patch_rows) - set(expected_ids)):
                 reasons.append(f"unexpected_patch_record:{task_id}")
 

@@ -1,0 +1,298 @@
+diff --git a/.gitignore b/.gitignore
+new file mode 100644
+index 0000000000000000000000000000000000000000..f73d326cb4166563a062f76ee53e1e37bee3272c
+--- /dev/null
++++ b/.gitignore
+@@ -0,0 +1,6 @@
++.venv/
++.rsebench/
++.pytest_cache/
++__pycache__/
++jobs/
++uv.lock
+diff --git a/iterative_shared_skills_runner.py b/iterative_shared_skills_runner.py
+index d5006d2eee6be6c6ec10f31164a3b92df992c2bf..4f86f95d468e48ed99e7af37e08e9a9832393859 100644
+--- a/iterative_shared_skills_runner.py
++++ b/iterative_shared_skills_runner.py
+@@ -24,7 +24,10 @@ import os
+ import shutil
+ import subprocess
+ import sys
++import time
++from collections.abc import Callable
+ from dataclasses import dataclass, field
++from datetime import UTC, datetime
+ from pathlib import Path
+ from typing import Any
+ from urllib.parse import unquote, urlparse
+@@ -50,7 +53,6 @@ from libs.skill_evolution.patcher import (
+     ensure_standard_trajectory,
+ )
+ 
+-
+ @dataclass
+ class RunnerConfig:
+     """主调度器配置。"""
+@@ -357,6 +359,55 @@ def append_patch_history(history_path: Path, entry: dict[str, Any]) -> None:
+         history_file.write(json.dumps(entry, ensure_ascii=False, default=str) + "\n")
+ 
+ 
++def run_patch_operation_with_history(
++    operation: Callable[[], Any],
++    *,
++    history_path: Path,
++    base_entry: dict[str, Any],
++    success_entry: Callable[[Any], dict[str, Any]] | None = None,
++    utc_now: Callable[[], datetime] | None = None,
++    monotonic: Callable[[], float] | None = None,
++) -> Any:
++    """Run one patch operation and append timing evidence on every exit path."""
++
++    now = utc_now or (lambda: datetime.now(UTC))
++    clock = monotonic or time.monotonic
++    started_at = now()
++    started_monotonic = clock()
++    try:
++        result = operation()
++    except BaseException as exc:
++        ended_at = now()
++        duration_seconds = max(0.0, clock() - started_monotonic)
++        append_patch_history(
++            history_path,
++            {
++                **base_entry,
++                "started_at": started_at.isoformat(),
++                "ended_at": ended_at.isoformat(),
++                "duration_seconds": duration_seconds,
++                "status": "failed",
++                "error_type": type(exc).__name__,
++            },
++        )
++        raise
++    ended_at = now()
++    duration_seconds = max(0.0, clock() - started_monotonic)
++    append_patch_history(
++        history_path,
++        {
++            **base_entry,
++            **(success_entry(result) if success_entry is not None else {}),
++            "started_at": started_at.isoformat(),
++            "ended_at": ended_at.isoformat(),
++            "duration_seconds": duration_seconds,
++            "status": "applied",
++            "error_type": None,
++        },
++    )
++    return result
++
++
+ def resolve_patch_api_config(first_agent: Any) -> tuple[str | None, str | None, str | None, dict[str, str]]:
+     """从 agent.kwargs / agent.env 解析 patch 阶段需要的 base_url、api_key、provider 与额外请求头。"""
+     kwargs = first_agent.kwargs or {}
+@@ -647,6 +698,7 @@ def run_group_job(
+         # 读取标准 trajectory.json；若缺失则尝试从 claude-code.txt 物化生成
+         trajectory_path = ensure_standard_trajectory(trial_dir)
+         if trajectory_path is None:
++            skipped_at = datetime.now(UTC)
+             (debug_dir / "status.json").write_text(
+                 json.dumps(
+                     {
+@@ -662,6 +714,22 @@ def run_group_job(
+                 ),
+                 encoding="utf-8",
+             )
++            append_patch_history(
++                job_dir / "skill_patch_history.jsonl",
++                {
++                    "trial_name": trial_name,
++                    "task_name": trial_result.task_name,
++                    "started_at": skipped_at.isoformat(),
++                    "ended_at": skipped_at.isoformat(),
++                    "duration_seconds": 0.0,
++                    "status": "skipped",
++                    "error_type": "TrajectoryNotFound",
++                    "upsert_paths": [],
++                    "delete_paths": [],
++                    "applied": {"upserted": [], "deleted": []},
++                    "debug_dir": str(debug_dir),
++                },
++            )
+             print(f"[hook] {trial_name}: trajectory not found, skip patch")
+             return
+ 
+@@ -717,52 +785,47 @@ def run_group_job(
+         # 获取当前技能快照
+         snapshot = SkillSnapshotter.snapshot(shared_skills_dir)
+ 
+-        # 调用 LLM 生成 patch
+-        patch = evolver.generate_patch(snapshot, outcome)
+-        change_records, diff_text = build_patch_change_details(shared_skills_dir, patch)
+-        print(f"[hook] {trial_name}: patch summary: {patch.summary[:200]}")
++        def patch_operation():
++            # 调用 LLM 生成 patch
++            patch = evolver.generate_patch(snapshot, outcome)
++            change_records, diff_text = build_patch_change_details(shared_skills_dir, patch)
++            print(f"[hook] {trial_name}: patch summary: {patch.summary[:200]}")
++
++            # 应用 patch
++            applied = SkillPatchEvolver.apply_patch(
++                shared_skills_dir,
++                patch,
++                dry_run=runner_cfg.dry_run,
++            )
++            if runner_cfg.dry_run:
++                print(f"[hook] {trial_name}: dry-run, patch not applied")
++            else:
++                print(f"[hook] {trial_name}: applied {len(applied.get('upserted', []))} upserts, {len(applied.get('deleted', []))} deletes")
+ 
+-        # 应用 patch
+-        applied = SkillPatchEvolver.apply_patch(
+-            shared_skills_dir,
+-            patch,
+-            dry_run=runner_cfg.dry_run,
+-        )
+-        if runner_cfg.dry_run:
+-            print(f"[hook] {trial_name}: dry-run, patch not applied")
+-        else:
+-            print(f"[hook] {trial_name}: applied {len(applied.get('upserted', []))} upserts, {len(applied.get('deleted', []))} deletes")
+-
+-        # 写调试文件
+-        (debug_dir / "outcome.json").write_text(
+-            json.dumps(outcome.__dict__, ensure_ascii=False, indent=2, default=str),
+-            encoding="utf-8",
+-        )
+-        (debug_dir / "patch.json").write_text(
+-            json.dumps(patch.__dict__, ensure_ascii=False, indent=2),
+-            encoding="utf-8",
+-        )
+-        (debug_dir / "applied.json").write_text(
+-            json.dumps(applied, ensure_ascii=False, indent=2),
+-            encoding="utf-8",
+-        )
+-        (debug_dir / "changes.json").write_text(
+-            json.dumps(change_records, ensure_ascii=False, indent=2),
+-            encoding="utf-8",
+-        )
+-        if diff_text:
+-            (debug_dir / "changes.diff").write_text(diff_text, encoding="utf-8")
++            # 写调试文件
++            (debug_dir / "outcome.json").write_text(
++                json.dumps(outcome.__dict__, ensure_ascii=False, indent=2, default=str),
++                encoding="utf-8",
++            )
++            (debug_dir / "patch.json").write_text(
++                json.dumps(patch.__dict__, ensure_ascii=False, indent=2),
++                encoding="utf-8",
++            )
++            (debug_dir / "applied.json").write_text(
++                json.dumps(applied, ensure_ascii=False, indent=2),
++                encoding="utf-8",
++            )
++            (debug_dir / "changes.json").write_text(
++                json.dumps(change_records, ensure_ascii=False, indent=2),
++                encoding="utf-8",
++            )
++            if diff_text:
++                (debug_dir / "changes.diff").write_text(diff_text, encoding="utf-8")
++            return patch, applied
+ 
+-        append_patch_history(
+-            job_dir / "skill_patch_history.jsonl",
+-            {
+-                "trial_name": trial_name,
+-                "task_name": task_name,
+-                "reward": reward,
+-                "verifier_passed": verifier_passed,
+-                "patch_model_name": patch_model_name,
+-                "patch_temperature": patch_temperature,
+-                "patch_max_tokens": patch_max_tokens,
++        def success_entry(result):
++            patch, applied = result
++            return {
+                 "attempt_count": patch.attempt_count,
+                 "attempt_modes": patch.attempt_modes,
+                 "successful_attempt": patch.successful_attempt,
+@@ -773,7 +836,22 @@ def run_group_job(
+                 "delete_paths": patch.delete_paths,
+                 "applied": applied,
+                 "debug_dir": str(debug_dir),
++            }
++
++        run_patch_operation_with_history(
++            patch_operation,
++            history_path=job_dir / "skill_patch_history.jsonl",
++            base_entry={
++                "trial_name": trial_name,
++                "task_name": task_name,
++                "reward": reward,
++                "verifier_passed": verifier_passed,
++                "patch_model_name": patch_model_name,
++                "patch_temperature": patch_temperature,
++                "patch_max_tokens": patch_max_tokens,
++                "debug_dir": str(debug_dir),
+             },
++            success_entry=success_entry,
+         )
+ 
+     async def on_trial_ended_hook(event: TrialHookEvent) -> None:
+diff --git a/libs/terminus_agent/llms/lite_llm.py b/libs/terminus_agent/llms/lite_llm.py
+index 37bff0422433e142e8462d0152290faa2910378b..5a653cc953bb6c3889a150d45e9c32dd4eb49b74 100644
+--- a/libs/terminus_agent/llms/lite_llm.py
++++ b/libs/terminus_agent/llms/lite_llm.py
+@@ -16,6 +16,7 @@ from litellm.litellm_core_utils.get_supported_openai_params import (
+ )
+ from litellm.utils import token_counter
+ from pydantic import BaseModel
++from rsebench.usage import record_token_event
+ from tenacity import (
+     retry,
+     retry_if_not_exception_type,
+@@ -108,6 +109,18 @@ class LiteLLM(BaseLLM):
+ 
+         return value
+ 
++    @staticmethod
++    def _response_usage(response: Any) -> dict[str, Any] | None:
++        if hasattr(response, "get"):
++            usage = response.get("usage")
++        else:
++            usage = getattr(response, "usage", None)
++        if hasattr(usage, "model_dump"):
++            usage = usage.model_dump()
++        if isinstance(usage, dict):
++            return usage
++        return None
++
+     def _init_logger_fn(self, logging_path: Path):
+         def logger_fn(model_call_dict: dict):
+             clean_dict = self._clean_value(model_call_dict)
+@@ -171,8 +184,29 @@ class LiteLLM(BaseLLM):
+                 api_key=self._api_key,
+                 **kwargs,
+             )
++            record_token_event(
++                usage=self._response_usage(response),
++                cache_hit=False,
++                billed=True,
++                status="success",
++                source="skillflow.litellm",
++                provider="deepseek",
++                model=self._model_name,
++                stage="patcher",
++            )
+             logger.debug(f"LiteLLM response type: {type(response)}, response: {response}")
+         except Exception as e:
++            record_token_event(
++                usage=None,
++                cache_hit=False,
++                billed=False,
++                status="error",
++                source="skillflow.litellm",
++                provider="deepseek",
++                model=self._model_name,
++                stage="patcher",
++                error_type=type(e).__name__,
++            )
+             # Return the terminal-bench exception
+             if isinstance(e, LiteLLMContextWindowExceededError):
+                 raise ContextLengthExceededError

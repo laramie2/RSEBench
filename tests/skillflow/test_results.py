@@ -108,7 +108,7 @@ def _write_job(
                 "upsert_paths": [f"{task_id}/SKILL.md"],
                 "delete_paths": [],
                 "started_at": "2026-08-16T10:00:07Z",
-                "finished_at": "2026-08-16T10:00:09Z",
+                "ended_at": "2026-08-16T10:00:09Z",
                 "status": "applied",
             }
             for task_id in ("task-1", "task-2")
@@ -167,6 +167,7 @@ def test_parse_complete_evolution_arm(tmp_path: Path) -> None:
         ("bad_reward", "invalid_reward:task-2"),
         ("checksum", "task_checksum_mismatch:task-2"),
         ("patch_history", "missing_patch_history"),
+        ("patch_failure", "patch_execution_invalid:task-2:RuntimeError"),
         ("token_coverage", "invalid_token_coverage"),
     ],
 )
@@ -204,6 +205,14 @@ def test_parse_invalid_evidence_is_typed(
         payload = json.loads(payload_path.read_text())
         payload["task_checksum"] = "different"
         payload_path.write_text(json.dumps(payload), encoding="utf-8")
+    elif mutation == "patch_failure":
+        history_path = job_dir / "skill_patch_history.jsonl"
+        rows = [json.loads(line) for line in history_path.read_text().splitlines()]
+        rows[1]["status"] = "failed"
+        rows[1]["error_type"] = "RuntimeError"
+        history_path.write_text(
+            "".join(json.dumps(row) + "\n" for row in rows), encoding="utf-8"
+        )
     elif mutation == "token_coverage":
         record_token_event(
             usage=None,

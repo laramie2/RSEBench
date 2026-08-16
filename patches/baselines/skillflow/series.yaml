@@ -4,3 +4,6 @@ patches:
   - path: skillflow-deepseek-provider.patch
     sha256: 87632ba70a30764874b577db7812937ba5d3a8f88a3eb488c668d48f692f0c72
     purpose: provider
+  - path: skillflow-observability.patch
+    sha256: 44b130596edd212a582087679de020552709a2fc76d6a43c8bc2a93af35bfe0d
+    purpose: evidence

@@ -54,12 +54,16 @@ git apply "$RSEBENCH_ROOT/patches/baselines/skilllearn_self_feedback/skilllearn-
 
 ```bash
 git apply "$RSEBENCH_ROOT/patches/baselines/skillflow/skillflow-deepseek-provider.patch"
+git apply "$RSEBENCH_ROOT/patches/baselines/skillflow/skillflow-observability.patch"
 ```
 
 The provider patch pins the Harbor revision, adds the DeepSeek API Harbor agent,
 disables thinking for worker and patcher calls, and retains compatibility with
 the pinned Harbor `ExecInput` surface. Runtime caches, jobs, virtual environments,
 and credentials are not part of the patch.
+The evidence patch records every native patcher provider attempt in the shared
+token ledger and appends UTC timing/status evidence even when patch generation
+or application fails. It does not change prompts or patch acceptance behavior.
 
 Each baseline directory contains a `series.yaml`. The YAML order is canonical;
 its pinned hashes are verified before a checkout is accepted for an experiment.
