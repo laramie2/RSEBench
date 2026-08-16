@@ -1,0 +1,172 @@
+{
+  "schema_version": "rsebench.skillflow-noise-selection.v1",
+  "benchmark": "skillflow_tasks",
+  "baseline": "skillflow",
+  "qualification_status": "qualified",
+  "qualified_at": "2026-08-16T15:09:00Z",
+  "selection_provenance": "post_hoc_clean_screening",
+  "selection_kind": "ordered_prefix_projection",
+  "family": "HWPX-Document-Automation",
+  "task_count": 6,
+  "upstream_revision": "7b49ff5a7e26cd7706e959bfa0dba4746d18440d",
+  "baseline_patch_fingerprint": "e329b830e2a65748f5fc8736a2dd7f56781a28f400281b9ee608a85c98aca875",
+  "config_hash": "76ee4e8077fef77cce7a0b2bceb56ec2cdc30118f3a7778d40e85dda3444bd5d",
+  "input_manifest_hash": "f97ca6d7c210cffe725a1a948d4526e2221cd990a590cdea6c81398ba736e41b",
+  "runtime": {
+    "model": "deepseek-v4-flash",
+    "thinking": "disabled",
+    "temperature": 0.0,
+    "max_turns": 60,
+    "max_completion_tokens": 8192,
+    "patch_temperature": 0.2,
+    "patch_max_tokens": 8192,
+    "patch_max_steps": 60,
+    "patch_max_observation_chars": 3000,
+    "docker_image": "skillevlove/harbor-cli-openhands:ubuntu24.04"
+  },
+  "tasks": [
+    {
+      "order": 1,
+      "task_id": "hwpx-supplier-contact-sheet",
+      "relative_path": "HWPX-Document-Automation/hwpx-supplier-contact-sheet",
+      "task_hash": "314f185b962bdb97bce790b8a5c038ccb7551dac0252cbf3294fe41cbc6765d7",
+      "harbor_task_checksum": "f7530118202d840d5a6e936c6a61a6842085aa558d8e730c5b4cd071765b7121"
+    },
+    {
+      "order": 2,
+      "task_id": "hwpx-event-announcement",
+      "relative_path": "HWPX-Document-Automation/hwpx-event-announcement",
+      "task_hash": "6d7a227941ce30e7677acf9d2643f5737be78a546c9a43fa99c6dd7c6d343402",
+      "harbor_task_checksum": "78228f8524868f8270ca9c3fe087bb5d5b540a384713f6e42ed46ea22d447dfb"
+    },
+    {
+      "order": 3,
+      "task_id": "hwpx-clinic-intake-summary",
+      "relative_path": "HWPX-Document-Automation/hwpx-clinic-intake-summary",
+      "task_hash": "bfda23a3a6b637b7b68c30e8fd9bbff40059a680a0f98469c9b0c34f0ea4cb64",
+      "harbor_task_checksum": "c9df5e72daec13d9d282d8fb5ff5b849412a48703255271d366ca5ac70f2d5ca"
+    },
+    {
+      "order": 4,
+      "task_id": "hwpx-project-proposal",
+      "relative_path": "HWPX-Document-Automation/hwpx-project-proposal",
+      "task_hash": "637365039eeb794bd901911145f021c852154d873cd6d1e9e3f5113f579613e2",
+      "harbor_task_checksum": "495a768a8d5c907b0ff212001e2995efc8282bd8d6be8cd114892d5ca6f8fea8"
+    },
+    {
+      "order": 5,
+      "task_id": "hwpx-training-feedback",
+      "relative_path": "HWPX-Document-Automation/hwpx-training-feedback",
+      "task_hash": "acfd2207366383b6b0da894b62775f0100587fa869336e8217e98d3d9c22fa44",
+      "harbor_task_checksum": "0cd5d766a926c2707c0898807dfc7a6c804e25929378180dc311400df5a5b3c0"
+    },
+    {
+      "order": 6,
+      "task_id": "hwpx-safety-audit-brief",
+      "relative_path": "HWPX-Document-Automation/hwpx-safety-audit-brief",
+      "task_hash": "ff8bcf8fe0be2d4b436675a58787b45c1d1a65e03f92e2f9bad362cfe2d5c66f",
+      "harbor_task_checksum": "bce542c586d6ae27d18372c86d1d28a5b982b50660fb90922c443762e341fb59"
+    }
+  ],
+  "qualification_gate": {
+    "minimum_positive_replicates": 2,
+    "minimum_nonnegative_replicates": 3,
+    "minimum_patch_replicates": 3,
+    "minimum_skill_use_replicates": 2,
+    "require_positive_pooled_full_delta": true
+  },
+  "qualification_summary": {
+    "positive_replicates": 2,
+    "nonnegative_replicates": 3,
+    "patch_replicates": 3,
+    "skill_use_replicates": 3,
+    "pooled_full_delta": 0.11111111111111109,
+    "pooled_late_delta": 0.1333333333333333,
+    "gate_passed": true
+  },
+  "replicates": [
+    {
+      "replicate_id": "r1",
+      "complete": true,
+      "source_sequence_length": 8,
+      "projected_prefix_length": 6,
+      "base_rewards": [1.0, 1.0, 1.0, 1.0, 1.0, 0.0],
+      "evolution_rewards": [1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
+      "delta_full": 0.16666666666666663,
+      "delta_late": 0.19999999999999996,
+      "applied_nonempty_patches": 6,
+      "later_tasks_with_skill_use": 5,
+      "timing": {
+        "base_started_at": "2026-08-16T12:31:00.718509Z",
+        "base_finished_at": "2026-08-16T12:38:07.906192Z",
+        "base_duration_seconds": 427.187683,
+        "evolution_started_at": "2026-08-16T12:39:54.213510Z",
+        "evolution_finished_at": "2026-08-16T12:46:10.456921Z",
+        "evolution_duration_seconds": 376.243411
+      },
+      "evidence_root": "outputs/runs/skillflow-clean-qualification-v1-20260816-v4/attempts/screen-batch-a-r1-final-20260816/families/HWPX-Document-Automation/r1"
+    },
+    {
+      "replicate_id": "r2",
+      "complete": true,
+      "source_sequence_length": 7,
+      "projected_prefix_length": 6,
+      "base_rewards": [1.0, 1.0, 1.0, 1.0, 1.0, 0.0],
+      "evolution_rewards": [1.0, 1.0, 1.0, 1.0, 1.0, 0.0],
+      "delta_full": 0.0,
+      "delta_late": 0.0,
+      "applied_nonempty_patches": 6,
+      "later_tasks_with_skill_use": 5,
+      "timing": {
+        "base_started_at": "2026-08-16T14:15:29.851970Z",
+        "base_finished_at": "2026-08-16T14:22:01.955873Z",
+        "base_duration_seconds": 392.103903,
+        "evolution_started_at": "2026-08-16T14:23:23.195353Z",
+        "evolution_finished_at": "2026-08-16T14:29:04.692464Z",
+        "evolution_duration_seconds": 341.497111
+      },
+      "evidence_root": "outputs/runs/skillflow-hwpx-candidate-v1-20260816/attempts/confirm-r2"
+    },
+    {
+      "replicate_id": "r3",
+      "complete": true,
+      "source_sequence_length": 7,
+      "projected_prefix_length": 6,
+      "base_rewards": [1.0, 1.0, 1.0, 1.0, 1.0, 0.0],
+      "evolution_rewards": [1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
+      "delta_full": 0.16666666666666663,
+      "delta_late": 0.19999999999999996,
+      "applied_nonempty_patches": 6,
+      "later_tasks_with_skill_use": 5,
+      "timing": {
+        "base_started_at": "2026-08-16T14:30:28.565135Z",
+        "base_finished_at": "2026-08-16T14:35:35.725820Z",
+        "base_duration_seconds": 307.160685,
+        "evolution_started_at": "2026-08-16T14:37:03.882493Z",
+        "evolution_finished_at": "2026-08-16T14:43:44.436894Z",
+        "evolution_duration_seconds": 400.554401
+      },
+      "evidence_root": "outputs/runs/skillflow-hwpx-candidate-v1-20260816/attempts/confirm-r3"
+    }
+  ],
+  "excluded_following_tasks": [
+    {
+      "task_id": "hwpx-renewal-playbook-update",
+      "reason": "negative_transfer_observed_in_full_family_r1"
+    },
+    {
+      "task_id": "hwpx-inventory-report",
+      "reason": "removed_to_preserve_an_exact_common_ordered_prefix_across_r1_r2_r3"
+    }
+  ],
+  "stability_warnings": [
+    "The sample was selected after clean screening, so its clean gain is not an unbiased estimate of general SkillFlow efficacy.",
+    "A later diagnostic base-only run scored 6/6 and was stopped before evolution because positive gain was mathematically impossible.",
+    "Use the frozen r1-r3 clean evidence as the comparison control for N1-N4; do not resample clean runs until a favorable outcome appears."
+  ],
+  "additional_diagnostic_evidence": {
+    "status": "base_ceiling_evolution_aborted",
+    "base_rewards": [1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
+    "evidence_root": "outputs/runs/skillflow-hwpx-candidate-v1-20260816/attempts/confirm-r1-retry-after-disk-recovery"
+  }
+}
