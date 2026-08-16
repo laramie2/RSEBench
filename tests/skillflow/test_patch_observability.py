@@ -43,6 +43,15 @@ def test_native_deepseek_agent_accepts_the_frozen_worker_token_budget() -> None:
     assert "max_tokens=self.max_tokens" in source
 
 
+def test_native_deepseek_agent_explicitly_discovers_mounted_skills() -> None:
+    source = (
+        METHOD_ROOT / "libs/harbor_noinstall_agents/deepseek_api.py"
+    ).read_text(encoding="utf-8")
+
+    assert "/root/.agents/skills" in source
+    assert "SKILL.md" in source
+
+
 def _run_native(script: str, *args: Path) -> subprocess.CompletedProcess[str]:
     environment = dict(os.environ)
     environment["PYTHONPATH"] = os.pathsep.join(

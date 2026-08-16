@@ -223,6 +223,7 @@ def test_registered_skillflow_patch_series_is_provider_first() -> None:
         "evidence",
         "compatibility",
         "compatibility",
+        "compatibility",
     ]
     evidence_text = (series_path.parent / series.patches[1].path).read_text(
         encoding="utf-8"
@@ -238,3 +239,7 @@ def test_registered_skillflow_patch_series_is_provider_first() -> None:
         encoding="utf-8"
     )
     assert "max_tokens=self.max_tokens" in worker_budget_text
+    skill_discovery_text = (series_path.parent / series.patches[4].path).read_text(
+        encoding="utf-8"
+    )
+    assert "/root/.agents/skills" in skill_discovery_text

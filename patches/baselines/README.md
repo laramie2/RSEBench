@@ -57,6 +57,7 @@ git apply "$RSEBENCH_ROOT/patches/baselines/skillflow/skillflow-deepseek-provide
 git apply "$RSEBENCH_ROOT/patches/baselines/skillflow/skillflow-observability.patch"
 git apply "$RSEBENCH_ROOT/patches/baselines/skillflow/skillflow-harbor-compat.patch"
 git apply "$RSEBENCH_ROOT/patches/baselines/skillflow/skillflow-worker-token-budget.patch"
+git apply "$RSEBENCH_ROOT/patches/baselines/skillflow/skillflow-skill-discovery.patch"
 ```
 
 The provider patch pins the Harbor revision, adds the DeepSeek API Harbor agent,
@@ -71,6 +72,8 @@ The compatibility patch migrates both native runners to Harbor's asynchronous
 task order, prompts, or skill evolution logic.
 The worker-budget patch passes the experiment's frozen completion-token budget
 into the DeepSeek Harbor agent instead of silently hard-coding 2048 tokens.
+The skill-discovery patch gives the API-backed worker the explicit mounted-skill
+discovery step that native coding-agent CLIs normally perform automatically.
 
 Each baseline directory contains a `series.yaml`. The YAML order is canonical;
 its pinned hashes are verified before a checkout is accepted for an experiment.

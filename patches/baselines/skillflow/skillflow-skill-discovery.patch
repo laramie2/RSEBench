@@ -1,0 +1,20 @@
+diff --git a/libs/harbor_noinstall_agents/deepseek_api.py b/libs/harbor_noinstall_agents/deepseek_api.py
+index 36418f0..e27e308 100644
+--- a/libs/harbor_noinstall_agents/deepseek_api.py
++++ b/libs/harbor_noinstall_agents/deepseek_api.py
+@@ -59,10 +59,11 @@ class DeepSeekAPIAgent(BaseAgent):
+             instruction,
+             environment,
+             system=(
+-                "You are solving an isolated Harbor task. Inspect files and run "
+-                "commands inside the task container. Use any mounted reusable skills "
+-                "when relevant, produce the requested artifact, and validate it before "
+-                "finishing."
++                "You are solving an isolated Harbor task. Before solving, inspect "
++                "/root/.agents/skills for mounted reusable skills. If SKILL.md files "
++                "exist, read the relevant ones and reuse their procedures or scripts. "
++                "Inspect task files and run commands inside the task container, produce "
++                "the requested artifact, and validate it before finishing."
+             ),
+         )
+         self.logs_dir.mkdir(parents=True, exist_ok=True)
