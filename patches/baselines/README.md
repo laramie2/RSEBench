@@ -50,5 +50,16 @@ manifests contain no keys.
 git apply "$RSEBENCH_ROOT/patches/baselines/skilllearn_self_feedback/skilllearn-deepseek-evidence.patch"
 ```
 
+## SkillFlow
+
+```bash
+git apply "$RSEBENCH_ROOT/patches/baselines/skillflow/skillflow-deepseek-provider.patch"
+```
+
+The provider patch pins the Harbor revision, adds the DeepSeek API Harbor agent,
+disables thinking for worker and patcher calls, and retains compatibility with
+the pinned Harbor `ExecInput` surface. Runtime caches, jobs, virtual environments,
+and credentials are not part of the patch.
+
 Each baseline directory contains a `series.yaml`. The YAML order is canonical;
 its pinned hashes are verified before a checkout is accepted for an experiment.

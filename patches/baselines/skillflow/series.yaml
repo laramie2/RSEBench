@@ -1,0 +1,6 @@
+baseline: skillflow
+upstream_revision: 7b49ff5a7e26cd7706e959bfa0dba4746d18440d
+patches:
+  - path: skillflow-deepseek-provider.patch
+    sha256: 87632ba70a30764874b577db7812937ba5d3a8f88a3eb488c668d48f692f0c72
+    purpose: provider

@@ -2,9 +2,13 @@ import json
 from pathlib import Path
 
 import pytest
+import yaml
 
 import scripts.baselines.common_env as common_env
 from scripts.baselines.common_env import deepseek_role_env, write_smoke_result
+
+
+ROOT = Path(__file__).parents[2]
 
 
 @pytest.mark.parametrize(
@@ -123,3 +127,13 @@ def test_load_deepseek_key_replaces_inherited_empty_value(tmp_path: Path, monkey
     assert common_env.load_deepseek_key() == "usable"
     assert common_env.os.environ["DEEPSEEK_API_KEY"] == "usable"
     assert common_env.os.environ["RSEBENCH_DATA_ROOT"] == "/shared/data"
+
+
+def test_skillflow_registry_pins_replayable_provider_patch() -> None:
+    methods = yaml.safe_load(
+        (ROOT / "benchmark/registry/methods.yaml").read_text(encoding="utf-8")
+    )["methods"]
+
+    assert methods["skillflow"]["patch_series"] == (
+        "patches/baselines/skillflow/series.yaml"
+    )

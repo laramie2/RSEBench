@@ -15,6 +15,9 @@ from rsebench.experiments.bootstrap import (
 )
 
 
+ROOT = Path(__file__).parents[2]
+
+
 def _git(root: Path, *args: str) -> str:
     return subprocess.run(
         ["git", "-C", str(root), *args],
@@ -198,3 +201,20 @@ def test_registered_bootstrap_applies_patches_then_verifies(tmp_path: Path) -> N
 
     assert bootstrapped["fixture"].fingerprint == verified["fixture"].fingerprint
     assert (methods_root / "fixture/value.txt").read_text() == "patched\n"
+
+
+def test_registered_skillflow_patch_series_is_provider_first() -> None:
+    registry = yaml.safe_load(
+        (ROOT / "benchmark/registry/methods.yaml").read_text(encoding="utf-8")
+    )["methods"]
+    series_path = ROOT / registry["skillflow"]["patch_series"]
+
+    series = load_patch_series(series_path)
+    patch_text = (series_path.parent / series.patches[0].path).read_text(
+        encoding="utf-8"
+    )
+
+    assert series.baseline == "skillflow"
+    assert series.upstream_revision == "7b49ff5a7e26cd7706e959bfa0dba4746d18440d"
+    assert series.patches[0].purpose == "provider"
+    assert "libs/harbor_noinstall_agents/deepseek_api.py" in patch_text

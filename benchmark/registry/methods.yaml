@@ -64,6 +64,7 @@ methods:
     git_lfs: false
     native_domains: [skill_native]
     code_status: benchmark
+    patch_series: patches/baselines/skillflow/series.yaml
   skilllearn_self_feedback:
     active: true
     repository: https://github.com/cxcscmu/SkillLearnBench.git
