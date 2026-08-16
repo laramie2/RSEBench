@@ -13,6 +13,7 @@ from rsebench.evolution.clean_contracts import (
     CleanQualificationPolicy,
 )
 from rsebench.selection import StableSplitCandidate
+from rsebench.hashing import sha256_tree
 from scripts import run_clean_skilllearn
 
 
@@ -139,8 +140,27 @@ def test_clean_skilllearn_launcher_is_self_feedback_floor_tolerant(
         instance = methods / f"skilllearnbench/tasks/family/{task_id}"
         (instance / "tests").mkdir(parents=True)
         (instance / "environment").mkdir()
+    wheelhouse = tmp_path / "verifier-wheels"
+    wheelhouse.mkdir()
+    (wheelhouse / "pytest.whl").write_bytes(b"pytest")
     image_manifest = tmp_path / "image_manifest.json"
-    image_manifest.write_text('{"all_ready": true}', encoding="utf-8")
+    image_manifest.write_text(
+        json.dumps(
+            {
+                "all_ready": True,
+                "verifier": {
+                    "mode": "offline_pytest",
+                    "wheelhouse": "verifier-wheels",
+                    "wheelhouse_hash": sha256_tree(wheelhouse),
+                    "packages": [
+                        "pytest==8.4.1",
+                        "pytest-json-ctrf==0.3.5",
+                    ],
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
     seed = tmp_path / "seed.md"
     seed.write_text("seed", encoding="utf-8")
 
@@ -192,6 +212,7 @@ def test_clean_skilllearn_launcher_is_self_feedback_floor_tolerant(
     assert run_dir.name == "run-1"
     assert captured["backend"]["max_turns"] == 16
     assert captured["backend"]["require_prebuilt"] is True
+    assert captured["backend"]["verifier_wheelhouse"] == wheelhouse.resolve()
     assert captured["executor"]["feedback_mode"] == "self"
     assert captured["executor"]["evidence_spec"] is None
     assert captured["run"]["policy"] == CleanQualificationPolicy()
@@ -202,6 +223,57 @@ def test_clean_skilllearn_launcher_is_self_feedback_floor_tolerant(
     )
     assert captured["run"]["identity"] is identity
     assert captured["run"]["attempt"] is attempt
+
+
+def test_clean_skilllearn_rejects_drifted_verifier_wheelhouse_before_provider(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    methods = tmp_path / "methods"
+    for task_id in [f"family-{index}" for index in range(1, 6)]:
+        instance = methods / f"skilllearnbench/tasks/family/{task_id}"
+        (instance / "tests").mkdir(parents=True)
+        (instance / "environment").mkdir()
+    wheelhouse = tmp_path / "verifier-wheels"
+    wheelhouse.mkdir()
+    (wheelhouse / "pytest.whl").write_bytes(b"drifted")
+    image_manifest = tmp_path / "image_manifest.json"
+    image_manifest.write_text(
+        json.dumps(
+            {
+                "all_ready": True,
+                "verifier": {
+                    "mode": "offline_pytest",
+                    "wheelhouse": "verifier-wheels",
+                    "wheelhouse_hash": "0" * 64,
+                    "packages": [
+                        "pytest==8.4.1",
+                        "pytest-json-ctrf==0.3.5",
+                    ],
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    seed = tmp_path / "seed.md"
+    seed.write_text("seed", encoding="utf-8")
+
+    class ProviderMustNotInitialize:
+        @classmethod
+        def from_yaml(cls, path):
+            raise AssertionError(f"provider initialized before wheel audit: {path}")
+
+    monkeypatch.setattr(run_clean_skilllearn, "DeepSeekClient", ProviderMustNotInitialize)
+    monkeypatch.setattr(run_clean_skilllearn, "methods_root", lambda: methods)
+
+    with pytest.raises(RuntimeError, match="wheelhouse hash differs"):
+        run_clean_skilllearn.run_manifest(
+            _manifest(tmp_path),
+            seed_skill=seed,
+            method_seed=20260813,
+            output_root=tmp_path / "runs",
+            image_manifest=image_manifest,
+        )
 
 
 @pytest.mark.parametrize(

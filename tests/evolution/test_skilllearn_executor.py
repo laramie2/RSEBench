@@ -233,6 +233,82 @@ def test_skilllearn_required_prebuilt_image_never_builds(
     assert all(command[1] != "build" for command in commands)
 
 
+def test_offline_verifier_installs_pinned_wheels_after_agent_loop(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    wheelhouse = tmp_path / "wheelhouse"
+    wheelhouse.mkdir()
+    (wheelhouse / "pytest-8.4.1-py3-none-any.whl").write_bytes(b"wheel")
+    output_dir = tmp_path / "execution"
+    commands: list[list[str]] = []
+
+    def fake_run(command, **kwargs):
+        commands.append(command)
+        if "pytest" in command:
+            return SimpleNamespace(returncode=1, stdout="failed", stderr="")
+        return SimpleNamespace(returncode=0, stdout="ok", stderr="")
+
+    monkeypatch.setattr(skilllearn_module.subprocess, "run", fake_run)
+    backend = DockerSkillLearnBackend(
+        client=object(),
+        verifier_wheelhouse=wheelhouse,
+    )
+
+    verifier, diagnostics = backend._run_verifier("task-container", output_dir)
+
+    assert verifier.returncode == 1
+    assert diagnostics == {
+        "verifier_mode": "offline_pytest",
+        "verifier_bootstrap_returncode": 0,
+    }
+    assert (output_dir / "verifier/reward.txt").read_text() == "0\n"
+    assert [
+        "docker",
+        "cp",
+        f"{wheelhouse.resolve()}/.",
+        "task-container:/tmp/rsebench-verifier-wheels",
+    ] in commands
+    install = next(command for command in commands if "pip" in command)
+    assert "PIP_NO_INDEX=1" in install
+    assert "PIP_BREAK_SYSTEM_PACKAGES=1" in install
+    assert "pytest==8.4.1" in install
+    assert "pytest-json-ctrf==0.3.5" in install
+    pytest_command = next(command for command in commands if "pytest" in command)
+    assert pytest_command[-8:] == [
+        "python3",
+        "-m",
+        "pytest",
+        "--ctrf",
+        "/logs/verifier/ctrf.json",
+        "/tests/test_outputs.py",
+        "-rA",
+        "-v",
+    ]
+
+
+def test_legacy_verifier_still_executes_official_script(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    commands: list[list[str]] = []
+
+    def fake_run(command, **kwargs):
+        commands.append(command)
+        return SimpleNamespace(returncode=0, stdout="passed", stderr="")
+
+    monkeypatch.setattr(skilllearn_module.subprocess, "run", fake_run)
+    backend = DockerSkillLearnBackend(client=object())
+
+    verifier, diagnostics = backend._run_verifier("task-container", tmp_path)
+
+    assert verifier.returncode == 0
+    assert diagnostics == {"verifier_mode": "official_script"}
+    assert commands == [
+        ["docker", "exec", "task-container", "bash", "/tests/test.sh"]
+    ]
+
+
 def test_docker_volume_spec_resolves_relative_host_path(
     tmp_path: Path, monkeypatch
 ) -> None:

@@ -1,0 +1,114 @@
+{
+  "benchmark": "skilllearnbench",
+  "clean_test": [
+    {
+      "artifact_path": "rsebench-methods://skilllearnbench/tasks/earthquake-plate-calculation/earthquake-plate-calculation-4",
+      "benchmark": "skilllearnbench",
+      "domain": "skill_learning",
+      "gold_answers": [],
+      "metadata": {
+        "official_instance_path": "rsebench-methods://skilllearnbench/tasks/earthquake-plate-calculation/earthquake-plate-calculation-4",
+        "task_family": "earthquake-plate-calculation"
+      },
+      "prompt": "You are a geospatial analyst with expertise in plate tectonics and earthquake analysis. I want to find the earthquake that occurred closest from the Antarctica and Caribbean plate boundary within the plates themselves. Use GeoPandas projections. Output the result to `/root/answer.json` as a JSON file with the following fields:\n\n- `id`: The earthquake ID\n- `place`: The earthquake location description\n- `time`: The earthquake time in ISO 8601 format (YYYY-MM-DDTHH:MM:SSZ)\n- `magnitude`: The earthquake magnitude\n- `latitude`: The earthquake latitude\n- `longitude`: The earthquake longitude\n- `distance_km`: Largest distance to the Pacific plate boundary in kilometers (rounded to 2 decimal places)\n\nThe earthquake data is provided in `/root/earthquakes_2024.json`. The plate boundary data is given in `/root/PB2002_boundaries.json` and `/root/PB2002_plates.json`.",
+      "source_hash": "2841672cc53aff49d510abf19b5f0424aa2380149e6fb12e796d762eb81ccfce",
+      "task_id": "earthquake-plate-calculation-4",
+      "verifier": "skilllearn_hidden_test_v1"
+    },
+    {
+      "artifact_path": "rsebench-methods://skilllearnbench/tasks/earthquake-plate-calculation/earthquake-plate-calculation-5",
+      "benchmark": "skilllearnbench",
+      "domain": "skill_learning",
+      "gold_answers": [],
+      "metadata": {
+        "official_instance_path": "rsebench-methods://skilllearnbench/tasks/earthquake-plate-calculation/earthquake-plate-calculation-5",
+        "task_family": "earthquake-plate-calculation"
+      },
+      "prompt": "You are a geospatial analyst with expertise in plate tectonics and earthquake analysis. Find the distance of the highest magnitude earthquake from the plate edge in the plate with the highest number of earthquakes. Output the result to `/root/answer.json` as a JSON file with the following fields:\n\n- `id`: The earthquake ID\n- `place`: The earthquake location description\n- `time`: The earthquake time in ISO 8601 format (YYYY-MM-DDTHH:MM:SSZ)\n- `magnitude`: The earthquake magnitude\n- `latitude`: The earthquake latitude\n- `longitude`: The earthquake longitude\n- `distance_km`: Largest distance to the Pacific plate boundary in kilometers (rounded to 2 decimal places)\n\nThe earthquake data is provided in `/root/earthquakes_2024.json`. The plate boundary data is given in `/root/PB2002_boundaries.json` and `/root/PB2002_plates.json`.",
+      "source_hash": "d8329eaf536c70e29c5ea03ad98767f1d838ab6984d4f4b0fc2b15a89617f816",
+      "task_id": "earthquake-plate-calculation-5",
+      "verifier": "skilllearn_hidden_test_v1"
+    },
+    {
+      "artifact_path": "rsebench-methods://skilllearnbench/tasks/earthquake-plate-calculation/earthquake-plate-calculation-6",
+      "benchmark": "skilllearnbench",
+      "domain": "skill_learning",
+      "gold_answers": [],
+      "metadata": {
+        "official_instance_path": "rsebench-methods://skilllearnbench/tasks/earthquake-plate-calculation/earthquake-plate-calculation-6",
+        "task_family": "earthquake-plate-calculation"
+      },
+      "prompt": "In your capacity as a geospatial analyst specializing in global tectonics, you are tasked with conducting a spatial proximity analysis for seismic activity in the year 2024. \nUtilizing the GeoPandas library, you must project your data into an appropriate coordinate reference system to accurately measure Euclidean distances. \n\nFirst, filter the seismic events to only those located within the polygon representing the Pacific plate as defined in `/root/PB2002_plates.json`. \n\nThen, calculate the distance from each of these points to the nearest line segment in the `/root/PB2002_boundaries.json` file. Identify the outlier event that is the earthquake that occurred furthest from the Pacific plate boundary within the Pacific plate itself. \n\nFinally, export this data to `/root/answer.json`, ensuring the timestamp adheres to ISO 8601 standards and the distance metric is converted to kilometers and rounded to two decimal places. Output the result to `/root/answer.json` as a JSON file with the following fields:\n\n `id`: The earthquake ID\n- `place`: The earthquake location description\n- `time`: The earthquake time in ISO 8601 format (YYYY-MM-DDTHH:MM:SSZ)\n- `magnitude`: The earthquake magnitude\n- `latitude`: The earthquake latitude\n- `longitude`: The earthquake longitude\n- `distance_km`: Largest distance to the Pacific plate boundary in kilometers (rounded to 2 decimal places)",
+      "source_hash": "bc28741c647db8c606f085da6633455f1b146cd94c8b898a813f60aebf0362a0",
+      "task_id": "earthquake-plate-calculation-6",
+      "verifier": "skilllearn_hidden_test_v1"
+    }
+  ],
+  "domain": "skill_learning",
+  "metadata": {
+    "baseline": "skilllearn_self_feedback",
+    "feedback_mode": "self",
+    "qualification_amendment": {
+      "reason": "control_plane_identity_timing_and_container_isolation",
+      "sampling_changed": false,
+      "selection_uses_v1_final_test": false,
+      "supersedes": "clean-qualification-v1"
+    },
+    "qualification_version": "clean-qualification-v2",
+    "runtime": {
+      "evolution_rounds": 2,
+      "max_completion_tokens": 4096,
+      "max_tool_turns": 16,
+      "require_prebuilt_images": true
+    },
+    "task_family": "earthquake-plate-calculation"
+  },
+  "seed": 20260813,
+  "source_hash": "62d9f792c08831f49a639de9ed65af416ef9ae77c1fe316b7f570df76bd41568",
+  "train": [
+    {
+      "artifact_path": "rsebench-methods://skilllearnbench/tasks/earthquake-plate-calculation/earthquake-plate-calculation-1",
+      "benchmark": "skilllearnbench",
+      "domain": "skill_learning",
+      "gold_answers": [],
+      "metadata": {
+        "official_instance_path": "rsebench-methods://skilllearnbench/tasks/earthquake-plate-calculation/earthquake-plate-calculation-1",
+        "task_family": "earthquake-plate-calculation"
+      },
+      "prompt": "You are a geospatial analyst with expertise in plate tectonics and earthquake analysis. I want to find the earthquake that occurred furthest from the Pacific plate boundary within the Pacific plate itself. Use GeoPandas projections. Output the result to `/root/answer.json` as a JSON file with the following fields:\n\n- `id`: The earthquake ID\n- `place`: The earthquake location description\n- `time`: The earthquake time in ISO 8601 format (YYYY-MM-DDTHH:MM:SSZ)\n- `magnitude`: The earthquake magnitude\n- `latitude`: The earthquake latitude\n- `longitude`: The earthquake longitude\n- `distance_km`: Largest distance to the Pacific plate boundary in kilometers (rounded to 2 decimal places)\n\nThe earthquake data is provided in `/root/earthquakes_2024.json`. The plate boundary data is given in `/root/PB2002_boundaries.json` and `/root/PB2002_plates.json`.\n",
+      "source_hash": "5966bd46b14c1031f2ea5a9214054db4011757556339f78abfa046a44457e065",
+      "task_id": "earthquake-plate-calculation-1",
+      "verifier": "skilllearn_hidden_test_v1"
+    },
+    {
+      "artifact_path": "rsebench-methods://skilllearnbench/tasks/earthquake-plate-calculation/earthquake-plate-calculation-2",
+      "benchmark": "skilllearnbench",
+      "domain": "skill_learning",
+      "gold_answers": [],
+      "metadata": {
+        "official_instance_path": "rsebench-methods://skilllearnbench/tasks/earthquake-plate-calculation/earthquake-plate-calculation-2",
+        "task_family": "earthquake-plate-calculation"
+      },
+      "prompt": "Acting as a geospatial analyst with expertise in plate tectonics, your mission is to identify the specific 2024 seismic event that occurred at the absolute minimum distance to any global plate boundary. Using the seismic records in `/root/earthquakes_2024.json` and the tectonic framework defined in `/root/PB2002_boundaries.json`, you must determine which earthquake epicenter is geographically nearest to a recorded plate margin on a global scale.\n\nThe final result must be exported to `/root/answer.json` as a single JSON object containing the following fields: \n- `id`: The unique earthquake identifier.\n- `place`: The descriptive string for the earthquake location.\n- `time`: The timestamp in ISO 8601 format (YYYY-MM-DDTHH:MM:SSZ).\n- `magnitude`: The numeric magnitude of the event.\n- `latitude`: The epicenter latitude.\n- `longitude`: The epicenter longitude.\n- `distance_km`: The calculated largest distance to the Africa plate boundary in kilometers, rounded to exactly 2 decimal places.",
+      "source_hash": "a3737c07cf4c98bb1f4b6febe69487ee8f33c7da3406a82b91fdea80b15bda33",
+      "task_id": "earthquake-plate-calculation-2",
+      "verifier": "skilllearn_hidden_test_v1"
+    }
+  ],
+  "validation": [
+    {
+      "artifact_path": "rsebench-methods://skilllearnbench/tasks/earthquake-plate-calculation/earthquake-plate-calculation-3",
+      "benchmark": "skilllearnbench",
+      "domain": "skill_learning",
+      "gold_answers": [],
+      "metadata": {
+        "official_instance_path": "rsebench-methods://skilllearnbench/tasks/earthquake-plate-calculation/earthquake-plate-calculation-3",
+        "task_family": "earthquake-plate-calculation"
+      },
+      "prompt": "As a geospatial analyst with expertise in plate tectonics and earthquake analysis, your objective is to identify the specific 2024 seismic event located within the **Africa plate** that occurred at the maximum distance from its own tectonic boundaries. You must process the earthquake data provided in `/root/earthquakes_2024.json` against the tectonic framework defined in `/root/PB2002_plates.json` and `/root/PB2002_boundaries.json`.\n\nThe final result must be exported to `/root/answer.json` as a single JSON object containing the following fields: \n- `id`: The unique earthquake identifier.\n- `place`: The descriptive string for the earthquake location.\n- `time`: The timestamp in ISO 8601 format (YYYY-MM-DDTHH:MM:SSZ).\n- `magnitude`: The numeric magnitude of the event.\n- `latitude`: The epicenter latitude.\n- `longitude`: The epicenter longitude.\n- `distance_km`: The calculated largest distance to the Africa plate boundary in kilometers, rounded to exactly 2 decimal places.",
+      "source_hash": "4c5c339099ae1f21b67db014c99944d53fd487062c04ed6ef08294c0641b0212",
+      "task_id": "earthquake-plate-calculation-3",
+      "verifier": "skilllearn_hidden_test_v1"
+    }
+  ]
+}

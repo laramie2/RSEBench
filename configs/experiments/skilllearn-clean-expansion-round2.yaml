@@ -1,0 +1,76 @@
+schema_version: rsebench.experiment-matrix.v1
+qualification_version: clean-qualification-v2
+purpose: formal
+stage: clean
+method_seeds: [20260813, 20260814, 20260815]
+provider: deepseek
+model: deepseek-v4-flash
+temperature: 0.0
+thinking: disabled
+provider_config: configs/pilot/deepseek-v4-flash-4096.yaml
+output_root: outputs/runs/skilllearn-clean-expansion-round2-20260816
+
+cells:
+  - key: skilllearn-court-form-filling
+    benchmark: skilllearnbench
+    baseline: skilllearn_self_feedback
+    family: court-form-filling
+    launcher: scripts/run_clean_skilllearn.py
+    manifest: benchmark/validation/skilllearn_clean_expansion_v1/skilllearnbench/court-form-filling.json
+    seed_skill: benchmark/core1/seeds/skilllearn.md
+    image_manifest: outputs/preflight/skilllearn-clean-expansion-round2/image_manifest.json
+    task_counts: {train: 2, validation: 1, clean_test: 3}
+    runtime: &skilllearn_runtime
+      evolution_rounds: 2
+      max_completion_tokens: 4096
+      max_tool_turns: 16
+      require_prebuilt_images: true
+    adapter_key: skilllearn
+    adapter_max_parallel: 3
+    mutable_resource_keys:
+      - docker:skilllearn:court-form-filling:{method_seed}
+
+  - key: skilllearn-earthquake-plate-calculation
+    benchmark: skilllearnbench
+    baseline: skilllearn_self_feedback
+    family: earthquake-plate-calculation
+    launcher: scripts/run_clean_skilllearn.py
+    manifest: benchmark/validation/skilllearn_clean_expansion_v1/skilllearnbench/earthquake-plate-calculation.json
+    seed_skill: benchmark/core1/seeds/skilllearn.md
+    image_manifest: outputs/preflight/skilllearn-clean-expansion-round2/image_manifest.json
+    task_counts: {train: 2, validation: 1, clean_test: 3}
+    runtime: *skilllearn_runtime
+    adapter_key: skilllearn
+    adapter_max_parallel: 3
+    mutable_resource_keys:
+      - docker:skilllearn:earthquake-plate-calculation:{method_seed}
+
+  - key: skilllearn-dbscan-parameter-tuning
+    benchmark: skilllearnbench
+    baseline: skilllearn_self_feedback
+    family: dbscan-parameter-tuning
+    launcher: scripts/run_clean_skilllearn.py
+    manifest: benchmark/validation/skilllearn_clean_expansion_v1/skilllearnbench/dbscan-parameter-tuning.json
+    seed_skill: benchmark/core1/seeds/skilllearn.md
+    image_manifest: outputs/preflight/skilllearn-clean-expansion-round2/image_manifest.json
+    task_counts: {train: 2, validation: 1, clean_test: 2}
+    runtime: *skilllearn_runtime
+    adapter_key: skilllearn
+    adapter_max_parallel: 3
+    mutable_resource_keys:
+      - docker:skilllearn:dbscan-parameter-tuning:{method_seed}
+
+  - key: skilllearn-travel-planning
+    benchmark: skilllearnbench
+    baseline: skilllearn_self_feedback
+    family: travel-planning
+    launcher: scripts/run_clean_skilllearn.py
+    manifest: benchmark/validation/skilllearn_clean_expansion_v1/skilllearnbench/travel-planning.json
+    seed_skill: benchmark/core1/seeds/skilllearn.md
+    image_manifest: outputs/preflight/skilllearn-clean-expansion-round2/image_manifest.json
+    task_counts: {train: 2, validation: 1, clean_test: 2}
+    runtime: *skilllearn_runtime
+    adapter_key: skilllearn
+    adapter_max_parallel: 3
+    mutable_resource_keys:
+      - docker:skilllearn:travel-planning:{method_seed}

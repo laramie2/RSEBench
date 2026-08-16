@@ -1,0 +1,108 @@
+{
+  "families": [
+    "offer-letter-generator",
+    "court-form-filling",
+    "earthquake-plate-calculation",
+    "dbscan-parameter-tuning",
+    "travel-planning"
+  ],
+  "method_seeds": [
+    20260813,
+    20260814,
+    20260815
+  ],
+  "outputs": {
+    "court-form-filling": {
+      "instance_ids": [
+        "court-form-filling-1",
+        "court-form-filling-2",
+        "court-form-filling-3",
+        "court-form-filling-4",
+        "court-form-filling-5",
+        "court-form-filling-6"
+      ],
+      "path": "skilllearnbench/court-form-filling.json",
+      "sizes": {
+        "clean_test": 3,
+        "train": 2,
+        "validation": 1
+      },
+      "source_hash": "00b126020fc52c44d86350eefa6dbb1c5cb9a80c9015de472e703431bbb9502e"
+    },
+    "dbscan-parameter-tuning": {
+      "instance_ids": [
+        "dbscan-parameter-tuning-1",
+        "dbscan-parameter-tuning-2",
+        "dbscan-parameter-tuning-3",
+        "dbscan-parameter-tuning-4",
+        "dbscan-parameter-tuning-5"
+      ],
+      "path": "skilllearnbench/dbscan-parameter-tuning.json",
+      "sizes": {
+        "clean_test": 2,
+        "train": 2,
+        "validation": 1
+      },
+      "source_hash": "c4ad9011c2d2091880799b9fd38e427c74108c438a1baa076140c0791e9dacd5"
+    },
+    "earthquake-plate-calculation": {
+      "instance_ids": [
+        "earthquake-plate-calculation-1",
+        "earthquake-plate-calculation-2",
+        "earthquake-plate-calculation-3",
+        "earthquake-plate-calculation-4",
+        "earthquake-plate-calculation-5",
+        "earthquake-plate-calculation-6"
+      ],
+      "path": "skilllearnbench/earthquake-plate-calculation.json",
+      "sizes": {
+        "clean_test": 3,
+        "train": 2,
+        "validation": 1
+      },
+      "source_hash": "62d9f792c08831f49a639de9ed65af416ef9ae77c1fe316b7f570df76bd41568"
+    },
+    "offer-letter-generator": {
+      "instance_ids": [
+        "offer-letter-generator-1",
+        "offer-letter-generator-2",
+        "offer-letter-generator-3",
+        "offer-letter-generator-4",
+        "offer-letter-generator-5",
+        "offer-letter-generator-6"
+      ],
+      "path": "skilllearnbench/offer-letter-generator.json",
+      "sizes": {
+        "clean_test": 3,
+        "train": 2,
+        "validation": 1
+      },
+      "source_hash": "a91ff881bb7903d3831972bb9a7a745c2afc040721ac515f0a81eecd1ca515d6"
+    },
+    "travel-planning": {
+      "instance_ids": [
+        "travel-planning-1",
+        "travel-planning-2",
+        "travel-planning-3",
+        "travel-planning-4",
+        "travel-planning-5"
+      ],
+      "path": "skilllearnbench/travel-planning.json",
+      "sizes": {
+        "clean_test": 2,
+        "train": 2,
+        "validation": 1
+      },
+      "source_hash": "7ff5b93058e021414272263be54da46e74f41e82f717a38392256f794e3ddb83"
+    }
+  },
+  "qualification_version": "clean-qualification-v2",
+  "schema_version": "rsebench.clean-skilllearn-manifest.v1",
+  "seed_skill_hash": "6ced3f9e76d49834c88d982c743d37d289d2726d95b4e4efaaa17e9c3fa51f9c",
+  "selection_round": "skilllearn-clean-expansion-round2",
+  "total_task_counts": {
+    "clean_test": 13,
+    "train": 10,
+    "validation": 5
+  }
+}

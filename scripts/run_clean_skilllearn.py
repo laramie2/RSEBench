@@ -30,6 +30,10 @@ RUNTIME = {
     "evolution_rounds": 2,
     "require_prebuilt_images": True,
 }
+OFFLINE_VERIFIER_PACKAGES = [
+    "pytest==8.4.1",
+    "pytest-json-ctrf==0.3.5",
+]
 
 
 from rsebench.core1.dataset import resolve_clean_split_paths  # noqa: E402
@@ -41,7 +45,7 @@ from rsebench.evolution.skilllearn_executor import (  # noqa: E402
     DockerSkillLearnBackend,
     SkillLearnExecutor,
 )
-from rsebench.hashing import sha256_file  # noqa: E402
+from rsebench.hashing import sha256_file, sha256_tree  # noqa: E402
 from rsebench.experiments.runtime import load_runtime_identity  # noqa: E402
 from rsebench.experiments.preflight import (  # noqa: E402
     SUPPORTED_QUALIFICATION_VERSIONS,
@@ -69,6 +73,48 @@ def _write_json(path: Path, payload: dict[str, Any]) -> None:
         raise FileExistsError(f"different SkillLearn dry run already exists: {path}")
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(encoded, encoding="utf-8")
+
+
+def _resolve_verifier_wheelhouse(
+    image_manifest: Path,
+    payload: dict[str, Any],
+) -> tuple[Path | None, dict[str, Any] | None]:
+    verifier = payload.get("verifier")
+    if verifier is None:
+        return None, None
+    if not isinstance(verifier, dict) or verifier.get("mode") != "offline_pytest":
+        raise ValueError("unsupported SkillLearn verifier manifest mode")
+    if verifier.get("packages") != OFFLINE_VERIFIER_PACKAGES:
+        raise ValueError("SkillLearn verifier package pins differ from formal settings")
+    raw = verifier.get("wheelhouse")
+    if not isinstance(raw, str) or not raw.strip():
+        raise ValueError("SkillLearn verifier wheelhouse locator is missing")
+    locator = Path(raw)
+    if locator.is_absolute() or ".." in locator.parts:
+        raise ValueError("SkillLearn verifier wheelhouse must be manifest-relative")
+    manifest_root = image_manifest.resolve().parent
+    wheelhouse = (manifest_root / locator).resolve()
+    try:
+        wheelhouse.relative_to(manifest_root)
+    except ValueError as exc:
+        raise ValueError("SkillLearn verifier wheelhouse escapes manifest root") from exc
+    if not wheelhouse.is_dir():
+        raise FileNotFoundError(
+            f"SkillLearn verifier wheelhouse is missing: {wheelhouse}"
+        )
+    expected_hash = str(verifier.get("wheelhouse_hash") or "")
+    actual_hash = sha256_tree(wheelhouse)
+    if actual_hash != expected_hash:
+        raise RuntimeError(
+            "SkillLearn verifier wheelhouse hash differs: "
+            f"{actual_hash} != {expected_hash}"
+        )
+    identity = {
+        "mode": "offline_pytest",
+        "packages": list(OFFLINE_VERIFIER_PACKAGES),
+        "wheelhouse_hash": actual_hash,
+    }
+    return wheelhouse, identity
 
 
 def run_manifest(
@@ -134,6 +180,10 @@ def run_manifest(
     image_payload = json.loads(image_manifest.read_text(encoding="utf-8"))
     if image_payload.get("all_ready") is not True:
         raise RuntimeError("SkillLearn image manifest is not ready")
+    verifier_wheelhouse, verifier_identity = _resolve_verifier_wheelhouse(
+        image_manifest,
+        image_payload,
+    )
 
     external_methods = methods_root()
     split = resolve_clean_split_paths(
@@ -155,6 +205,8 @@ def run_manifest(
         "runtime": RUNTIME,
         "image_manifest_hash": sha256_file(image_manifest),
     }
+    if verifier_identity is not None:
+        parameters["verifier"] = verifier_identity
     if dry_run:
         runtime_split = build_clean_runtime_split(split)
         seed_hash = sha256_file(seed_skill)
@@ -193,6 +245,7 @@ def run_manifest(
         client=client,
         max_turns=16,
         require_prebuilt=True,
+        verifier_wheelhouse=verifier_wheelhouse,
     )
     executor = SkillLearnExecutor(
         client=client,

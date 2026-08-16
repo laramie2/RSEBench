@@ -51,6 +51,11 @@ _DOCKER_TOOL = [
     }
 ]
 
+_OFFLINE_VERIFIER_PACKAGES = (
+    "pytest==8.4.1",
+    "pytest-json-ctrf==0.3.5",
+)
+
 
 def _tool_argument_recovery_prompt(error: Exception) -> str | None:
     """Return a narrow retry instruction for malformed provider tool JSON."""
@@ -189,12 +194,121 @@ class DockerSkillLearnBackend:
         max_turns: int = 16,
         command_timeout: int = 300,
         require_prebuilt: bool = False,
+        verifier_wheelhouse: Path | None = None,
     ) -> None:
         self.client = client
         self.docker = docker
         self.max_turns = max_turns
         self.command_timeout = command_timeout
         self.require_prebuilt = require_prebuilt
+        self.verifier_wheelhouse = (
+            Path(verifier_wheelhouse).resolve()
+            if verifier_wheelhouse is not None
+            else None
+        )
+
+    def _run_verifier(
+        self,
+        container: str,
+        output_dir: Path,
+    ) -> tuple[subprocess.CompletedProcess[str], dict[str, Any]]:
+        """Run the official verifier tests with optional offline bootstrapping."""
+
+        if self.verifier_wheelhouse is None:
+            verifier = subprocess.run(
+                [self.docker, "exec", container, "bash", "/tests/test.sh"],
+                capture_output=True,
+                text=True,
+                timeout=600,
+            )
+            return verifier, {"verifier_mode": "official_script"}
+
+        wheelhouse = self.verifier_wheelhouse
+        if not wheelhouse.is_dir():
+            raise FileNotFoundError(
+                f"SkillLearn verifier wheelhouse is missing: {wheelhouse}"
+            )
+        verifier_dir = Path(output_dir) / "verifier"
+        verifier_dir.mkdir(parents=True, exist_ok=True)
+        container_wheelhouse = "/tmp/rsebench-verifier-wheels"
+        prepared = subprocess.run(
+            [self.docker, "exec", container, "mkdir", "-p", container_wheelhouse],
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+        if prepared.returncode != 0:
+            raise RuntimeError(
+                "SkillLearn verifier wheelhouse destination failed: "
+                f"{(prepared.stderr or prepared.stdout)[-2000:]}"
+            )
+        copied = subprocess.run(
+            [
+                self.docker,
+                "cp",
+                f"{wheelhouse}/.",
+                f"{container}:{container_wheelhouse}",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+        if copied.returncode != 0:
+            raise RuntimeError(
+                "SkillLearn verifier wheelhouse copy failed: "
+                f"{(copied.stderr or copied.stdout)[-2000:]}"
+            )
+        bootstrap = subprocess.run(
+            [
+                self.docker,
+                "exec",
+                container,
+                "env",
+                "PIP_NO_INDEX=1",
+                f"PIP_FIND_LINKS={container_wheelhouse}",
+                "PIP_BREAK_SYSTEM_PACKAGES=1",
+                "python3",
+                "-m",
+                "pip",
+                "install",
+                "--disable-pip-version-check",
+                *_OFFLINE_VERIFIER_PACKAGES,
+            ],
+            capture_output=True,
+            text=True,
+            timeout=300,
+        )
+        if bootstrap.returncode != 0:
+            raise RuntimeError(
+                "SkillLearn offline verifier bootstrap failed: "
+                f"{(bootstrap.stderr or bootstrap.stdout)[-4000:]}"
+            )
+        verifier = subprocess.run(
+            [
+                self.docker,
+                "exec",
+                container,
+                "python3",
+                "-m",
+                "pytest",
+                "--ctrf",
+                "/logs/verifier/ctrf.json",
+                "/tests/test_outputs.py",
+                "-rA",
+                "-v",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=600,
+        )
+        (verifier_dir / "reward.txt").write_text(
+            "1\n" if verifier.returncode == 0 else "0\n",
+            encoding="utf-8",
+        )
+        return verifier, {
+            "verifier_mode": "offline_pytest",
+            "verifier_bootstrap_returncode": bootstrap.returncode,
+        }
 
     @staticmethod
     def _workdir(dockerfile: Path) -> str:
@@ -454,11 +568,9 @@ class DockerSkillLearnBackend:
             else:
                 final_text = f"max_turns={self.max_turns} reached"
 
-            verifier = subprocess.run(
-                [self.docker, "exec", container, "bash", "/tests/test.sh"],
-                capture_output=True,
-                text=True,
-                timeout=600,
+            verifier, verifier_diagnostics = self._run_verifier(
+                container,
+                output_dir,
             )
             hidden = ((verifier.stdout or "") + (verifier.stderr or ""))[-12000:]
             reward_path = output_dir / "verifier" / "reward.txt"
@@ -505,6 +617,7 @@ class DockerSkillLearnBackend:
                     "image_id": image_record.image_id,
                     "context_hash": image_record.context_hash,
                     "verifier_returncode": verifier.returncode,
+                    **verifier_diagnostics,
                 },
             )
         finally:

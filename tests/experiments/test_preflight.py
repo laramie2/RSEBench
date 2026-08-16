@@ -537,6 +537,55 @@ def test_skilllearn_expanded_clean_matrix_declares_eight_families() -> None:
     assert all("{method_seed}" in cell.mutable_resource_keys[0] for cell in matrix.cells)
 
 
+def test_skilllearn_round2_matrices_declare_twelve_formal_and_two_replay_units() -> None:
+    formal = load_experiment_matrix(
+        PROJECT_ROOT / "configs/experiments/skilllearn-clean-expansion-round2.yaml"
+    )
+    replay = load_experiment_matrix(
+        PROJECT_ROOT / "configs/experiments/skilllearn-offer-replay-round2.yaml"
+    )
+
+    assert formal.purpose == "formal"
+    assert formal.qualification_version == "clean-qualification-v2"
+    assert formal.stage == "clean"
+    assert formal.model == "deepseek-v4-flash"
+    assert [cell.family for cell in formal.cells] == [
+        "court-form-filling",
+        "earthquake-plate-calculation",
+        "dbscan-parameter-tuning",
+        "travel-planning",
+    ]
+    assert all(cell.method_seeds is None for cell in formal.cells)
+    assert all(cell.adapter_max_parallel == 3 for cell in formal.cells)
+    assert sum(len(formal.method_seeds) for _ in formal.cells) == 12
+
+    assert replay.purpose == "canary"
+    assert [cell.family for cell in replay.cells] == [
+        "offer-letter-generator",
+        "offer-letter-generator",
+    ]
+    assert [cell.method_seeds for cell in replay.cells] == [
+        [20260813],
+        [20260814],
+    ]
+    assert sum(len(cell.method_seeds or []) for cell in replay.cells) == 2
+    assert all(cell.adapter_max_parallel == 3 for cell in replay.cells)
+
+    all_cells = [*formal.cells, *replay.cells]
+    assert all(cell.baseline == "skilllearn_self_feedback" for cell in all_cells)
+    assert all(
+        cell.image_manifest
+        == "outputs/preflight/skilllearn-clean-expansion-round2/image_manifest.json"
+        for cell in all_cells
+    )
+    assert all(
+        cell.manifest.startswith(
+            "benchmark/validation/skilllearn_clean_expansion_v1/skilllearnbench/"
+        )
+        for cell in all_cells
+    )
+
+
 def test_noise_screen_candidate_matrix_declares_candidate_index() -> None:
     matrix = load_experiment_matrix(
         PROJECT_ROOT / "configs/experiments/noise-screen-v1-candidate2.yaml"

@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any
@@ -28,6 +29,7 @@ from rsebench.evolution.clean_contracts import (  # noqa: E402
 from rsebench.evolution.skilllearn_executor import (  # noqa: E402
     DockerSkillLearnBackend,
 )
+from rsebench.hashing import sha256_file, sha256_tree  # noqa: E402
 from rsebench.selection.contracts import (  # noqa: E402
     ConfirmationSplit,
     StableSplitCandidate,
@@ -50,6 +52,16 @@ DEFAULT_OUTPUT = (
     PROJECT_ROOT
     / "outputs/preflight/clean-qualification-v1/skilllearn/image_manifest.json"
 )
+OFFLINE_VERIFIER_PACKAGES = (
+    "pytest==8.4.1",
+    "pytest-json-ctrf==0.3.5",
+)
+OFFLINE_VERIFIER_WHEEL_REQUIREMENTS = (
+    *OFFLINE_VERIFIER_PACKAGES,
+    "exceptiongroup==1.3.1",
+    "tomli==2.0.1",
+    "typing-extensions==4.15.0",
+)
 
 
 def _write(path: Path, payload: dict[str, Any]) -> None:
@@ -58,6 +70,81 @@ def _write(path: Path, payload: dict[str, Any]) -> None:
         json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
+
+
+def prepare_verifier_wheelhouse(
+    wheelhouse: Path,
+    *,
+    require_existing: bool = False,
+) -> dict[str, Any]:
+    """Download or audit the pinned verifier wheelhouse."""
+
+    root = Path(wheelhouse).resolve()
+    root.mkdir(parents=True, exist_ok=True)
+    existing = sorted(path for path in root.iterdir() if path.is_file())
+    if require_existing:
+        if not existing:
+            raise FileNotFoundError(
+                f"SkillLearn verifier wheelhouse is empty: {root}"
+            )
+    else:
+        if existing:
+            raise FileExistsError(
+                "SkillLearn verifier wheelhouse must be empty before download: "
+                f"{root}"
+            )
+        downloaded = subprocess.run(
+            [
+                "pip",
+                "download",
+                "--dest",
+                str(root),
+                "--only-binary=:all:",
+                *OFFLINE_VERIFIER_WHEEL_REQUIREMENTS,
+            ],
+            capture_output=True,
+            text=True,
+            timeout=600,
+        )
+        if downloaded.returncode != 0:
+            raise RuntimeError(
+                "SkillLearn verifier wheel download failed: "
+                f"{(downloaded.stderr or downloaded.stdout)[-4000:]}"
+            )
+    wheels = sorted(path for path in root.iterdir() if path.is_file())
+    if not wheels:
+        raise RuntimeError("SkillLearn verifier wheel download produced no files")
+    return {
+        "mode": "offline_pytest",
+        "packages": list(OFFLINE_VERIFIER_PACKAGES),
+        "wheel_requirements": list(OFFLINE_VERIFIER_WHEEL_REQUIREMENTS),
+        "wheelhouse_hash": sha256_tree(root),
+        "wheels": [
+            {"name": path.name, "sha256": sha256_file(path)} for path in wheels
+        ],
+    }
+
+
+def _verifier_payload(
+    *,
+    output: Path,
+    verifier_wheelhouse: Path | None,
+    require_existing: bool,
+) -> dict[str, Any]:
+    if verifier_wheelhouse is None:
+        return {}
+    root = Path(verifier_wheelhouse).resolve()
+    try:
+        locator = root.relative_to(Path(output).resolve().parent).as_posix()
+    except ValueError as exc:
+        raise ValueError(
+            "SkillLearn verifier wheelhouse must be below the image manifest directory"
+        ) from exc
+    verifier = prepare_verifier_wheelhouse(
+        root,
+        require_existing=require_existing,
+    )
+    return {"verifier": {**verifier, "wheelhouse": locator}}
 
 
 def _ordered_manifests(root: Path) -> list[Path]:
@@ -156,6 +243,7 @@ def prebuild_images(
     output: Path,
     require_existing: bool = False,
     record_root: Path | None = None,
+    verifier_wheelhouse: Path | None = None,
 ) -> dict[str, Any]:
     external_methods = methods_root()
     manifest_paths = _ordered_manifests(manifest_root)
@@ -189,6 +277,11 @@ def prebuild_images(
         output=output,
         require_existing=require_existing,
         record_root=record_root,
+        extra_payload=_verifier_payload(
+            output=output,
+            verifier_wheelhouse=verifier_wheelhouse,
+            require_existing=require_existing,
+        ),
     )
 
 
@@ -200,6 +293,7 @@ def prebuild_selection_images(
     methods_root_path: Path | None = None,
     require_existing: bool = False,
     record_root: Path | None = None,
+    verifier_wheelhouse: Path | None = None,
 ) -> dict[str, Any]:
     """Prebuild every fixed SkillLearn screening and confirmation task."""
 
@@ -281,6 +375,11 @@ def prebuild_selection_images(
                 "candidate": candidate.selection_hash,
                 "confirmation": confirmation.selection_hash,
             },
+            **_verifier_payload(
+                output=output,
+                verifier_wheelhouse=verifier_wheelhouse,
+                require_existing=require_existing,
+            ),
         },
     )
 
@@ -293,6 +392,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
     parser.add_argument("--require-existing", action="store_true")
     parser.add_argument("--record-root", type=Path)
+    parser.add_argument("--verifier-wheelhouse", type=Path)
     return parser
 
 
@@ -304,6 +404,7 @@ def main() -> None:
             output=args.output,
             require_existing=args.require_existing,
             record_root=args.record_root,
+            verifier_wheelhouse=args.verifier_wheelhouse,
         )
     else:
         prebuild_images(
@@ -311,6 +412,7 @@ def main() -> None:
             output=args.output,
             require_existing=args.require_existing,
             record_root=args.record_root,
+            verifier_wheelhouse=args.verifier_wheelhouse,
         )
     print("provider_calls=0")
     print(args.output)

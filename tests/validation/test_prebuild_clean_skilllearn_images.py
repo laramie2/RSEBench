@@ -6,6 +6,7 @@ from types import ModuleType
 import pytest
 
 from rsebench.evolution.skilllearn_executor import SkillLearnImageRecord
+from rsebench.hashing import sha256_tree
 from scripts import prebuild_clean_skilllearn_images as prebuild
 
 
@@ -150,6 +151,60 @@ def test_prebuild_records_failure_and_raises(tmp_path: Path, monkeypatch) -> Non
     assert payload["all_ready"] is False
     assert payload["failures"][0]["status"] == "failed"
     assert "dependency unavailable" in payload["failures"][0]["stderr"]
+
+
+def test_prepare_offline_verifier_wheelhouse_downloads_pins_and_hashes(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    commands: list[list[str]] = []
+
+    def fake_run(command, **kwargs):
+        commands.append(command)
+        destination = Path(command[command.index("--dest") + 1])
+        destination.mkdir(parents=True, exist_ok=True)
+        (destination / "pytest-8.4.1-py3-none-any.whl").write_bytes(b"pytest")
+        (destination / "pytest_json_ctrf-0.3.5-py3-none-any.whl").write_bytes(
+            b"ctrf"
+        )
+        return type("Completed", (), {"returncode": 0, "stdout": "", "stderr": ""})()
+
+    monkeypatch.setattr(prebuild.subprocess, "run", fake_run)
+    wheelhouse = tmp_path / "verifier-wheels"
+
+    payload = prebuild.prepare_verifier_wheelhouse(wheelhouse)
+
+    assert payload["mode"] == "offline_pytest"
+    assert payload["packages"] == [
+        "pytest==8.4.1",
+        "pytest-json-ctrf==0.3.5",
+    ]
+    assert payload["wheel_requirements"] == [
+        "pytest==8.4.1",
+        "pytest-json-ctrf==0.3.5",
+        "exceptiongroup==1.3.1",
+        "tomli==2.0.1",
+        "typing-extensions==4.15.0",
+    ]
+    assert payload["wheelhouse_hash"] == sha256_tree(wheelhouse)
+    assert payload["wheels"] == [
+        {
+            "name": "pytest-8.4.1-py3-none-any.whl",
+            "sha256": hashlib.sha256(b"pytest").hexdigest(),
+        },
+        {
+            "name": "pytest_json_ctrf-0.3.5-py3-none-any.whl",
+            "sha256": hashlib.sha256(b"ctrf").hexdigest(),
+        },
+    ]
+    assert commands[0][-5:] == [
+        "pytest==8.4.1",
+        "pytest-json-ctrf==0.3.5",
+        "exceptiongroup==1.3.1",
+        "tomli==2.0.1",
+        "typing-extensions==4.15.0",
+    ]
+    assert commands[0][:2] == ["pip", "download"]
 
 
 def test_prebuild_derives_v2_version_and_supports_external_record_root(
