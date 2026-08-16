@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 import os
 import subprocess
-import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Literal, Mapping, Sequence
@@ -169,7 +168,7 @@ def build_native_config(
         ],
         "environment": {
             "allow_internet": True,
-            "force_build": False,
+            "force_build": True,
             "delete": False,
         },
         "orchestrator": {
@@ -437,7 +436,7 @@ def plan_attempt(
 
     arms: list[SkillFlowArmPlan] = []
     input_invalid: dict[str, list[str]] = {}
-    interpreter = python or sys.executable
+    interpreter = python or str(method / ".venv/bin/python")
     for family_name in families:
         family = by_family[family_name]
         if family.status != "ready":

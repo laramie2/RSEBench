@@ -21,6 +21,19 @@ pytestmark = pytest.mark.skipif(
 )
 
 
+@pytest.mark.parametrize(
+    "runner_name",
+    ["family_job_runner.py", "iterative_shared_skills_runner.py"],
+)
+def test_native_runners_use_the_current_async_harbor_factory(
+    runner_name: str,
+) -> None:
+    source = (METHOD_ROOT / runner_name).read_text(encoding="utf-8")
+
+    assert "await Job.create(group_config)" in source
+    assert "Job(config=group_config)" not in source
+
+
 def _run_native(script: str, *args: Path) -> subprocess.CompletedProcess[str]:
     environment = dict(os.environ)
     environment["PYTHONPATH"] = os.pathsep.join(

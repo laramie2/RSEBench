@@ -254,6 +254,7 @@ def test_native_configs_are_serial_empty_skill_and_secret_free(tmp_path: Path) -
         assert payload["agents"][0]["import_path"].endswith(":DeepSeekAPIAgent")
         assert payload["agents"][0]["model_name"] == "deepseek-v4-flash"
         assert payload["agents"][0]["kwargs"]["max_turns"] == 30
+        assert payload["environment"]["force_build"] is True
         assert payload["orchestrator"]["n_concurrent_trials"] == 1
         assert payload["datasets"] == [{"path": str(family_path)}]
         encoded = json.dumps(payload)
@@ -429,6 +430,29 @@ def test_provider_cost_gate_and_dry_run_attempt(tmp_path: Path) -> None:
     assert persisted["provider_calls"] == 0
     assert persisted["dry_run"] is True
     assert all(Path(item["config_path"]).is_file() for item in persisted["arms"])
+
+
+def test_attempt_defaults_to_the_skillflow_virtualenv_python(tmp_path: Path) -> None:
+    data_root = tmp_path / "data"
+    output_root = tmp_path / "output"
+    method_root = tmp_path / "skillflow"
+    config = _config(data_root, output_root)
+    manifest = _manifest(data_root, output_root)
+
+    attempt = plan_attempt(
+        phase="screen",
+        attempt_id="method-python",
+        project_root=tmp_path,
+        method_root=method_root,
+        output_root=output_root,
+        config=config,
+        manifest=manifest,
+        dry_run=True,
+    )
+
+    assert {arm.command[0] for arm in attempt.arms} == {
+        str(method_root / ".venv/bin/python")
+    }
 
 
 def test_attempt_collision_is_never_overwritten(tmp_path: Path) -> None:

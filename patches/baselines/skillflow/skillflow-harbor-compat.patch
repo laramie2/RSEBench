@@ -1,0 +1,42 @@
+diff --git a/family_job_runner.py b/family_job_runner.py
+index acb1739..3eadda1 100644
+--- a/family_job_runner.py
++++ b/family_job_runner.py
+@@ -413,9 +413,12 @@ def run_group_job(
+         async def on_trial_ended_hook(event: TrialHookEvent) -> None:
+             await asyncio.to_thread(on_trial_ended_hook_sync, event)
+ 
+-        job = Job(config=group_config)
+-        job.on_trial_ended(on_trial_ended_hook)
+-        result = asyncio.run(job.run())
++        async def create_and_run_job():
++            job = await Job.create(group_config)
++            job.on_trial_ended(on_trial_ended_hook)
++            return await job.run()
++
++        result = asyncio.run(create_and_run_job())
+         return GroupResult(
+             group_name=group_name,
+             job_name=group_config.job_name or group_name,
+diff --git a/iterative_shared_skills_runner.py b/iterative_shared_skills_runner.py
+index 4f86f95..2be8e6e 100644
+--- a/iterative_shared_skills_runner.py
++++ b/iterative_shared_skills_runner.py
+@@ -861,11 +861,13 @@ def run_group_job(
+ 
+     # 创建 Job 并注册 hook
+     try:
+-        job = Job(config=group_config)
+-        job.on_trial_ended(on_trial_ended_hook)
++        async def create_and_run_job():
++            job = await Job.create(group_config)
++            job.on_trial_ended(on_trial_ended_hook)
++            return await job.run()
+ 
+-        # Harbor Job.run 是 async，需要在同步入口中执行
+-        result = asyncio.run(job.run())
++        # Harbor Job 创建和执行都是 async，需要在同步入口中执行
++        result = asyncio.run(create_and_run_job())
+         return GroupResult(
+             group_name=group_name,
+             job_name=group_config.job_name or group_name,

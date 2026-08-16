@@ -218,10 +218,18 @@ def test_registered_skillflow_patch_series_is_provider_first() -> None:
     assert series.upstream_revision == "7b49ff5a7e26cd7706e959bfa0dba4746d18440d"
     assert series.patches[0].purpose == "provider"
     assert "libs/harbor_noinstall_agents/deepseek_api.py" in patch_text
-    assert [patch.purpose for patch in series.patches] == ["provider", "evidence"]
+    assert [patch.purpose for patch in series.patches] == [
+        "provider",
+        "evidence",
+        "compatibility",
+    ]
     evidence_text = (series_path.parent / series.patches[1].path).read_text(
         encoding="utf-8"
     )
     assert "record_token_event" in evidence_text
     assert "run_patch_operation_with_history" in evidence_text
     assert "diff --git a/.gitignore b/.gitignore" in evidence_text
+    compatibility_text = (series_path.parent / series.patches[2].path).read_text(
+        encoding="utf-8"
+    )
+    assert "await Job.create(group_config)" in compatibility_text

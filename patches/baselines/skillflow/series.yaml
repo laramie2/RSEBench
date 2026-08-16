@@ -7,3 +7,6 @@ patches:
   - path: skillflow-observability.patch
     sha256: 44b130596edd212a582087679de020552709a2fc76d6a43c8bc2a93af35bfe0d
     purpose: evidence
+  - path: skillflow-harbor-compat.patch
+    sha256: 3e465d27d78e46bc1ed413c1f399941e8ee7eabba976649cf2ac1902bf12e6d8
+    purpose: compatibility
