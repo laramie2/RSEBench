@@ -1,0 +1,446 @@
+{
+  "baseline": "skillflow",
+  "batch_a": [
+    "Document-Fraud-Detection",
+    "Operational-Recovery-Planning",
+    "HWPX-Document-Automation",
+    "SEC-13F-Financial-Analysis"
+  ],
+  "batch_b": [
+    "OCR-Data-Extraction",
+    "Cross-Format-Data-Reconciliation"
+  ],
+  "benchmark": "skillflow_tasks",
+  "config_hash": "a68d780008be967e827473e57cbb3946d9eafe2cf0a60a5981c15fb4b30c395f",
+  "families": [
+    {
+      "family": "Document-Fraud-Detection",
+      "invalid_reasons": [],
+      "ranked_task_ids": [
+        "travel-expense-screening",
+        "speaker-honorarium-review",
+        "clinic-shift-claim-review",
+        "field-service-workorder-audit",
+        "fleet-maintenance-chargeback-audit",
+        "research-stipend-reconciliation",
+        "warehouse-coldchain-charge-review",
+        "clinical-trial-participant-release-audit"
+      ],
+      "ranking_hash": "7d7aafa02b00fcf6dfabc1577ba6037954e10fdfb975cbbbd506570d0158d4fa",
+      "status": "ready",
+      "tasks": [
+        {
+          "order": 1,
+          "relative_path": "Document-Fraud-Detection/travel-expense-screening",
+          "task_hash": "fc48a3d8a11403e05c16f2c8057a5d5350ae3a6a1fe5e9ee2c021c9e03b12416",
+          "task_id": "travel-expense-screening"
+        },
+        {
+          "order": 2,
+          "relative_path": "Document-Fraud-Detection/speaker-honorarium-review",
+          "task_hash": "fa7dcc14f390c1c224ccf8d71f2201934e7ab18b1803763bb405f7e64d9a6dc1",
+          "task_id": "speaker-honorarium-review"
+        },
+        {
+          "order": 3,
+          "relative_path": "Document-Fraud-Detection/clinic-shift-claim-review",
+          "task_hash": "7dc79811d4942b21bdcdecc9c5f7c05a4fed2667c86de75f8047ff28e8c4bb19",
+          "task_id": "clinic-shift-claim-review"
+        },
+        {
+          "order": 4,
+          "relative_path": "Document-Fraud-Detection/field-service-workorder-audit",
+          "task_hash": "94ce3f6d7711910fd139eeb430d9b83727851feba387efee748766d641a7158f",
+          "task_id": "field-service-workorder-audit"
+        },
+        {
+          "order": 5,
+          "relative_path": "Document-Fraud-Detection/fleet-maintenance-chargeback-audit",
+          "task_hash": "6b47f22dd7805a0d3785630e4b1b9dfd0dff64f68d64e810883cd9a0b8c07e83",
+          "task_id": "fleet-maintenance-chargeback-audit"
+        },
+        {
+          "order": 6,
+          "relative_path": "Document-Fraud-Detection/research-stipend-reconciliation",
+          "task_hash": "f7d0e169c967f60a3eef05af099dd0dba684e2a970eaba30f0c37a7c2ed68fb6",
+          "task_id": "research-stipend-reconciliation"
+        },
+        {
+          "order": 7,
+          "relative_path": "Document-Fraud-Detection/warehouse-coldchain-charge-review",
+          "task_hash": "0be30226d2f4212d1cd1feffee4e61ffb19984184a832d8d0451b9faf1d08a52",
+          "task_id": "warehouse-coldchain-charge-review"
+        },
+        {
+          "order": 8,
+          "relative_path": "Document-Fraud-Detection/clinical-trial-participant-release-audit",
+          "task_hash": "2e5789c04e5f52113a164127e2d07988e18c65f9fac224eb9708ae8088e94eee",
+          "task_id": "clinical-trial-participant-release-audit"
+        }
+      ]
+    },
+    {
+      "family": "Operational-Recovery-Planning",
+      "invalid_reasons": [
+        "ranking_missing_task:new_task_4_authorization_review_recovery"
+      ],
+      "ranked_task_ids": [
+        "new_task_1_soc_alert_recovery",
+        "new_task_2_radiology_reading_backlog",
+        "harbor_gdpval_36",
+        "new_task_3_returns_center_throughput",
+        "new_task_4_authorization_review_recovery",
+        "harbor_dc_recovery_01",
+        "harbor_wh_recovery_02",
+        "harbor_ag_recovery_03",
+        "harbor_gdpval_41"
+      ],
+      "ranking_hash": "7b1bfb66fbf250e6b949a940263f7565e6550c0d3cf23fd2421be029c7f5f006",
+      "status": "invalid",
+      "tasks": [
+        {
+          "order": 1,
+          "relative_path": "Operational-Recovery-Planning/new_task_1_soc_alert_recovery",
+          "task_hash": "334ee005baa1b23150eaff235ca1f617ea3d6405a59d3778aecd21a383b46da0",
+          "task_id": "new_task_1_soc_alert_recovery"
+        },
+        {
+          "order": 2,
+          "relative_path": "Operational-Recovery-Planning/new_task_2_radiology_reading_backlog",
+          "task_hash": "857ae5b7225ea1b5e1b0fddbf89d20c5bcedaee6ee19f91356106ccda7cb8257",
+          "task_id": "new_task_2_radiology_reading_backlog"
+        },
+        {
+          "order": 3,
+          "relative_path": "Operational-Recovery-Planning/harbor_gdpval_36",
+          "task_hash": "d5c8d0506c5adc8d5670381946c0d8ebd82e5c4fdd5185c72ab9bf649a3a2787",
+          "task_id": "harbor_gdpval_36"
+        },
+        {
+          "order": 4,
+          "relative_path": "Operational-Recovery-Planning/new_task_3_returns_center_throughput",
+          "task_hash": "aec5072d7203a778944eaaff31d4c32290bc51c40b05660dd5307807b1f7f473",
+          "task_id": "new_task_3_returns_center_throughput"
+        },
+        {
+          "order": 6,
+          "relative_path": "Operational-Recovery-Planning/harbor_dc_recovery_01",
+          "task_hash": "0f55c1f3a60dc04ee851f3340ad86f88530a77c9f70f035ec1161e06b963c837",
+          "task_id": "harbor_dc_recovery_01"
+        },
+        {
+          "order": 7,
+          "relative_path": "Operational-Recovery-Planning/harbor_wh_recovery_02",
+          "task_hash": "0e2d78287923eda11b9e5ac0e5f4af0c89217c239cd3135ffe0ce505661536ca",
+          "task_id": "harbor_wh_recovery_02"
+        },
+        {
+          "order": 8,
+          "relative_path": "Operational-Recovery-Planning/harbor_ag_recovery_03",
+          "task_hash": "00d05d98b77e71cb305c5e569e29f12966da478fec78479c7414f7a52394d63e",
+          "task_id": "harbor_ag_recovery_03"
+        },
+        {
+          "order": 9,
+          "relative_path": "Operational-Recovery-Planning/harbor_gdpval_41",
+          "task_hash": "94bae5c62be4d42aa58bcedfc1223b686aa3a7b9e6302f0e114e8f3579f7b01b",
+          "task_id": "harbor_gdpval_41"
+        }
+      ]
+    },
+    {
+      "family": "HWPX-Document-Automation",
+      "invalid_reasons": [],
+      "ranked_task_ids": [
+        "hwpx-supplier-contact-sheet",
+        "hwpx-event-announcement",
+        "hwpx-clinic-intake-summary",
+        "hwpx-project-proposal",
+        "hwpx-training-feedback",
+        "hwpx-safety-audit-brief",
+        "hwpx-renewal-playbook-update",
+        "hwpx-inventory-report"
+      ],
+      "ranking_hash": "06b061453af873b5420c764faf92e9ea9d788a72b9b3db97bac91e821f33603d",
+      "status": "ready",
+      "tasks": [
+        {
+          "order": 1,
+          "relative_path": "HWPX-Document-Automation/hwpx-supplier-contact-sheet",
+          "task_hash": "314f185b962bdb97bce790b8a5c038ccb7551dac0252cbf3294fe41cbc6765d7",
+          "task_id": "hwpx-supplier-contact-sheet"
+        },
+        {
+          "order": 2,
+          "relative_path": "HWPX-Document-Automation/hwpx-event-announcement",
+          "task_hash": "6d7a227941ce30e7677acf9d2643f5737be78a546c9a43fa99c6dd7c6d343402",
+          "task_id": "hwpx-event-announcement"
+        },
+        {
+          "order": 3,
+          "relative_path": "HWPX-Document-Automation/hwpx-clinic-intake-summary",
+          "task_hash": "bfda23a3a6b637b7b68c30e8fd9bbff40059a680a0f98469c9b0c34f0ea4cb64",
+          "task_id": "hwpx-clinic-intake-summary"
+        },
+        {
+          "order": 4,
+          "relative_path": "HWPX-Document-Automation/hwpx-project-proposal",
+          "task_hash": "637365039eeb794bd901911145f021c852154d873cd6d1e9e3f5113f579613e2",
+          "task_id": "hwpx-project-proposal"
+        },
+        {
+          "order": 5,
+          "relative_path": "HWPX-Document-Automation/hwpx-training-feedback",
+          "task_hash": "acfd2207366383b6b0da894b62775f0100587fa869336e8217e98d3d9c22fa44",
+          "task_id": "hwpx-training-feedback"
+        },
+        {
+          "order": 6,
+          "relative_path": "HWPX-Document-Automation/hwpx-safety-audit-brief",
+          "task_hash": "ff8bcf8fe0be2d4b436675a58787b45c1d1a65e03f92e2f9bad362cfe2d5c66f",
+          "task_id": "hwpx-safety-audit-brief"
+        },
+        {
+          "order": 7,
+          "relative_path": "HWPX-Document-Automation/hwpx-renewal-playbook-update",
+          "task_hash": "0216fb43c388f6e0a7bb07d7c4b59b67128f60fbf34ce9e7e08fb99fb80124b4",
+          "task_id": "hwpx-renewal-playbook-update"
+        },
+        {
+          "order": 8,
+          "relative_path": "HWPX-Document-Automation/hwpx-inventory-report",
+          "task_hash": "5a713e74ed786f65f65da77bf4995404ec4d93dd099075384a25f428d84758c6",
+          "task_id": "hwpx-inventory-report"
+        }
+      ]
+    },
+    {
+      "family": "SEC-13F-Financial-Analysis",
+      "invalid_reasons": [],
+      "ranked_task_ids": [
+        "fund-snapshot-canonical",
+        "fund-class-breakdown",
+        "fund-shift-screen",
+        "issuer-ownership-rollup",
+        "manager-pair-issuer-grid",
+        "cross-quarter-reconciliation",
+        "deduped-alert-pack",
+        "existing-brief-refresh"
+      ],
+      "ranking_hash": "cf67d8d6ee47b0223e963f28445146ec3c452206c753c8abac261cdda007a43b",
+      "status": "ready",
+      "tasks": [
+        {
+          "order": 1,
+          "relative_path": "SEC-13F-Financial-Analysis/fund-snapshot-canonical",
+          "task_hash": "b949aff4c8020a7f3a76c3e5bc33965f68fe478119e6800d8453012fe500b674",
+          "task_id": "fund-snapshot-canonical"
+        },
+        {
+          "order": 2,
+          "relative_path": "SEC-13F-Financial-Analysis/fund-class-breakdown",
+          "task_hash": "70a0ebba7659796bc5aa99e13043d0de87df7fcd1fac17e562d5180d9617447f",
+          "task_id": "fund-class-breakdown"
+        },
+        {
+          "order": 3,
+          "relative_path": "SEC-13F-Financial-Analysis/fund-shift-screen",
+          "task_hash": "a6b3e3da1079f6696887b0cffe92babae2b14259e0dcddf0999c4bfd64e0cebf",
+          "task_id": "fund-shift-screen"
+        },
+        {
+          "order": 4,
+          "relative_path": "SEC-13F-Financial-Analysis/issuer-ownership-rollup",
+          "task_hash": "9f9d07f00139a1226edd3949af2053dd034181de6f92cfc780701f0908010020",
+          "task_id": "issuer-ownership-rollup"
+        },
+        {
+          "order": 5,
+          "relative_path": "SEC-13F-Financial-Analysis/manager-pair-issuer-grid",
+          "task_hash": "c498809be6b877bde91b06359f87ef438315c3fea2b1ef35a080a7e8b3150bd3",
+          "task_id": "manager-pair-issuer-grid"
+        },
+        {
+          "order": 6,
+          "relative_path": "SEC-13F-Financial-Analysis/cross-quarter-reconciliation",
+          "task_hash": "45ccc700ce555c541a2f8dbfaf2e66c2dae84f33069f46bb2b3dd3c4c8cf527e",
+          "task_id": "cross-quarter-reconciliation"
+        },
+        {
+          "order": 7,
+          "relative_path": "SEC-13F-Financial-Analysis/deduped-alert-pack",
+          "task_hash": "f393b1df82f5c34050813ae5410c0d81cc58f9948372265f970829094931706d",
+          "task_id": "deduped-alert-pack"
+        },
+        {
+          "order": 8,
+          "relative_path": "SEC-13F-Financial-Analysis/existing-brief-refresh",
+          "task_hash": "242e9bf15e952e3e02a1ecf28b38f87dd3cff32fff2a48f141acf2d1c39acba6",
+          "task_id": "existing-brief-refresh"
+        }
+      ]
+    },
+    {
+      "family": "OCR-Data-Extraction",
+      "invalid_reasons": [],
+      "ranked_task_ids": [
+        "task_family_pharmacy_labels",
+        "task_family_ecommerce_orders",
+        "task_family_travel_claim_merge",
+        "task_family_invoice_images",
+        "task_family_utility_bills_template_update",
+        "task_family_construction_measurement",
+        "task_family_nested_fuel_packets",
+        "task_family_case_settlement_packets"
+      ],
+      "ranking_hash": "7e93858d24c036c6be59b8b67f8ba67bda2ff20405388f8d29f70d7117199ad7",
+      "status": "ready",
+      "tasks": [
+        {
+          "order": 1,
+          "relative_path": "OCR-Data-Extraction/task_family_pharmacy_labels",
+          "task_hash": "fbad839ab1c8784389678a1d4478055a9a1115d93be4f25323e8046e46c11367",
+          "task_id": "task_family_pharmacy_labels"
+        },
+        {
+          "order": 2,
+          "relative_path": "OCR-Data-Extraction/task_family_ecommerce_orders",
+          "task_hash": "75486886a9c32cdfd6b2824047037855974e1d78e2c2b93782412b6353eeb5a1",
+          "task_id": "task_family_ecommerce_orders"
+        },
+        {
+          "order": 3,
+          "relative_path": "OCR-Data-Extraction/task_family_travel_claim_merge",
+          "task_hash": "784351d88ad4d49ccf4fcc4bdf09cd7ef7f312d6bb53af26e54e2f92630a209d",
+          "task_id": "task_family_travel_claim_merge"
+        },
+        {
+          "order": 4,
+          "relative_path": "OCR-Data-Extraction/task_family_invoice_images",
+          "task_hash": "1e21b8da4ca17908f295baa47d3cf2568a35867d385e73ff14b5f69025c7ef5a",
+          "task_id": "task_family_invoice_images"
+        },
+        {
+          "order": 5,
+          "relative_path": "OCR-Data-Extraction/task_family_utility_bills_template_update",
+          "task_hash": "037310d78888e1c1803ca575ead8478a3572bc67e06b4d49f0f7d00958fc4a00",
+          "task_id": "task_family_utility_bills_template_update"
+        },
+        {
+          "order": 6,
+          "relative_path": "OCR-Data-Extraction/task_family_construction_measurement",
+          "task_hash": "557f74f5e4f47abe9eb3e05d213135841c5fbbd9f9f42cac9e435884a647a1dd",
+          "task_id": "task_family_construction_measurement"
+        },
+        {
+          "order": 7,
+          "relative_path": "OCR-Data-Extraction/task_family_nested_fuel_packets",
+          "task_hash": "0c73288cef3aa1f7553c20577574715c70bbcc25b6b3b3f943c60c929651fac0",
+          "task_id": "task_family_nested_fuel_packets"
+        },
+        {
+          "order": 8,
+          "relative_path": "OCR-Data-Extraction/task_family_case_settlement_packets",
+          "task_hash": "5f267a71808e3662c7fa2b1f01cf2952da37a2ff680d1bc7cc46364167b0158a",
+          "task_id": "task_family_case_settlement_packets"
+        }
+      ]
+    },
+    {
+      "family": "Cross-Format-Data-Reconciliation",
+      "invalid_reasons": [],
+      "ranked_task_ids": [
+        "01-cloud-service-portfolio-diff",
+        "02-hospital-capacity-portfolio-diff",
+        "03-retail-supply-category-diff",
+        "04-university-program-funding-diff",
+        "05-datacenter-hardware-registry-diff",
+        "06-hospital-medication-reconciliation",
+        "07-shipping-container-manifest-diff",
+        "08-university-course-catalog-diff"
+      ],
+      "ranking_hash": "2ae207cabaf0c4dc77e2f2839b3ea8f2be9d837a57e708d125ecbd4a5ec60690",
+      "status": "ready",
+      "tasks": [
+        {
+          "order": 1,
+          "relative_path": "Cross-Format-Data-Reconciliation/01-cloud-service-portfolio-diff",
+          "task_hash": "76e7179be2eb5ba9704f2398810326aed89419a1722db4884436c06ddd39ebfa",
+          "task_id": "01-cloud-service-portfolio-diff"
+        },
+        {
+          "order": 2,
+          "relative_path": "Cross-Format-Data-Reconciliation/02-hospital-capacity-portfolio-diff",
+          "task_hash": "cd0117d5613219468b6f8ac74dc2c5cc9cf5c8a8450a740c544095a33c1c330a",
+          "task_id": "02-hospital-capacity-portfolio-diff"
+        },
+        {
+          "order": 3,
+          "relative_path": "Cross-Format-Data-Reconciliation/03-retail-supply-category-diff",
+          "task_hash": "ef900f4161e9fb54255cba5b06a23ed95848f5addc04a32f14b37f3a344f7108",
+          "task_id": "03-retail-supply-category-diff"
+        },
+        {
+          "order": 4,
+          "relative_path": "Cross-Format-Data-Reconciliation/04-university-program-funding-diff",
+          "task_hash": "c82ae84e153ab37aa4d6d501271ec67d94334b83d191f594229afd65a80bfb53",
+          "task_id": "04-university-program-funding-diff"
+        },
+        {
+          "order": 5,
+          "relative_path": "Cross-Format-Data-Reconciliation/05-datacenter-hardware-registry-diff",
+          "task_hash": "99e6f5e5a77414ee53a920e27339903a19739a8f57b6ffe5d4c9b6364dbf44cd",
+          "task_id": "05-datacenter-hardware-registry-diff"
+        },
+        {
+          "order": 6,
+          "relative_path": "Cross-Format-Data-Reconciliation/06-hospital-medication-reconciliation",
+          "task_hash": "eafa2e0294ad7a97df5889ae1acce2af7c874ebc0c76d79a3e4786eeac600d46",
+          "task_id": "06-hospital-medication-reconciliation"
+        },
+        {
+          "order": 7,
+          "relative_path": "Cross-Format-Data-Reconciliation/07-shipping-container-manifest-diff",
+          "task_hash": "92606f3ff51133c91a87b5db6f3a24927777b81526659752b11ac5fdb616c79c",
+          "task_id": "07-shipping-container-manifest-diff"
+        },
+        {
+          "order": 8,
+          "relative_path": "Cross-Format-Data-Reconciliation/08-university-course-catalog-diff",
+          "task_hash": "151b4b844312afff41389f380c5be0e595d55ce3da5c8dd7d44362c54a6fccba",
+          "task_id": "08-university-course-catalog-diff"
+        }
+      ]
+    }
+  ],
+  "provider_calls": 0,
+  "qualification": {
+    "minimum_nonnegative_replicates": 3,
+    "minimum_patch_replicates": 3,
+    "minimum_positive_replicates": 2,
+    "minimum_skill_use_replicates": 2,
+    "require_positive_pooled_full_delta": true,
+    "target_qualified_families": 2
+  },
+  "qualification_contract": "skillflow-clean-qualification-v1",
+  "replicates": [
+    "r1",
+    "r2",
+    "r3"
+  ],
+  "runtime": {
+    "arm_timeout_seconds": 21600,
+    "docker_image": "skillflow/harbor-cli-base:ubuntu24.04",
+    "max_completion_tokens": 2048,
+    "max_turns": 30,
+    "model": "deepseek-v4-flash",
+    "patch_max_observation_chars": 3000,
+    "patch_max_steps": 60,
+    "patch_max_tokens": 8192,
+    "patch_temperature": 0.2,
+    "temperature": 0.0,
+    "thinking": "disabled"
+  },
+  "schema_version": "rsebench.skillflow-input.v1",
+  "upstream_revision": "7b49ff5a7e26cd7706e959bfa0dba4746d18440d"
+}

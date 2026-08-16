@@ -1,0 +1,35 @@
+schema_version: rsebench.skillflow-clean-config.v1
+benchmark: skillflow_tasks
+baseline: skillflow
+upstream_revision: 7b49ff5a7e26cd7706e959bfa0dba4746d18440d
+qualification_contract: skillflow-clean-qualification-v1
+data_root: data/raw/skillflow_tasks/test_tasks
+output_root: outputs/runs/skillflow-clean-qualification-v1-20260816
+batch_a:
+  - Document-Fraud-Detection
+  - Operational-Recovery-Planning
+  - HWPX-Document-Automation
+  - SEC-13F-Financial-Analysis
+batch_b:
+  - OCR-Data-Extraction
+  - Cross-Format-Data-Reconciliation
+replicates: [r1, r2, r3]
+runtime:
+  model: deepseek-v4-flash
+  thinking: disabled
+  temperature: 0.0
+  max_turns: 30
+  max_completion_tokens: 2048
+  patch_temperature: 0.2
+  patch_max_tokens: 8192
+  patch_max_steps: 60
+  patch_max_observation_chars: 3000
+  docker_image: skillflow/harbor-cli-base:ubuntu24.04
+  arm_timeout_seconds: 21600
+qualification:
+  minimum_positive_replicates: 2
+  minimum_nonnegative_replicates: 3
+  minimum_patch_replicates: 3
+  minimum_skill_use_replicates: 2
+  require_positive_pooled_full_delta: true
+  target_qualified_families: 2
