@@ -162,6 +162,7 @@ def build_native_config(
                 "kwargs": {
                     "role": "worker",
                     "max_turns": config.runtime.max_turns,
+                    "max_tokens": config.runtime.max_completion_tokens,
                     "base_url": "https://api.deepseek.com/v1",
                 },
             }

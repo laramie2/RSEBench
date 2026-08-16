@@ -1,0 +1,21 @@
+diff --git a/libs/harbor_noinstall_agents/deepseek_api.py b/libs/harbor_noinstall_agents/deepseek_api.py
+index e4b4ad9..36418f0 100644
+--- a/libs/harbor_noinstall_agents/deepseek_api.py
++++ b/libs/harbor_noinstall_agents/deepseek_api.py
+@@ -22,6 +22,7 @@ class DeepSeekAPIAgent(BaseAgent):
+             raise ValueError("DeepSeekAPIAgent requires deepseek-v4-flash")
+         self.role = str(kwargs.pop("role", "worker"))
+         self.max_turns = int(kwargs.pop("max_turns", 30))
++        self.max_tokens = int(kwargs.pop("max_tokens", 2048))
+         super().__init__(logs_dir, model_name=resolved_model, *args, **kwargs)
+ 
+     @staticmethod
+@@ -46,7 +47,7 @@ class DeepSeekAPIAgent(BaseAgent):
+                 model="deepseek-v4-flash",
+                 thinking="disabled",
+                 temperature=0,
+-                max_tokens=2048,
++                max_tokens=self.max_tokens,
+             ),
+             cache_dir=self.logs_dir / "deepseek-cache",
+         )

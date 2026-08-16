@@ -34,6 +34,15 @@ def test_native_runners_use_the_current_async_harbor_factory(
     assert "Job(config=group_config)" not in source
 
 
+def test_native_deepseek_agent_accepts_the_frozen_worker_token_budget() -> None:
+    source = (
+        METHOD_ROOT / "libs/harbor_noinstall_agents/deepseek_api.py"
+    ).read_text(encoding="utf-8")
+
+    assert 'self.max_tokens = int(kwargs.pop("max_tokens", 2048))' in source
+    assert "max_tokens=self.max_tokens" in source
+
+
 def _run_native(script: str, *args: Path) -> subprocess.CompletedProcess[str]:
     environment = dict(os.environ)
     environment["PYTHONPATH"] = os.pathsep.join(

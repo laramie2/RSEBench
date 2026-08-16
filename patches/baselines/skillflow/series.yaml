@@ -10,3 +10,6 @@ patches:
   - path: skillflow-harbor-compat.patch
     sha256: 3e465d27d78e46bc1ed413c1f399941e8ee7eabba976649cf2ac1902bf12e6d8
     purpose: compatibility
+  - path: skillflow-worker-token-budget.patch
+    sha256: 46df81b70348c46de6aafe497ea131258afdedd7d7018671fd1f5265b63230a4
+    purpose: compatibility

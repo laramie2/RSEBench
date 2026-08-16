@@ -19,7 +19,7 @@ runtime:
   thinking: disabled
   temperature: 0.0
   max_turns: 60
-  max_completion_tokens: 2048
+  max_completion_tokens: 8192
   patch_temperature: 0.2
   patch_max_tokens: 8192
   patch_max_steps: 60

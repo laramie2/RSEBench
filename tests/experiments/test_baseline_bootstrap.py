@@ -222,6 +222,7 @@ def test_registered_skillflow_patch_series_is_provider_first() -> None:
         "provider",
         "evidence",
         "compatibility",
+        "compatibility",
     ]
     evidence_text = (series_path.parent / series.patches[1].path).read_text(
         encoding="utf-8"
@@ -233,3 +234,7 @@ def test_registered_skillflow_patch_series_is_provider_first() -> None:
         encoding="utf-8"
     )
     assert "await Job.create(group_config)" in compatibility_text
+    worker_budget_text = (series_path.parent / series.patches[3].path).read_text(
+        encoding="utf-8"
+    )
+    assert "max_tokens=self.max_tokens" in worker_budget_text
