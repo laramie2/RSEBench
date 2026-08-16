@@ -11,7 +11,7 @@
     "Cross-Format-Data-Reconciliation"
   ],
   "benchmark": "skillflow_tasks",
-  "config_hash": "a68d780008be967e827473e57cbb3946d9eafe2cf0a60a5981c15fb4b30c395f",
+  "config_hash": "72002ba6d752beeaf987a19615aed3d430082a775be04f91236cb83ec130ec20",
   "families": [
     {
       "family": "Document-Fraud-Detection",
@@ -430,7 +430,7 @@
   ],
   "runtime": {
     "arm_timeout_seconds": 21600,
-    "docker_image": "skillflow/harbor-cli-base:ubuntu24.04",
+    "docker_image": "skillevlove/harbor-cli-openhands:ubuntu24.04",
     "max_completion_tokens": 2048,
     "max_turns": 30,
     "model": "deepseek-v4-flash",

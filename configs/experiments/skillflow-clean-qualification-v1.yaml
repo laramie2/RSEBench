@@ -24,7 +24,7 @@ runtime:
   patch_max_tokens: 8192
   patch_max_steps: 60
   patch_max_observation_chars: 3000
-  docker_image: skillflow/harbor-cli-base:ubuntu24.04
+  docker_image: skillevlove/harbor-cli-openhands:ubuntu24.04
   arm_timeout_seconds: 21600
 qualification:
   minimum_positive_replicates: 2
