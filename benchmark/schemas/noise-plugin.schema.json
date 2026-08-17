@@ -1,0 +1,59 @@
+{
+  "additionalProperties": false,
+  "description": "One top-level package owned independently by a noise-stage collaborator.",
+  "properties": {
+    "entrypoint": {
+      "minLength": 3,
+      "title": "Entrypoint",
+      "type": "string"
+    },
+    "form": {
+      "enum": [
+        "static",
+        "runtime"
+      ],
+      "title": "Form",
+      "type": "string"
+    },
+    "metadata": {
+      "additionalProperties": true,
+      "title": "Metadata",
+      "type": "object"
+    },
+    "operators_root": {
+      "minLength": 1,
+      "title": "Operators Root",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "rsebench.noise-plugin.v1",
+      "default": "rsebench.noise-plugin.v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "stage": {
+      "enum": [
+        "N1",
+        "N2",
+        "N3",
+        "N4"
+      ],
+      "title": "Stage",
+      "type": "string"
+    },
+    "version": {
+      "minLength": 1,
+      "title": "Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "stage",
+    "form",
+    "entrypoint",
+    "version",
+    "operators_root"
+  ],
+  "title": "NoisePlugin",
+  "type": "object"
+}

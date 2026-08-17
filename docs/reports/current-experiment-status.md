@@ -1,7 +1,31 @@
 # Current Robust Self-Evolution Validation Status
 
-Current scope update: 2026-08-16
+Current scope update: 2026-08-17
 Historical result snapshot below: 2026-08-13
+
+## 2026-08-17 validation-v1 freeze
+
+The four-domain validation inputs are now frozen under `validation-v1`:
+SpreadsheetBench-Verified / SkillOpt, OfficeQA Full / SkillOpt, WebShop /
+SkillAdaptor, and SkillFlow-Task / SkillFlow. SkillFlow uses a three-family,
+six-task ordered slice: HWPX-Document-Automation, Distribution-Center-Auditing,
+and Embedded-Data-Repair. HWPX supplies a local positive clean signal; the
+other two families are complete execution/update ties. This release is for
+noise-mechanism validation and is not an unbiased claim of full-benchmark
+SkillFlow efficacy.
+
+DatasetRelease, MethodRelease, N1–N4 stage interfaces, exact 4×4 expansion,
+release-specific patch replay, attempt isolation, and the unified validation
+CLI are complete. The concrete stage `CELL_RUNNERS` are still interface-only,
+so provider-free preflight reports `execution_ready=false` and the paid run
+command fails closed before making a model call. Historical SkillLearn
+Self-Feedback/Teacher-Feedback results remain diagnostic and are not reused as
+SkillFlow evidence.
+
+The 2026-08-16 two-family gate below records the previous screening protocol.
+It was superseded by the explicitly approved mechanism-validation release
+boundary above; its stronger efficacy claim was not met and must not be inferred
+from validation-v1.
 
 ## 2026-08-16 fourth-domain migration
 

@@ -1,0 +1,78 @@
+{
+  "additionalProperties": false,
+  "description": "One deterministic N1/N2 materialization request.",
+  "properties": {
+    "benchmark": {
+      "minLength": 1,
+      "title": "Benchmark",
+      "type": "string"
+    },
+    "dataset_release_id": {
+      "minLength": 1,
+      "title": "Dataset Release Id",
+      "type": "string"
+    },
+    "domain": {
+      "minLength": 1,
+      "title": "Domain",
+      "type": "string"
+    },
+    "operator": {
+      "minLength": 1,
+      "title": "Operator",
+      "type": "string"
+    },
+    "parameters": {
+      "additionalProperties": true,
+      "title": "Parameters",
+      "type": "object"
+    },
+    "protected_fields": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Protected Fields",
+      "type": "array"
+    },
+    "seed": {
+      "title": "Seed",
+      "type": "integer"
+    },
+    "severity": {
+      "default": "L2",
+      "enum": [
+        "L0",
+        "L1",
+        "L2",
+        "L3"
+      ],
+      "title": "Severity",
+      "type": "string"
+    },
+    "stage": {
+      "enum": [
+        "N1",
+        "N2"
+      ],
+      "title": "Stage",
+      "type": "string"
+    },
+    "version": {
+      "minLength": 1,
+      "title": "Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "stage",
+    "operator",
+    "version",
+    "dataset_release_id",
+    "benchmark",
+    "domain",
+    "seed"
+  ],
+  "title": "StaticNoiseSpec",
+  "type": "object"
+}

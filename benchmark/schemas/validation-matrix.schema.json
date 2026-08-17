@@ -3,78 +3,190 @@
     "ValidationExecution": {
       "additionalProperties": false,
       "properties": {
-        "cell_parallelism": {"maximum": 16, "minimum": 1, "title": "Cell Parallelism", "type": "integer"},
-        "seed_parallelism": {"minimum": 1, "title": "Seed Parallelism", "type": "integer"}
+        "cell_parallelism": {
+          "maximum": 16,
+          "minimum": 1,
+          "title": "Cell Parallelism",
+          "type": "integer"
+        },
+        "seed_parallelism": {
+          "minimum": 1,
+          "title": "Seed Parallelism",
+          "type": "integer"
+        }
       },
-      "required": ["cell_parallelism", "seed_parallelism"],
+      "required": [
+        "cell_parallelism",
+        "seed_parallelism"
+      ],
       "title": "ValidationExecution",
       "type": "object"
     },
     "ValidationProvider": {
       "additionalProperties": false,
       "properties": {
-        "family": {"minLength": 1, "title": "Family", "type": "string"},
-        "model": {"minLength": 1, "title": "Model", "type": "string"},
-        "temperature": {"default": 0.0, "title": "Temperature", "type": "number"},
-        "thinking": {"const": "disabled", "default": "disabled", "title": "Thinking", "type": "string"}
+        "family": {
+          "minLength": 1,
+          "title": "Family",
+          "type": "string"
+        },
+        "model": {
+          "minLength": 1,
+          "title": "Model",
+          "type": "string"
+        },
+        "temperature": {
+          "default": 0.0,
+          "title": "Temperature",
+          "type": "number"
+        },
+        "thinking": {
+          "const": "disabled",
+          "default": "disabled",
+          "title": "Thinking",
+          "type": "string"
+        }
       },
-      "required": ["family", "model"],
+      "required": [
+        "family",
+        "model"
+      ],
       "title": "ValidationProvider",
       "type": "object"
     }
   },
   "additionalProperties": false,
   "properties": {
+    "content_hash": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Content Hash",
+      "type": "string"
+    },
+    "datasets": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "propertyNames": {
+        "enum": [
+          "spreadsheet",
+          "document",
+          "interactive",
+          "skill"
+        ]
+      },
+      "title": "Datasets",
+      "type": "object"
+    },
+    "execution": {
+      "$ref": "#/$defs/ValidationExecution"
+    },
+    "methods": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "propertyNames": {
+        "enum": [
+          "spreadsheet",
+          "document",
+          "interactive",
+          "skill"
+        ]
+      },
+      "title": "Methods",
+      "type": "object"
+    },
+    "noise_seed": {
+      "title": "Noise Seed",
+      "type": "integer"
+    },
+    "operators": {
+      "additionalProperties": {
+        "additionalProperties": {
+          "type": "string"
+        },
+        "propertyNames": {
+          "enum": [
+            "N1",
+            "N2",
+            "N3",
+            "N4"
+          ]
+        },
+        "type": "object"
+      },
+      "propertyNames": {
+        "enum": [
+          "spreadsheet",
+          "document",
+          "interactive",
+          "skill"
+        ]
+      },
+      "title": "Operators",
+      "type": "object"
+    },
+    "provider": {
+      "$ref": "#/$defs/ValidationProvider"
+    },
+    "release_id": {
+      "minLength": 1,
+      "title": "Release Id",
+      "type": "string"
+    },
+    "runtime": {
+      "additionalProperties": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "propertyNames": {
+        "enum": [
+          "spreadsheet",
+          "document",
+          "interactive",
+          "skill"
+        ]
+      },
+      "title": "Runtime",
+      "type": "object"
+    },
     "schema_version": {
       "const": "rsebench.validation-matrix.v1",
       "default": "rsebench.validation-matrix.v1",
       "title": "Schema Version",
       "type": "string"
     },
-    "release_id": {"minLength": 1, "title": "Release Id", "type": "string"},
-    "datasets": {
-      "additionalProperties": {"type": "string"},
-      "propertyNames": {"enum": ["spreadsheet", "document", "interactive", "skill"]},
-      "title": "Datasets",
-      "type": "object"
-    },
-    "methods": {
-      "additionalProperties": {"type": "string"},
-      "propertyNames": {"enum": ["spreadsheet", "document", "interactive", "skill"]},
-      "title": "Methods",
-      "type": "object"
-    },
-    "stages": {
-      "items": {"enum": ["N1", "N2", "N3", "N4"], "type": "string"},
-      "title": "Stages",
-      "type": "array"
-    },
-    "operators": {
-      "additionalProperties": {
-        "additionalProperties": {"type": "string"},
-        "propertyNames": {"enum": ["N1", "N2", "N3", "N4"]},
-        "type": "object"
-      },
-      "propertyNames": {"enum": ["spreadsheet", "document", "interactive", "skill"]},
-      "title": "Operators",
-      "type": "object"
-    },
-    "runtime": {
-      "additionalProperties": {"additionalProperties": true, "type": "object"},
-      "propertyNames": {"enum": ["spreadsheet", "document", "interactive", "skill"]},
-      "title": "Runtime",
-      "type": "object"
-    },
     "source_modes": {
-      "additionalProperties": {"enum": ["read_only", "copy_on_run"], "type": "string"},
-      "propertyNames": {"enum": ["spreadsheet", "document", "interactive", "skill"]},
+      "additionalProperties": {
+        "enum": [
+          "read_only",
+          "copy_on_run"
+        ],
+        "type": "string"
+      },
+      "propertyNames": {
+        "enum": [
+          "spreadsheet",
+          "document",
+          "interactive",
+          "skill"
+        ]
+      },
       "title": "Source Modes",
       "type": "object"
     },
-    "provider": {"$ref": "#/$defs/ValidationProvider"},
-    "noise_seed": {"title": "Noise Seed", "type": "integer"},
-    "execution": {"$ref": "#/$defs/ValidationExecution"},
-    "content_hash": {"pattern": "^[0-9a-f]{64}$", "title": "Content Hash", "type": "string"}
+    "stages": {
+      "items": {
+        "enum": [
+          "N1",
+          "N2",
+          "N3",
+          "N4"
+        ],
+        "type": "string"
+      },
+      "title": "Stages",
+      "type": "array"
+    }
   },
   "required": [
     "release_id",

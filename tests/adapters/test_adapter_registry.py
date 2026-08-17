@@ -25,6 +25,13 @@ def test_registry_lists_every_runnable_method():
         spec.model == "deepseek-v4-flash" for spec in registry.adapters.values()
     )
     assert all(spec.upstream_commit for spec in registry.adapters.values())
+    assert registry.adapters["skillopt"].method_releases == [
+        "skillopt-spreadsheet-validation-v1",
+        "skillopt-officeqa-validation-v1",
+    ]
+    assert registry.adapters["skilllearn_self_feedback"].lifecycle == (
+        "validated_inactive"
+    )
 
 
 def test_registry_declares_every_model_role():

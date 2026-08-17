@@ -58,6 +58,16 @@ def validate_registries(root: Path | str) -> None:
             if replicates != 3:
                 raise ValueError(f"split {name} requires exactly three replicates")
             continue
+        if row.get("selection_mode") == "frozen_ordered_groups":
+            family_count = int(row.get("family_count", 0))
+            tasks_per_family = int(row.get("tasks_per_family", 0))
+            if family_count < 1 or tasks_per_family < 1:
+                raise ValueError(f"split {name} has invalid frozen group counts")
+            if int(row.get("total", 0)) != family_count * tasks_per_family:
+                raise ValueError(f"split {name} frozen group total differs")
+            if not row.get("release_id"):
+                raise ValueError(f"split {name} frozen release identity is missing")
+            continue
         total = int(row["total"])
         partition_total = (
             int(row["evolution"]) + int(row["validation"]) + int(row["test"])

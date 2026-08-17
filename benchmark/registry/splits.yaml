@@ -63,12 +63,12 @@ splits:
   skillflow_tasks:
     active: true
     benchmark: skillflow_tasks
-    total: 48
+    release_id: skillflow-tasks-validation-v1
+    total: 18
     group_key: task_family
-    selection_mode: ordered_family_qualification
-    candidate_families: 6
-    target_qualified_families: 2
-    replicates: 3
+    selection_mode: frozen_ordered_groups
+    family_count: 3
+    tasks_per_family: 6
   skilllearnbench:
     active: false
     benchmark: skilllearnbench

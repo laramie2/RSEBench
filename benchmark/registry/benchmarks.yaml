@@ -3,6 +3,7 @@ benchmarks:
   spreadsheetbench_verified:
     active: true
     tier: core1
+    dataset_release: spreadsheetbench-verified-validation-v1
     primary_method: skillopt
     operators:
       N1: spreadsheet_n1_erroneous_handover
@@ -19,6 +20,7 @@ benchmarks:
   officeqa_full:
     active: true
     tier: core1
+    dataset_release: officeqa-full-validation-v1
     primary_method: skillopt
     operators:
       N1: officeqa_n1_one_axis_derivation
@@ -100,8 +102,10 @@ benchmarks:
     tier: core1
     primary_method: skillflow
     noise_ready: false
-    clean_selection_status: screening
-    domain: skill_native
+    noise_interface_ready: true
+    clean_selection_status: frozen_validation_v1
+    dataset_release: skillflow-tasks-validation-v1
+    domain: skill
     source_kind: huggingface
     source_id: zhang-ziao/SkillFlow-Task
     revision: main
@@ -129,6 +133,7 @@ benchmarks:
   webshop:
     active: true
     tier: core1
+    dataset_release: webshop-validation-v1
     primary_method: skilladaptor
     operators:
       N1: webshop_n1_near_match_session

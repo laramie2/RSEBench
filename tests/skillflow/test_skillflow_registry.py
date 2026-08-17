@@ -44,11 +44,12 @@ def test_skillflow_method_adapter_and_split_are_active() -> None:
     assert adapters["skillflow"]["active"] is True
     assert adapters["skilllearn_self_feedback"]["active"] is False
     assert splits["skillflow_tasks"]["active"] is True
-    assert splits["skillflow_tasks"]["selection_mode"] == "ordered_family_qualification"
+    assert splits["skillflow_tasks"]["selection_mode"] == "frozen_ordered_groups"
+    assert splits["skillflow_tasks"]["total"] == 18
     assert splits["skilllearnbench"]["active"] is False
 
 
-def test_docs_preserve_skilllearn_history_and_do_not_claim_skillflow_frozen() -> None:
+def test_docs_preserve_skilllearn_history_and_record_validation_v1_freeze() -> None:
     roadmap = (ROOT / "docs/project-roadmap.md").read_text(encoding="utf-8")
     status = (ROOT / "docs/reports/current-experiment-status.md").read_text(
         encoding="utf-8"
@@ -57,7 +58,7 @@ def test_docs_preserve_skilllearn_history_and_do_not_claim_skillflow_frozen() ->
     for text in (roadmap, status):
         assert "SkillLearn" in text
         assert "diagnostic" in text.lower()
-        assert "two families qualify" in text
-        assert "not frozen" in text.lower()
+        assert "validation-v1" in text
+        assert "interface" in text.lower()
     assert "SkillFlow-Task" in roadmap
     assert "Self-Feedback" in status

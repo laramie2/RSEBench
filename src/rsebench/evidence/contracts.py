@@ -77,8 +77,9 @@ EvidenceRecord = TrajectoryRecord | FeedbackRecord
 
 
 class RuntimeNoiseSpec(StrictModel):
-    schema_version: Literal["rsebench.runtime-noise-spec.v1"] = (
-        "rsebench.runtime-noise-spec.v1"
+    schema_version: Literal["rsebench.runtime-noise-spec.v1"] = Field(
+        default="rsebench.runtime-noise-spec.v1",
+        exclude_if=lambda value: value == "rsebench.runtime-noise-spec.v1",
     )
     stage: EvidenceStage
     operator: str = Field(min_length=1)

@@ -72,8 +72,9 @@ class TaskManifest(StrictModel):
 
 
 class NoiseManifest(StrictModel):
-    schema_version: Literal["rsebench.noise-manifest.v1"] = (
-        "rsebench.noise-manifest.v1"
+    schema_version: Literal["rsebench.noise-manifest.v1"] = Field(
+        default="rsebench.noise-manifest.v1",
+        exclude_if=lambda value: value == "rsebench.noise-manifest.v1",
     )
     noise_id: str = Field(min_length=1)
     channel: Channel

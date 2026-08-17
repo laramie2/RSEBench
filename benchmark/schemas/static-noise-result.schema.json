@@ -1,0 +1,98 @@
+{
+  "additionalProperties": false,
+  "description": "Content-addressed output and fail-closed audit for one static task.",
+  "properties": {
+    "applicable": {
+      "title": "Applicable",
+      "type": "boolean"
+    },
+    "changes": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Changes",
+      "type": "array"
+    },
+    "clean_hash": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Clean Hash",
+      "type": "string"
+    },
+    "noisy_hash": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Noisy Hash",
+      "type": "string"
+    },
+    "noisy_uri": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Noisy Uri"
+    },
+    "operator": {
+      "minLength": 1,
+      "title": "Operator",
+      "type": "string"
+    },
+    "protected_field_audit": {
+      "additionalProperties": {
+        "type": "boolean"
+      },
+      "title": "Protected Field Audit",
+      "type": "object"
+    },
+    "reason": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Reason"
+    },
+    "seed": {
+      "title": "Seed",
+      "type": "integer"
+    },
+    "stage": {
+      "enum": [
+        "N1",
+        "N2"
+      ],
+      "title": "Stage",
+      "type": "string"
+    },
+    "task_id": {
+      "minLength": 1,
+      "title": "Task Id",
+      "type": "string"
+    },
+    "version": {
+      "minLength": 1,
+      "title": "Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "stage",
+    "operator",
+    "version",
+    "task_id",
+    "seed",
+    "applicable",
+    "clean_hash",
+    "noisy_hash"
+  ],
+  "title": "StaticNoiseResult",
+  "type": "object"
+}

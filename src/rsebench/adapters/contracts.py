@@ -32,11 +32,15 @@ class BaselineAdapterSpec(StrictModel):
     roles: list[str] = Field(min_length=1)
     native_domains: list[str] = Field(min_length=1)
     active: bool = False
+    lifecycle: Literal["validated_inactive"] | None = None
+    method_releases: list[str] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def locked_model(self) -> "BaselineAdapterSpec":
         if self.model != "deepseek-v4-flash":
             raise ValueError("baseline adapter model must be deepseek-v4-flash")
+        if len(self.method_releases) != len(set(self.method_releases)):
+            raise ValueError("adapter method releases must be unique")
         return self
 
 

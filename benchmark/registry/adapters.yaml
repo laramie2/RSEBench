@@ -10,6 +10,9 @@ adapters:
     native_domains: [spreadsheet]
   skillopt:
     active: true
+    method_releases:
+      - skillopt-spreadsheet-validation-v1
+      - skillopt-officeqa-validation-v1
     upstream_commit: 47fe269d75d3def79ffd90236261d26d84868ae5
     method_path: skillopt
     launcher: scripts/baselines/smoke_skillopt.py
@@ -42,6 +45,7 @@ adapters:
     native_domains: [skill_native]
   skillflow:
     active: true
+    method_releases: [skillflow-validation-v1]
     upstream_commit: 7b49ff5a7e26cd7706e959bfa0dba4746d18440d
     method_path: skillflow
     launcher: scripts/baselines/smoke_skillflow.py
@@ -58,6 +62,7 @@ adapters:
     native_domains: [skill_native]
   skilllearn_self_feedback:
     active: false
+    lifecycle: validated_inactive
     upstream_commit: a0da045a8bf64b8a8ff20730c4d6ef10dc4e2c5b
     method_path: skilllearnbench
     launcher: scripts/baselines/smoke_skilllearn.py
@@ -74,6 +79,7 @@ adapters:
     native_domains: [skill_learning]
   skilladaptor:
     active: true
+    method_releases: [skilladaptor-webshop-validation-v1]
     upstream_commit: b26d1ab5a798f07e53048b5ff509e8535e9fa228
     method_path: skilladaptor
     launcher: scripts/baselines/smoke_skilladaptor.py

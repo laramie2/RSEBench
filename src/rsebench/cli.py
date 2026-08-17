@@ -9,6 +9,7 @@ from pathlib import Path
 import typer
 
 from rsebench.contracts import NoiseManifest, TaskManifest
+from rsebench.datasets import DatasetRelease
 from rsebench.evidence import (
     FeedbackRecord,
     RuntimeNoiseSpec,
@@ -35,6 +36,8 @@ from rsebench.experiments.release import (
 )
 from rsebench.experiments.scheduler import ExperimentScheduler
 from rsebench.generation import generate_from_profile
+from rsebench.methods import MethodRelease
+from rsebench.noise import NoisePlugin, StaticNoiseResult, StaticNoiseSpec
 from rsebench.providers.deepseek import DeepSeekClient
 from rsebench.registry import validate_registries
 from rsebench.selection.contracts import (
@@ -51,6 +54,7 @@ from rsebench.validation.service import (
     run_validation,
     validation_status,
 )
+from rsebench.validation import ValidationCell, ValidationMatrix
 
 
 app = typer.Typer(no_args_is_help=True)
@@ -182,6 +186,13 @@ def export_schemas(output_dir: Path = ROOT / "benchmark" / "schemas") -> None:
     schemas = {
         "task-manifest.schema.json": TaskManifest.model_json_schema(),
         "noise-manifest.schema.json": NoiseManifest.model_json_schema(),
+        "dataset-release.schema.json": DatasetRelease.model_json_schema(),
+        "method-release.schema.json": MethodRelease.model_json_schema(),
+        "noise-plugin.schema.json": NoisePlugin.model_json_schema(),
+        "static-noise-spec.schema.json": StaticNoiseSpec.model_json_schema(),
+        "static-noise-result.schema.json": StaticNoiseResult.model_json_schema(),
+        "validation-matrix.schema.json": ValidationMatrix.model_json_schema(),
+        "validation-cell.schema.json": ValidationCell.model_json_schema(),
         "trajectory-record.schema.json": TrajectoryRecord.model_json_schema(),
         "feedback-record.schema.json": FeedbackRecord.model_json_schema(),
         "runtime-noise-spec.schema.json": RuntimeNoiseSpec.model_json_schema(),

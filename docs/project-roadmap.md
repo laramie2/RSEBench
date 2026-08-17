@@ -1,12 +1,13 @@
 # RSEBench 项目路线图
 
-> 状态基准：2026-08-16。机器可读的 active registry 和实验 YAML 是可执行事实的最终来源；本文负责解释范围、依赖关系和协作者下一步工作。
+> 状态基准：2026-08-17。机器可读的 release manifest、validation matrix 和 registry 是可执行事实的最终来源；本文负责解释范围、依赖关系和协作者下一步工作。
 
-> 2026-08-16 迁移说明：第四个主 clean-validation 领域已从
-> `SkillLearnBench / Self-Feedback` 调整为 `SkillFlow-Task / SkillFlow`。
-> SkillLearn 的代码、manifest 和既有报告全部保留为 diagnostic history；它们不是被删除或
-> 重写。SkillFlow is not frozen until two families qualify under the fixed r1/r2/r3 gate，
-> 因而当前不得启动或宣称其 N1–N4 正式结果。
+> 2026-08-17 冻结说明：第四个主 validation 领域已确定为
+> `SkillFlow-Task / SkillFlow`。validation-v1 冻结三个 family 的前 6 个有序任务，
+> 用于噪声机制验证；这不等价于 SkillFlow 全集 clean efficacy 的无偏复现。
+> SkillLearn 的代码、manifest 和既有报告继续作为 diagnostic history 保留。
+> N1–N4 stage 接口和 4×4 控制面已冻结，但具体 `CELL_RUNNERS` 尚未实现，
+> 因而当前 `validation run` 会 fail-closed，不会启动 provider 调用。
 
 ## 1. 项目目标
 
@@ -46,7 +47,7 @@ Clean arm 与 noisy arm 必须从相同 seed skill 出发，使用相同任务 I
 | Spreadsheet | SpreadsheetBench-Verified | SkillOpt | 20/10/30 |
 | Document QA | OfficeQA Full | SkillOpt | 12/12/20 |
 | Interactive | WebShop | SkillAdaptor | 5/5/20 |
-| Longitudinal Skill Evolution | SkillFlow-Task | SkillFlow iterative shared-skill evolution | 每 family 8–9 个官方排序任务，r1/r2/r3 paired replicates |
+| Longitudinal Skill Evolution | SkillFlow-Task | SkillFlow iterative shared-skill evolution | 3 family × 6 个官方排序任务 |
 
 Clean-v2 使用固定 method seed `20260813`、`20260814`、`20260815`，当前统一模型为 `deepseek-v4-flash`，`temperature=0.0`，thinking disabled。上表是 clean qualification 的正式规模，不是 Core-1 噪声筛选的小样本规模。
 
@@ -101,9 +102,9 @@ Harbor trajectory 和 verifier result 更新同一个 shared-skill 目录，并�
 
 - **任务载体：** 8–9 个同 family Harbor tasks、官方排序、task Docker environment 和 verifier；
 - **执行证据：** ATIF trajectory、逐任务 reward、shared-skill patch history、后续 skill read/use、token 与三级时间记录；
-- **clean screening：** Batch A 先跑 r1，只有产生非空落盘 patch、后续实际使用 skill 且 `delta_late > 0` 的 family 才进入 r2/r3 confirmation；
-- **正式冻结：** 至少两个 family 满足 2/3 正向、其余不负迁移、pooled full delta 为正、三次均更新且至少两次实际使用 skill；
-- **当前状态：** control plane 和证据 patch 已建立，但 two families qualify 之前仍是 not frozen。
+- **历史 clean screening：** 20 个官方 family 已完成分类；HWPX 观察到局部正增益，Distribution 与 Embedded 完整执行并产生/读取 skill，但 clean delta 为 tie；
+- **validation-v1 冻结：** `HWPX-Document-Automation`、`Distribution-Center-Auditing`、`Embedded-Data-Repair` 各取前 6 个有序任务；family 内串行、family 间重置 skill library；
+- **当前状态：** 数据与方法执行闭环已冻结用于噪声机制验证，但不宣称三个 family 都具有稳定正向 clean efficacy，也不外推为原论文 166-task 总体效果。
 
 ### 3.5 SkillLearnBench（diagnostic history）
 
@@ -123,7 +124,7 @@ SkillLearnBench 以 task family 为 self-evolution 单位。方法只能使用 a
 |---|---|---|---|
 | 当前 reference | SkillOpt | Spreadsheet、Document QA | active；当前 clean-v2 reference |
 | 当前 reference | SkillAdaptor | Interactive/WebShop | active；当前 clean-v2 reference |
-| 当前 reference | SkillFlow | Longitudinal Skill Evolution | active adapter；clean family screening 中，尚未 frozen |
+| 当前 reference | SkillFlow | Longitudinal Skill Evolution | active；validation-v1 三-family release 已冻结 |
 | 历史 diagnostic | SkillLearnBench self-/teacher-feedback | Skill Learning | 旧结果和 N1–N4 定义保留；不再作为主 clean 域 |
 | 计划 comparison | Trace2Skill、SkillGrad | Spreadsheet | inactive；待统一 harness 正式验证 |
 | 计划 comparison | EvoSkill | Document QA | inactive；待 shared OfficeQA manifest adapter |
@@ -258,19 +259,19 @@ Pilot 中的 `candidate`、`weak signal`、`null`、`opposite`、`blocked` 和 `
 
 ## 8. 当前状态与已知限制
 
-截至 2026-08-16，统一 clean qualification 尚未冻结可供 N1–N4 引用的四域 release。当前状态必须按以下四层理解：
+截至 2026-08-17，四域 validation-v1 数据、方法身份和 clean evidence 引用已经冻结。当前状态必须按以下四层理解：
 
-- **Execution/interface：** 统一 runner、scheduler、identity、timing、token ledger、baseline patch replay 和四域 canary 已建立；个别模型输出仍可能触发 typed interface failure，需要按 experiment identity 重跑受影响单元。
-- **Clean update：** 四域主流程均已观察到可执行的 evolution/update 路径，但 accepted update 的出现率并不稳定。
-- **Clean efficacy：** 尚无可公开冻结、覆盖四个 Core-1 单元的统一 `efficacy_ready` clean release。
-- **Noise efficacy：** 当前没有 N1–N4 operator 完成跨 seed 稳定晋级；已有结果只能标为 candidate、weak signal、null、opposite 或 blocked。
+- **Execution/interface：** 四个 DatasetRelease、四个 active MethodRelease、stage-owned plugin、精确 16-cell matrix、attempt 隔离和统一 CLI 已建立；补丁可从各自 upstream revision 重放。
+- **Clean reuse：** Spreadsheet、OfficeQA、WebShop 引用 clean-v2 canary evidence；SkillFlow 引用三-family clean selection evidence。任何 dataset、method patchset、provider、runtime 或 seed 变化都会使 reuse 失效。
+- **Clean efficacy：** Spreadsheet 和 WebShop 的选定 clean control 有正增益；OfficeQA 为非退化 tie；SkillFlow 仅 HWPX 有局部正增益，另外两个 family 为完整执行 tie。因此 validation-v1 是机制验证 release，不是四领域稳定 efficacy 的强声明。
+- **Noise efficacy：** 当前没有新增 N1–N4 正式结果。四个 stage 只有共享接口；具体 operator runner 完成并使 `execution_ready=true` 后才能启动验证。
 
 已知领域限制：
 
 - **Spreadsheet：** SkillOpt 可以产生 update，但独立 seed 中仍会出现 no-update 或 accepted artifact 在 clean test 上回退；
 - **OfficeQA：** 主要工具参数/最终轮恢复路径已增强，但长多轮检索仍可能出现 answer recovery 或 failure-diagnostic interface 问题；
 - **WebShop：** 20 条独立 episode 的 ID/解析执行链已在正式 seed 上观察到有效运行，但 SkillAdaptor episode 成本高，仍需等待完整三 seed 的 adoption/efficacy 证据；
-- **SkillFlow-Task：** provider、原生 runner、结果 parser、token/patch timing 和自适应 family control plane 已就绪；当前等待两个 family 通过固定三 replicate clean 门槛，尚未 frozen；
+- **SkillFlow-Task：** 三个 family × 6 任务已冻结；HWPX 为局部正信号，Distribution/Embedded 为完整执行 tie，结论边界必须保留；
 - **SkillLearnBench（diagnostic）：** 可以生成并接受 skill update，但现有 family 上尚未得到跨 seed 稳定 clean gain；单一 `offer-letter-generator` N1 强信号仅保留为历史机制候选，不能外推为主领域结论。
 
 详细数字应以带日期报告和 frozen release summary 为准，本文不随每个 live episode 更新。
@@ -279,22 +280,21 @@ Pilot 中的 `candidate`、`weak signal`、`null`、`opposite`、`blocked` 和 `
 
 以下任务按依赖关系排序。前一阶段未通过时，不应通过扩大 noisy run 数量绕过门槛。
 
-### P0：完成四域 clean qualification
+### P0：实现四个 stage 的具体 runner
 
-- [ ] Spreadsheet / SkillOpt、OfficeQA / SkillOpt、WebShop / SkillAdaptor 继续引用各自已验证的 clean identity 与 typed evidence；
-- [ ] 按 `skillflow-clean-qualification-v1` 先运行 Batch A r1；preliminary-positive 少于 2 个时才运行 Batch B；
-- [ ] 只给 preliminary-positive SkillFlow family 补齐缺失的 r2/r3，直到两个 family qualified 或候选耗尽；
-- [ ] 对每个 method seed 分开记录 artifact hash、accepted/rejected update、seed/evolved task score、typed failure、三层 timing 和 token coverage；
-- [ ] 区分 ordinary low score、no update、clean regression 与 systemic interface failure；
-- [ ] 若修复代码、patch、manifest、task 或 runtime，给受影响 cell 生成新 experiment identity，并完整重跑三个 seed；
-- [ ] SkillFlow two families qualify 之前保持 not frozen；只有四个主领域都达到对应 clean 门槛后才冻结 clean release。
+- [ ] 四位负责人分别只修改 `src/rsebench/noise/stages/n1` 至 `n4` 中自己拥有的目录；
+- [ ] 在各 stage 的 `operators/` 下实现四领域 operator，并在 `CELL_RUNNERS` 中注册 matrix 已冻结的 operator ID；
+- [ ] N1/N2 只写 attempt-local `data/noisy` 视图，N3/N4 只处理统一 evidence；
+- [ ] 保持 task/gold/verifier、reward/success/scalar reward 等 protected fields 的 fail-closed 审计；
+- [ ] 每个 runner 输出 result identity、applicability、mutation audit、token 和三级时间；
+- [ ] provider-free preflight 必须从 `execution_ready=false` 变为 `true` 后，才允许付费运行。
 
-**交付物：** `releases/clean/<release-id>/` 下的 manifest、qualification、aggregate、timing/token summary 和 report。
+**交付物：** 四个 stage-owned runner 包、单元/集成测试、静态 noisy manifest 或 runtime replay pack。
 
 ### P1：首先重新验证 N1
 
-- [ ] 所有 N1 run 引用同一个 frozen clean release；
-- [ ] SkillFlow 先基于 frozen family 定义 N1 候选，不复用 SkillLearn operator，也不在 clean 结果之前创建正式 noise；
+- [ ] 所有 N1 run 引用当前 domain 的 frozen clean evidence，不重复运行 clean arm；
+- [ ] SkillFlow 使用 validation-v1 三-family release，不复用 SkillLearn operator；
 - [ ] 按 frozen task ID 和单轴 operator 运行 clean/noisy paired evolution；
 - [ ] 不按 noisy outcome 选择 SkillFlow family、WebShop goal 或其他样本；
 - [ ] 对 Spreadsheet/OfficeQA 的弱信号做独立重复；SkillLearn family-level candidate 只在 diagnostic history 中单独报告；
@@ -362,12 +362,29 @@ Benchmark freeze 后再实现 Reliability-aware Experience Audit、Reliability-w
 - [Core-1 validation report](reports/core1-validation-status.md)
 - [Expanded N1 report](reports/2026-08-13-expanded-n1-validation.md)
 - [Baseline–benchmark audit](reports/baseline-benchmark-audit.md)
-- [Baseline patch model](../patches/baselines/README.md)
+- [Baseline patch model](../methods/README.md)
+- [Validation-v1 matrix](../configs/validation/validation-v1.yaml)
+- [Validation-v1 freeze report](reports/2026-08-17-validation-v1-freeze.md)
 - [SkillFlow clean design](superpowers/specs/2026-08-16-skillflow-clean-qualification-design.md)
 - [SkillFlow clean implementation plan](superpowers/plans/2026-08-16-skillflow-clean-qualification.md)
 - [SkillFlow frozen input manifest](../benchmark/validation/skillflow_clean_qualification_v1/input_manifest.json)
 
 统一控制流程：
+
+```bash
+python -m rsebench.cli validation preflight \
+  --matrix configs/validation/validation-v1.yaml
+python -m rsebench.cli validation run \
+  --matrix configs/validation/validation-v1.yaml \
+  --max-parallel 16 \
+  --confirm-provider-cost
+python -m rsebench.cli validation status \
+  --matrix configs/validation/validation-v1.yaml
+python -m rsebench.cli validation aggregate \
+  --matrix configs/validation/validation-v1.yaml
+```
+
+以下 clean-v2 / SkillFlow 命令保留为历史结果重放和兼容入口，不再用于定义新的 4×4 matrix：
 
 ```bash
 python -m rsebench.cli baselines bootstrap
@@ -399,7 +416,7 @@ python scripts/run_skillflow_clean.py aggregate
 python scripts/run_skillflow_clean.py freeze
 ```
 
-正式 provider call 只能由显式、带 cost confirmation 的 `experiment run` 或 SkillFlow `screen/confirm` 触发。Bootstrap、verify、preflight、dry-run、status、aggregate、freeze validation 不应调用模型。
+正式 provider call 只能由显式、带 cost confirmation 且 `execution_ready=true` 的 `validation run`（或历史兼容入口）触发。Bootstrap、verify、preflight、dry-run、status、aggregate 和 freeze validation 不应调用模型。
 
 Git 跟踪代码、registry、patch、dependency lock、frozen manifest、compact aggregate 和报告；`methods/external/`、`data/`、`outputs/`、credential 和大规模运行产物保持 gitignored。
 
