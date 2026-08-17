@@ -25,7 +25,7 @@
 
 - Create: `docs/project-roadmap.md` — 协作者阅读的项目目标、当前范围、方法、噪声矩阵、实验门槛和工作清单。
 - Modify: `README.md` — 更新过时的阶段描述，并加入项目路线图入口。
-- Reference: `docs/superpowers/specs/2026-08-14-collaborator-project-roadmap-design.md` — 已批准的范围和章节职责。
+- Reference: [collaborator roadmap design](../design-specs/2026-08-14-collaborator-project-roadmap-design.md) — 已批准的范围和章节职责。
 - Reference: `benchmark/registry/{benchmarks,methods,adapters,noise_operators}.yaml` — active 状态、仓库 revision、方法角色和 operator 的机器真源。
 - Reference: `configs/experiments/clean-v2.yaml` — clean-v2 四单元规模、runtime 和三固定 seed。
 - Reference: `configs/core1/{spreadsheetbench_verified,officeqa,skilllearnbench,webshop}/N{1,2,3,4}.yaml` — 16 个 Core-1 operator 单元。
@@ -34,7 +34,7 @@
 
 **Files:**
 - Create: `docs/project-roadmap.md`
-- Reference: `docs/superpowers/specs/2026-08-14-collaborator-project-roadmap-design.md`
+- Reference: [collaborator roadmap design](../design-specs/2026-08-14-collaborator-project-roadmap-design.md)
 - Reference: `benchmark/registry/benchmarks.yaml`
 - Reference: `benchmark/registry/methods.yaml`
 - Reference: `benchmark/registry/adapters.yaml`
@@ -192,7 +192,7 @@ Link at least these tracked sources using paths relative to `docs/project-roadma
 - [Clean-v2 matrix](../configs/experiments/clean-v2.yaml)
 - [Core-1 definition](../benchmark/core1/README.md)
 - [Runtime evidence interface](core1-runtime-evidence-interface.md)
-- [Clean release design](superpowers/specs/2026-08-14-unified-clean-baseline-release-design.md)
+- [Clean release design](../design-specs/2026-08-14-unified-clean-baseline-release-design.md)
 - [Core-1 validation report](reports/core1-validation-status.md)
 - [Expanded N1 report](reports/2026-08-13-expanded-n1-validation.md)
 ```

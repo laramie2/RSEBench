@@ -8,7 +8,7 @@
 
 **Tech Stack:** Python 3.11+, Pydantic v2, pytest, PyYAML, existing RSEBench clean runners/scheduler, SHA-256 canonical JSON identities.
 
-**Approved design:** docs/superpowers/specs/2026-08-15-stable-noise-validation-splits-design.md
+**Approved design:** [stable split design](../design-specs/2026-08-15-stable-noise-validation-splits-design.md)
 
 ## Global Constraints
 

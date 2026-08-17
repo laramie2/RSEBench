@@ -248,7 +248,7 @@ Do not start the full multi-method benchmark yet.
    benchmark validity should enter the final robust benchmark release.
 
 The execution-ready screening, confirmation, token-budget, and stopping rules
-are frozen in `docs/plans/next-validation-experiments.md`.
+are preserved in `docs/archive/implementation-plans/2026-08-13-next-validation-experiments.md`.
 
 ## Token accounting
 
