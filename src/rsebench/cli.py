@@ -45,6 +45,12 @@ from rsebench.selection.contracts import (
 from rsebench.selection.release import (
     freeze_selection_release_roots,
 )
+from rsebench.validation.service import (
+    aggregate_validation,
+    preflight_validation,
+    run_validation,
+    validation_status,
+)
 
 
 app = typer.Typer(no_args_is_help=True)
@@ -52,12 +58,122 @@ baselines_app = typer.Typer(no_args_is_help=True)
 experiment_app = typer.Typer(no_args_is_help=True)
 release_app = typer.Typer(no_args_is_help=True)
 selection_app = typer.Typer(no_args_is_help=True)
+validation_app = typer.Typer(no_args_is_help=True)
 app.add_typer(baselines_app, name="baselines")
 app.add_typer(experiment_app, name="experiment")
 app.add_typer(release_app, name="release")
 app.add_typer(selection_app, name="selection")
+app.add_typer(validation_app, name="validation")
 ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_EXPERIMENT_MATRIX = ROOT / "configs/experiments/clean-v2.yaml"
+DEFAULT_VALIDATION_MATRIX = ROOT / "configs/validation/validation-v1.yaml"
+DEFAULT_VALIDATION_RUN_ROOT = ROOT / "outputs/runs/validation-v1"
+
+
+def _echo_json(payload: object) -> None:
+    typer.echo(
+        json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True)
+    )
+
+
+@validation_app.command("preflight")
+def validation_preflight(
+    matrix: Path = typer.Option(
+        DEFAULT_VALIDATION_MATRIX,
+        "--matrix",
+        exists=True,
+        dir_okay=False,
+        readable=True,
+    ),
+) -> None:
+    """Verify all 16 cells and release identities without provider calls."""
+
+    _echo_json(preflight_validation(matrix))
+
+
+@validation_app.command("run")
+def validation_run(
+    matrix: Path = typer.Option(
+        DEFAULT_VALIDATION_MATRIX,
+        "--matrix",
+        exists=True,
+        dir_okay=False,
+        readable=True,
+    ),
+    run_root: Path = typer.Option(DEFAULT_VALIDATION_RUN_ROOT, "--run-root"),
+    max_parallel: int = typer.Option(16, "--max-parallel", min=1, max=16),
+    confirm_provider_cost: bool = typer.Option(False, "--confirm-provider-cost"),
+) -> None:
+    """Run isolated noisy cells only after explicit cost confirmation."""
+
+    if not confirm_provider_cost:
+        typer.echo("refusing provider-backed run without --confirm-provider-cost")
+        raise typer.Exit(code=2)
+    try:
+        rows = run_validation(
+            matrix,
+            run_root,
+            max_parallel=max_parallel,
+            confirm_provider_cost=True,
+        )
+    except (ValueError, RuntimeError, FileNotFoundError) as exc:
+        typer.echo(str(exc))
+        raise typer.Exit(code=2) from exc
+    _echo_json(
+        {
+            "cell_count": len(rows),
+            "states": dict(
+                sorted(
+                    {
+                        state: sum(row["state"] == state for row in rows)
+                        for state in {str(row["state"]) for row in rows}
+                    }.items()
+                )
+            ),
+        }
+    )
+
+
+@validation_app.command("status")
+def validation_status_command(
+    matrix: Path = typer.Option(
+        DEFAULT_VALIDATION_MATRIX,
+        "--matrix",
+        exists=True,
+        dir_okay=False,
+        readable=True,
+    ),
+    run_root: Path = typer.Option(DEFAULT_VALIDATION_RUN_ROOT, "--run-root"),
+) -> None:
+    """Read the fixed-denominator state of all validation cells."""
+
+    _echo_json(validation_status(matrix, run_root))
+
+
+@validation_app.command("aggregate")
+def validation_aggregate(
+    matrix: Path = typer.Option(
+        DEFAULT_VALIDATION_MATRIX,
+        "--matrix",
+        exists=True,
+        dir_okay=False,
+        readable=True,
+    ),
+    run_root: Path = typer.Option(DEFAULT_VALIDATION_RUN_ROOT, "--run-root"),
+    output: Path | None = typer.Option(None, "--output", dir_okay=False),
+) -> None:
+    """Aggregate all terminal states without changing the 16-cell denominator."""
+
+    payload = aggregate_validation(matrix, run_root)
+    if output is None:
+        _echo_json(payload)
+        return
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    typer.echo(output)
 
 
 @app.command("export-schemas")

@@ -409,7 +409,15 @@ class ExperimentScheduler:
                 if not patch.is_file():
                     raise FileNotFoundError(f"release patch is missing: {patch}")
                 completed = subprocess.run(
-                    ["git", "-C", str(destination), "apply", str(patch)],
+                    [
+                        "git",
+                        "-C",
+                        str(destination),
+                        "apply",
+                        "--ignore-space-change",
+                        "--ignore-whitespace",
+                        str(patch),
+                    ],
                     check=False,
                     capture_output=True,
                     text=True,
