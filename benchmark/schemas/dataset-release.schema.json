@@ -1,0 +1,111 @@
+{
+  "$defs": {
+    "EvidenceReference": {
+      "additionalProperties": false,
+      "description": "A content-addressed provenance record supporting a release decision.",
+      "properties": {
+        "uri": {"minLength": 1, "title": "Uri", "type": "string"},
+        "sha256": {"pattern": "^[0-9a-f]{64}$", "title": "Sha256", "type": "string"},
+        "kind": {"default": "manifest", "minLength": 1, "title": "Kind", "type": "string"}
+      },
+      "required": ["uri", "sha256"],
+      "title": "EvidenceReference",
+      "type": "object"
+    },
+    "ResourceIdentity": {
+      "additionalProperties": false,
+      "description": "One portable immutable resource referenced by a dataset release.",
+      "properties": {
+        "uri": {"minLength": 1, "title": "Uri", "type": "string"},
+        "sha256": {"pattern": "^[0-9a-f]{64}$", "title": "Sha256", "type": "string"},
+        "kind": {"default": "artifact", "minLength": 1, "title": "Kind", "type": "string"}
+      },
+      "required": ["uri", "sha256"],
+      "title": "ResourceIdentity",
+      "type": "object"
+    },
+    "TaskManifest": {
+      "additionalProperties": false,
+      "properties": {
+        "task_id": {"minLength": 1, "title": "Task Id", "type": "string"},
+        "benchmark": {"minLength": 1, "title": "Benchmark", "type": "string"},
+        "domain": {"minLength": 1, "title": "Domain", "type": "string"},
+        "prompt": {"minLength": 1, "title": "Prompt", "type": "string"},
+        "gold_answers": {"items": {"type": "string"}, "title": "Gold Answers", "type": "array"},
+        "source_hash": {"pattern": "^[0-9a-f]{64}$", "title": "Source Hash", "type": "string"},
+        "artifact_path": {
+          "anyOf": [{"type": "string"}, {"type": "null"}],
+          "default": null,
+          "title": "Artifact Path"
+        },
+        "verifier": {
+          "anyOf": [{"type": "string"}, {"type": "null"}],
+          "default": null,
+          "title": "Verifier"
+        },
+        "metadata": {"additionalProperties": true, "title": "Metadata", "type": "object"}
+      },
+      "required": ["task_id", "benchmark", "domain", "prompt", "source_hash"],
+      "title": "TaskManifest",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "A path-independent frozen benchmark task collection.",
+  "properties": {
+    "schema_version": {
+      "const": "rsebench.dataset-release.v1",
+      "default": "rsebench.dataset-release.v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "release_id": {"minLength": 1, "title": "Release Id", "type": "string"},
+    "domain": {"minLength": 1, "title": "Domain", "type": "string"},
+    "benchmark": {"minLength": 1, "title": "Benchmark", "type": "string"},
+    "benchmark_version": {"minLength": 1, "title": "Benchmark Version", "type": "string"},
+    "loader": {"minLength": 1, "title": "Loader", "type": "string"},
+    "verifier": {"minLength": 1, "title": "Verifier", "type": "string"},
+    "tasks": {
+      "additionalProperties": {"$ref": "#/$defs/TaskManifest"},
+      "minProperties": 1,
+      "title": "Tasks",
+      "type": "object"
+    },
+    "partitions": {
+      "additionalProperties": {"items": {"type": "string"}, "type": "array"},
+      "title": "Partitions",
+      "type": "object"
+    },
+    "groups": {
+      "additionalProperties": {"items": {"type": "string"}, "type": "array"},
+      "title": "Groups",
+      "type": "object"
+    },
+    "source_resources": {
+      "default": [],
+      "items": {"$ref": "#/$defs/ResourceIdentity"},
+      "title": "Source Resources",
+      "type": "array"
+    },
+    "provenance": {
+      "default": [],
+      "items": {"$ref": "#/$defs/EvidenceReference"},
+      "title": "Provenance",
+      "type": "array"
+    },
+    "metadata": {"additionalProperties": true, "title": "Metadata", "type": "object"},
+    "content_hash": {"pattern": "^[0-9a-f]{64}$", "title": "Content Hash", "type": "string"}
+  },
+  "required": [
+    "release_id",
+    "domain",
+    "benchmark",
+    "benchmark_version",
+    "loader",
+    "verifier",
+    "tasks",
+    "content_hash"
+  ],
+  "title": "DatasetRelease",
+  "type": "object"
+}
