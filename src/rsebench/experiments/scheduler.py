@@ -6,6 +6,7 @@ import json
 import os
 import re
 import signal
+import shutil
 import subprocess
 import threading
 import time
@@ -14,7 +15,7 @@ from contextlib import ExitStack
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
-from typing import Any, Callable, Sequence
+from typing import Any, Callable, Literal, Sequence
 from uuid import uuid4
 
 from pydantic import Field, field_validator, model_validator
@@ -47,6 +48,8 @@ class ScheduledUnit(StrictModel):
     mutable_resource_keys: list[str] = Field(default_factory=list)
     adapter_key: str = Field(min_length=1)
     adapter_max_parallel: int = Field(default=1, ge=1)
+    source_dir: str | None = None
+    source_mode: Literal["read_only", "copy_on_run"] = "read_only"
 
     @field_validator("mutable_resource_keys")
     @classmethod
@@ -61,6 +64,8 @@ class ScheduledUnit(StrictModel):
     def validate_identity(self) -> "ScheduledUnit":
         if self.identity is not None and self.identity.experiment_id != self.experiment_id:
             raise ValueError("scheduled identity differs from experiment_id")
+        if self.source_mode == "copy_on_run" and not self.source_dir:
+            raise ValueError("copy_on_run requires a method source directory")
         return self
 
 
@@ -100,6 +105,7 @@ class ExperimentScheduler:
         self._active_processes: dict[str, subprocess.Popen[str]] = {}
         self._active_lock = threading.Lock()
         self._interrupt_event = threading.Event()
+        self._read_only_source_snapshots: dict[str, str] = {}
         status_exists = self.status_path.is_file()
         self._status = self._load_status()
         if not status_exists:
@@ -269,6 +275,7 @@ class ExperimentScheduler:
         attempt_id: str,
         attempt_number: int,
         unit: ScheduledUnit,
+        source_path: Path | None,
     ) -> dict[str, str]:
         environment = dict(os.environ)
         paths = {
@@ -277,6 +284,9 @@ class ExperimentScheduler:
             "HF_HOME": attempt_dir / "cache/huggingface",
             "RSEBENCH_OUTPUT_ROOT": attempt_dir / "runner",
             "RSEBENCH_TOKEN_LEDGER": attempt_dir / "token_usage",
+            "RSEBENCH_WORKSPACE_ROOT": attempt_dir / "workspace",
+            "RSEBENCH_NOISY_ROOT": attempt_dir / "noisy",
+            "RSEBENCH_MUTATION_AUDIT_ROOT": attempt_dir / "mutation_audit",
         }
         for path in paths.values():
             path.mkdir(parents=True, exist_ok=True)
@@ -285,6 +295,9 @@ class ExperimentScheduler:
         environment["RSEBENCH_ATTEMPT_ID"] = attempt_id
         environment["RSEBENCH_EXPERIMENT_ID"] = unit.experiment_id
         environment["RSEBENCH_CONTAINER_PREFIX"] = f"rsebench-{attempt_id}"
+        environment["RSEBENCH_SOURCE_MODE"] = unit.source_mode
+        if source_path is not None:
+            environment["RSEBENCH_METHOD_SOURCE"] = str(source_path)
         if unit.identity is not None:
             attempt = build_attempt_identity(
                 unit.identity,
@@ -307,6 +320,77 @@ class ExperimentScheduler:
             )
             environment["RSEBENCH_IDENTITY_PATH"] = str(identity_path)
         return environment
+
+    @staticmethod
+    def _copy_ignore(_directory: str, names: list[str]) -> set[str]:
+        ignored = {
+            ".git",
+            ".venv",
+            "__pycache__",
+            ".pytest_cache",
+            ".ruff_cache",
+            ".mypy_cache",
+            "outputs",
+            "jobs",
+        }
+        return set(names).intersection(ignored)
+
+    def _prepare_source(
+        self,
+        unit: ScheduledUnit,
+        attempt_dir: Path,
+    ) -> Path | None:
+        if unit.source_dir is None:
+            return None
+        source = Path(unit.source_dir).resolve()
+        try:
+            source.relative_to(self.project_root)
+        except ValueError as exc:
+            raise ValueError(f"method source escapes project root: {source}") from exc
+        if not source.is_dir():
+            raise FileNotFoundError(f"method source is missing: {source}")
+        if unit.source_mode == "read_only":
+            return source
+        destination = attempt_dir / "workspace" / "method-source"
+        shutil.copytree(
+            source,
+            destination,
+            symlinks=True,
+            ignore=self._copy_ignore,
+        )
+        return destination
+
+    @staticmethod
+    def _source_snapshot(source: Path) -> str:
+        ignored = {
+            ".git",
+            ".venv",
+            "__pycache__",
+            ".pytest_cache",
+            ".ruff_cache",
+            ".mypy_cache",
+        }
+        rows: list[dict[str, str]] = []
+        for candidate in sorted(source.rglob("*")):
+            if ignored.intersection(candidate.relative_to(source).parts):
+                continue
+            if candidate.is_symlink():
+                rows.append(
+                    {
+                        "path": candidate.relative_to(source).as_posix(),
+                        "kind": "symlink",
+                        "target": os.readlink(candidate),
+                    }
+                )
+            elif candidate.is_file():
+                rows.append(
+                    {
+                        "path": candidate.relative_to(source).as_posix(),
+                        "kind": "file",
+                        "sha256": sha256_file(candidate),
+                    }
+                )
+        return canonical_hash(rows)
 
     def _default_run(
         self,
@@ -384,13 +468,20 @@ class ExperimentScheduler:
             )
             runner_root = attempt_dir / "runner"
             command = self._isolated_command(unit.command, runner_root)
-            environment = self._environment(
-                attempt_dir,
-                attempt_id,
-                int(attempt["attempt_number"]),
-                unit,
-            )
             try:
+                source_path = self._prepare_source(unit, attempt_dir)
+                source_snapshot = (
+                    self._read_only_source_snapshots.get(str(source_path))
+                    if source_path is not None and unit.source_mode == "read_only"
+                    else None
+                )
+                environment = self._environment(
+                    attempt_dir,
+                    attempt_id,
+                    int(attempt["attempt_number"]),
+                    unit,
+                    source_path,
+                )
                 if self._command_runner is None:
                     completed = self._default_run(
                         command,
@@ -424,6 +515,19 @@ class ExperimentScheduler:
                         **common,
                         error_type="SchedulerInterrupt",
                         error="scheduler interrupted during launcher execution",
+                    )
+                    return
+                if (
+                    source_snapshot is not None
+                    and source_path is not None
+                    and self._source_snapshot(source_path) != source_snapshot
+                ):
+                    self._transition(
+                        unit,
+                        attempt_id,
+                        UnitState.invalid,
+                        **common,
+                        error="read-only method source changed during launcher execution",
                     )
                     return
                 if completed.returncode != 0:
@@ -618,6 +722,7 @@ class ExperimentScheduler:
             raise ValueError("scheduled unit keys must be unique")
         self._interrupt_event.clear()
         adapter_limits: dict[str, int] = {}
+        self._read_only_source_snapshots = {}
         for unit in units:
             previous = adapter_limits.setdefault(
                 unit.adapter_key, unit.adapter_max_parallel
@@ -626,6 +731,21 @@ class ExperimentScheduler:
                 raise ValueError(f"inconsistent adapter limit: {unit.adapter_key}")
             for key in unit.mutable_resource_keys:
                 self._resource_locks.setdefault(key, threading.Lock())
+            if unit.source_dir and unit.source_mode == "read_only":
+                source = Path(unit.source_dir).resolve()
+                try:
+                    source.relative_to(self.project_root)
+                except ValueError as exc:
+                    raise ValueError(
+                        f"method source escapes project root: {source}"
+                    ) from exc
+                if not source.is_dir():
+                    raise FileNotFoundError(f"method source is missing: {source}")
+                source_key = str(source)
+                if source_key not in self._read_only_source_snapshots:
+                    self._read_only_source_snapshots[source_key] = (
+                        self._source_snapshot(source)
+                    )
         self._adapter_semaphores = {
             key: threading.Semaphore(limit) for key, limit in adapter_limits.items()
         }

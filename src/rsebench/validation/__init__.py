@@ -13,6 +13,7 @@ from rsebench.validation.matrix import (
     load_and_expand,
     load_validation_matrix,
 )
+from rsebench.validation.scheduler import build_validation_units
 
 __all__ = [
     "ValidationCatalogs",
@@ -21,6 +22,7 @@ __all__ = [
     "ValidationMatrix",
     "ValidationProvider",
     "build_validation_matrix",
+    "build_validation_units",
     "expand_validation_cells",
     "load_and_expand",
     "load_validation_matrix",

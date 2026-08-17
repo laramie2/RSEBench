@@ -185,6 +185,7 @@ def expand_validation_cells(
                     plugin_version=plugin.version,
                     dataset_release_id=dataset.release_id,
                     dataset_release_hash=dataset.content_hash,
+                    method=method.method,
                     method_release_id=method.release_id,
                     method_release_hash=method.content_hash,
                     baseline_fingerprint=method.baseline_fingerprint,

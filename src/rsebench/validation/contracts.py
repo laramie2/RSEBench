@@ -102,6 +102,7 @@ class ValidationCell(FrozenStrictModel):
     plugin_version: str = Field(min_length=1)
     dataset_release_id: str = Field(min_length=1)
     dataset_release_hash: str = Field(pattern=_HASH_PATTERN)
+    method: str = Field(min_length=1)
     method_release_id: str = Field(min_length=1)
     method_release_hash: str = Field(pattern=_HASH_PATTERN)
     baseline_fingerprint: str = Field(pattern=_HASH_PATTERN)
