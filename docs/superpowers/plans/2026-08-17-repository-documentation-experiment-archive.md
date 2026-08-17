@@ -147,11 +147,12 @@ Expected: one inventory file committed; `docs/project-onboarding.md` remains unt
 - Create locally: `outputs/runs/core1-officeqa-n4-expanded/`
 - Create locally: `outputs/runs/core1-screen-smoke-webshop-n1-structural/`
 - Create locally: `outputs/runs/core1-screen-smoke-skilllearn-n3-fixed2/`
+- Create locally: `outputs/archive/worktree-rsebench-pilot-20260817/`
 - Create locally: `outputs/archive/2026-08-17-worktree-recovery/SHA256SUMS`
 
 **Interfaces:**
-- Consumes: untracked worktree plan and worktree-only output directories identified in Task 1.
-- Produces: canonical main-worktree copies that satisfy existing report locators and permit safe worktree removal.
+- Consumes: untracked worktree plan and the complete worktree-only output tree identified in Task 1.
+- Produces: a complete historical archive plus canonical main-worktree copies that satisfy existing report locators and permit safe worktree removal.
 
 - [ ] **Step 1: Confirm every destination is absent**
 
@@ -159,6 +160,7 @@ Run:
 
 ```bash
 for path in \
+  outputs/archive/worktree-rsebench-pilot-20260817 \
   outputs/runs/n1-expanded-20260813 \
   outputs/runs/core1-spreadsheet-n3-expanded \
   outputs/runs/core1-spreadsheet-n3-applicable-confirm \
@@ -187,20 +189,22 @@ cmp \
 
 Expected: `cmp` exits `0`.
 
-- [ ] **Step 3: Copy the six unique historical output roots**
+- [ ] **Step 3: Copy the complete pilot output tree, then restore six report locators**
 
 Run:
 
 ```bash
-cp -a .worktrees/rsebench-pilot/outputs/runs/n1-expanded-20260813 outputs/runs/
-cp -a .worktrees/rsebench-pilot/outputs/runs/core1-spreadsheet-n3-expanded outputs/runs/
-cp -a .worktrees/rsebench-pilot/outputs/runs/core1-spreadsheet-n3-applicable-confirm outputs/runs/
-cp -a .worktrees/rsebench-pilot/outputs/runs/core1-officeqa-n4-expanded outputs/runs/
-cp -a .worktrees/rsebench-pilot/outputs/runs/core1-screen-smoke-webshop-n1-structural outputs/runs/
-cp -a .worktrees/rsebench-pilot/outputs/runs/core1-screen-smoke-skilllearn-n3-fixed2 outputs/runs/
+mkdir -p outputs/archive
+cp -a .worktrees/rsebench-pilot/outputs outputs/archive/worktree-rsebench-pilot-20260817
+cp -a outputs/archive/worktree-rsebench-pilot-20260817/runs/n1-expanded-20260813 outputs/runs/
+cp -a outputs/archive/worktree-rsebench-pilot-20260817/runs/core1-spreadsheet-n3-expanded outputs/runs/
+cp -a outputs/archive/worktree-rsebench-pilot-20260817/runs/core1-spreadsheet-n3-applicable-confirm outputs/runs/
+cp -a outputs/archive/worktree-rsebench-pilot-20260817/runs/core1-officeqa-n4-expanded outputs/runs/
+cp -a outputs/archive/worktree-rsebench-pilot-20260817/runs/core1-screen-smoke-webshop-n1-structural outputs/runs/
+cp -a outputs/archive/worktree-rsebench-pilot-20260817/runs/core1-screen-smoke-skilllearn-n3-fixed2 outputs/runs/
 ```
 
-Expected: every copy succeeds without overwriting an existing destination.
+Expected: the complete 117 MB historical output tree is archived and every report locator is restored without overwriting an existing destination.
 
 - [ ] **Step 4: Hash-verify source and destination trees**
 
@@ -208,31 +212,20 @@ Run from the repository root:
 
 ```bash
 mkdir -p outputs/archive/2026-08-17-worktree-recovery
-find .worktrees/rsebench-pilot/outputs/runs \
-  \( -path '*/n1-expanded-20260813/*' \
-  -o -path '*/core1-spreadsheet-n3-expanded/*' \
-  -o -path '*/core1-spreadsheet-n3-applicable-confirm/*' \
-  -o -path '*/core1-officeqa-n4-expanded/*' \
-  -o -path '*/core1-screen-smoke-webshop-n1-structural/*' \
-  -o -path '*/core1-screen-smoke-skilllearn-n3-fixed2/*' \) \
-  -type f -print0 | sort -z | xargs -0 sha256sum \
+find .worktrees/rsebench-pilot/outputs -type f -print0 | sort -z | xargs -0 sha256sum \
   > outputs/archive/2026-08-17-worktree-recovery/source.sha256
-find outputs/runs \
-  \( -path '*/n1-expanded-20260813/*' \
-  -o -path '*/core1-spreadsheet-n3-expanded/*' \
-  -o -path '*/core1-spreadsheet-n3-applicable-confirm/*' \
-  -o -path '*/core1-officeqa-n4-expanded/*' \
-  -o -path '*/core1-screen-smoke-webshop-n1-structural/*' \
-  -o -path '*/core1-screen-smoke-skilllearn-n3-fixed2/*' \) \
-  -type f -print0 | sort -z | xargs -0 sha256sum \
+find outputs/archive/worktree-rsebench-pilot-20260817 -type f -print0 | sort -z | xargs -0 sha256sum \
   > outputs/archive/2026-08-17-worktree-recovery/destination.sha256
 sed 's#\.worktrees/rsebench-pilot/##' \
   outputs/archive/2026-08-17-worktree-recovery/source.sha256 \
   > outputs/archive/2026-08-17-worktree-recovery/source.normalized.sha256
+sed 's#outputs/archive/worktree-rsebench-pilot-20260817/#outputs/#' \
+  outputs/archive/2026-08-17-worktree-recovery/destination.sha256 \
+  > outputs/archive/2026-08-17-worktree-recovery/destination.normalized.sha256
 cmp \
   outputs/archive/2026-08-17-worktree-recovery/source.normalized.sha256 \
-  outputs/archive/2026-08-17-worktree-recovery/destination.sha256
-cp outputs/archive/2026-08-17-worktree-recovery/destination.sha256 \
+  outputs/archive/2026-08-17-worktree-recovery/destination.normalized.sha256
+cp outputs/archive/2026-08-17-worktree-recovery/destination.normalized.sha256 \
   outputs/archive/2026-08-17-worktree-recovery/SHA256SUMS
 ```
 
