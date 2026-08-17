@@ -1,6 +1,10 @@
 # 验证数据冻结、方法分层与 4×4 模块化实验矩阵设计
 
-日期：2026-08-17
+> 状态：Current validation-v1 architecture
+>
+> 日期：2026-08-17 UTC
+>
+> 相关入口：[matrix](../../configs/validation/validation-v1.yaml)、[current status](../reports/current/current-project-status.md)、[release protocol](../protocols/dataset-and-method-release.md)、[noise-stage protocol](../protocols/noise-stage-interface.md)、[runbook](../operations/validation-runbook.md)
 
 ## 1. 目标
 

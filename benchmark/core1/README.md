@@ -83,5 +83,6 @@ the same untouched clean test split. A candidate noise cell must also show
 non-degrading clean evolution, different update evidence/artifacts, complete
 token accounting, and no systemic harness failure.
 
-See `docs/core1-runtime-evidence-interface.md` for integration of a new
-baseline and `docs/reports/core1-validation-status.md` for pilot results.
+See the [current noise-stage interface](../../docs/protocols/noise-stage-interface.md)
+for integration requirements and `docs/reports/core1-validation-status.md` for
+the historical pilot result path until the report archive migration completes.

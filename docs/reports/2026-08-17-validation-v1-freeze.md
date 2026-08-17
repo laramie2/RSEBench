@@ -115,7 +115,7 @@ python -m rsebench.cli validation aggregate \
   --matrix configs/validation/validation-v1.yaml
 ```
 
-旧 clean-v2、Core-1 和分领域 launcher 只作为兼容与历史重放入口。完整的架构约束见 [批准的设计](../superpowers/specs/2026-08-17-validation-freeze-modular-matrix-design.md)，后续任务状态见 [项目路线图](../project-roadmap.md)。
+旧 clean-v2、Core-1 和分领域 launcher 只作为兼容与历史重放入口。完整的架构约束见 [validation-v1 architecture](../architecture/validation-v1-architecture.md)，后续任务状态见 [项目路线图](../project-roadmap.md)。
 
 ## 7. 当前未完成项
 

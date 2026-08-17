@@ -262,7 +262,7 @@ observable calls. Another `588` legacy evaluation conversations have no
 persisted provider usage and remain unobservable rather than estimated. The
 live ledger smoke measured 11 billed tokens for one request and 22 logical
 tokens after one identical cache hit. Full definitions, source breakdown, and
-artifact paths are in `docs/reports/token-accounting-status.md`.
+artifact paths are described in `docs/protocols/token-timing-and-result-contract.md`.
 
 ## Reproducibility verification
 

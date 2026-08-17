@@ -202,7 +202,7 @@ known floor, and reevaluating no-op artifacts that differ only by timestamps.
 ## Evidence paths
 
 - Core-1 definition: `benchmark/core1/README.md`
-- N3/N4 public contract: `docs/core1-runtime-evidence-interface.md`
+- N3/N4 public contract: `docs/protocols/noise-stage-interface.md`
 - Spreadsheet candidate signal:
   `outputs/runs/core1-spreadsheet-n3-expanded/20260813T103149516404Z-skillopt/result.json`
 - Spreadsheet confirmation:

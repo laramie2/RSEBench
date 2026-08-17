@@ -1,6 +1,8 @@
-# Token Accounting Status
+# Token、时间与结果记录合同
 
-Date: 2026-08-13
+> 当前合同版本：2026-08-17 UTC
+>
+> 2026-08-13 的 provider smoke 和历史 token audit 保留在后半部分作为验证证据，不是新的调用授权。
 
 ## Accounting contract
 
@@ -83,6 +85,48 @@ Audit artifact:
 
 The independent direct sums of the 47 SkillOpt summaries and 891 unique cache
 files match the audit exactly.
+
+## Timing contract
+
+每个新实验必须同时记录三级 UTC 时间。失败、取消和 blocked attempt 也必须写终态，不能因为没有 score 而缺失 timing record。
+
+```text
+run:
+  started_at
+  completed_at
+  duration_seconds
+  status
+
+cell/attempt:
+  queued_at
+  started_at
+  completed_at
+  duration_seconds
+  status
+
+provider call:
+  started_at
+  completed_at
+  latency_seconds
+  prompt_tokens
+  completion_tokens
+  total_tokens
+  cached
+```
+
+- 时间戳使用带时区的 UTC ISO-8601；
+- duration 使用单调时钟计算，不能用字符串时间相减；
+- provider、baseline engine 和 RSEBench orchestration 时间分开聚合；
+- parallel cell 的 wall time 不能用所有 cell duration 的简单求和替代；
+- resume 必须保留原 attempt，并创建新的 attempt timing，不覆盖旧记录。
+
+## Result contract
+
+每个终态 attempt 至少记录：release/matrix identity、domain、benchmark、method、stage、operator、seed、status、failure class、input/output/audit locator、score、skill artifact identity、token summary 和 timing summary。
+
+Paid provider call 的 token observation coverage 必须为 100%。API 未返回 usage 的失败调用记录为 `unobservable`，不得按文本长度估算。聚合必须分别报告 billed、logical、cached 和 unavailable usage。
+
+结果文件使用原子写入和不可变 attempt directory。重复聚合只能创建派生 summary，不能回写原始 event、trajectory、feedback 或 provider record。
 
 ## Verification evidence
 
