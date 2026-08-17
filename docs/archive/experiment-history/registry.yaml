@@ -1,0 +1,577 @@
+schema_version: rsebench.experiment-history.v1
+experiments:
+  - experiment_id: phase0-download-audit
+    phase: 00-foundation-and-audits
+    date: '2026-08-12'
+    purpose: dataset download and materialization audit
+    benchmarks: [all_candidates]
+    baselines: []
+    status: completed
+    conclusion: source and materialization status became auditable; no efficacy claim was made
+    config: null
+    input_manifest: benchmark/registry/benchmarks.yaml
+    output_root: data/audit/download-status.json
+    canonical_report: docs/archive/experiment-history/00-foundation-and-audits/2026-08-12-phase0-download-audit.md
+    token_and_timing_record: null
+    preservation_class: historical-evidence
+    superseded_by: validation-v1
+
+  - experiment_id: baseline-and-dataset-audits
+    phase: 00-foundation-and-audits
+    date: '2026-08-12'
+    purpose: baseline intersection and dataset integrity audits
+    benchmarks: [all_candidates]
+    baselines: [all_candidates]
+    status: completed
+    conclusion: native benchmark-method intersections and missing adapters were identified
+    config: configs/baselines/
+    input_manifest: benchmark/registry/
+    output_root: outputs/audits
+    canonical_report: docs/archive/experiment-history/00-foundation-and-audits/2026-08-12-baseline-benchmark-audit.md
+    token_and_timing_record: null
+    preservation_class: historical-evidence
+    superseded_by: validation-v1
+
+  - experiment_id: generation
+    phase: 01-api-pilot-and-initial-noise
+    date: '2026-08-12'
+    purpose: offline and model-backed noise generation calibration
+    benchmarks: [spreadsheetbench_verified, officeqa, docvqa, dapo_math]
+    baselines: []
+    status: completed
+    conclusion: generation artifacts passed structural checks but did not establish a cross-domain self-evolution noise effect
+    config: configs/pilot/
+    input_manifest: benchmark/registry/benchmarks.yaml
+    output_root: outputs/runs/generation
+    canonical_report: docs/archive/experiment-history/00-foundation-and-audits/2026-08-12-pilot-readiness.md
+    token_and_timing_record: outputs/runs/generation
+    preservation_class: historical-evidence
+    superseded_by: validation-v1
+
+  - experiment_id: pilot-a
+    phase: 01-api-pilot-and-initial-noise
+    date: '2026-08-12'
+    purpose: bounded failed-attempt noise pilot
+    benchmarks: [dapo_math]
+    baselines: [skillopt]
+    status: completed
+    conclusion: the pilot exercised the pipeline but was not a frozen robustness result
+    config: configs/pilot/pilot-a.yaml
+    input_manifest: null
+    output_root: outputs/runs/pilot-a
+    canonical_report: docs/archive/experiment-history/00-foundation-and-audits/2026-08-12-pilot-readiness.md
+    token_and_timing_record: outputs/runs/pilot-a
+    preservation_class: historical-evidence
+    superseded_by: expanded-n1
+
+  - experiment_id: paired-evolution
+    phase: 01-api-pilot-and-initial-noise
+    date: '2026-08-12'
+    purpose: early clean versus noisy paired SkillOpt evolution
+    benchmarks: [spreadsheetbench_verified, officeqa, dapo_math]
+    baselines: [skillopt]
+    status: completed
+    conclusion: some Spreadsheet runs separated clean and noisy updates while other domains and seeds were mixed
+    config: configs/evolution/
+    input_manifest: null
+    output_root: outputs/runs/paired-evolution
+    canonical_report: docs/archive/status-snapshots/2026-08-17-current-experiment-status.md
+    token_and_timing_record: outputs/runs/paired-evolution
+    preservation_class: historical-evidence
+    superseded_by: clean-v2
+
+  - experiment_id: evolution-noise
+    phase: 01-api-pilot-and-initial-noise
+    date: '2026-08-12'
+    purpose: initial noise generation and evolution runs
+    benchmarks: [spreadsheetbench_verified, officeqa, docvqa, dapo_math]
+    baselines: [skillopt]
+    status: completed
+    conclusion: early effects were heterogeneous and required larger samples plus baseline qualification
+    config: configs/evolution/
+    input_manifest: null
+    output_root: outputs/runs/evolution-noise
+    canonical_report: docs/archive/status-snapshots/2026-08-17-current-experiment-status.md
+    token_and_timing_record: outputs/runs/evolution-noise
+    preservation_class: historical-evidence
+    superseded_by: expanded-n1
+
+  - experiment_id: officeqa-calibration
+    phase: 01-api-pilot-and-initial-noise
+    date: '2026-08-12'
+    purpose: OfficeQA source, parser, scorer, and runtime calibration
+    benchmarks: [officeqa]
+    baselines: [skillopt]
+    status: completed
+    conclusion: parsed-source coverage and official scoring were repaired for later clean qualification
+    config: configs/calibration/officeqa.yaml
+    input_manifest: data/splits/officeqa_calibrated/
+    output_root: outputs/runs/officeqa-calibration
+    canonical_report: docs/archive/status-snapshots/2026-08-17-current-experiment-status.md
+    token_and_timing_record: outputs/runs/officeqa-calibration
+    preservation_class: historical-evidence
+    superseded_by: clean-v2
+
+  - experiment_id: expanded-evaluation
+    phase: 01-api-pilot-and-initial-noise
+    date: '2026-08-12'
+    purpose: expanded fixed-artifact evaluation
+    benchmarks: [spreadsheetbench_verified, dapo_math]
+    baselines: [skillopt]
+    status: completed
+    conclusion: evaluation scale increased without establishing a universal clean evolution effect
+    config: configs/evolution/
+    input_manifest: null
+    output_root: outputs/runs/expanded-evaluation
+    canonical_report: docs/archive/status-snapshots/2026-08-17-current-experiment-status.md
+    token_and_timing_record: outputs/runs/expanded-evaluation
+    preservation_class: historical-evidence
+    superseded_by: clean-v2
+
+  - experiment_id: difficulty-probe
+    phase: 01-api-pilot-and-initial-noise
+    date: '2026-08-12'
+    purpose: rank DAPO tasks by difficulty and response length
+    benchmarks: [dapo_math]
+    baselines: [skillopt]
+    status: completed
+    conclusion: difficulty probing informed calibration but mathematics did not enter validation-v1
+    config: configs/evolution/math-expanded.yaml
+    input_manifest: data/materialized/dapo_fixed_1000/
+    output_root: outputs/runs/difficulty-probe
+    canonical_report: docs/archive/status-snapshots/2026-08-17-current-experiment-status.md
+    token_and_timing_record: outputs/runs/difficulty-probe
+    preservation_class: historical-evidence
+    superseded_by: validation-v1
+
+  - experiment_id: token-ledger-smoke
+    phase: 01-api-pilot-and-initial-noise
+    date: '2026-08-13'
+    purpose: verify append-only token accounting and cache semantics
+    benchmarks: [provider_smoke]
+    baselines: []
+    status: completed
+    conclusion: provider-reported billed and logical token totals were recorded with complete observation
+    config: configs/pilot/deepseek-v4-flash.yaml
+    input_manifest: null
+    output_root: outputs/runs/token-ledger-smoke
+    canonical_report: docs/protocols/token-timing-and-result-contract.md
+    token_and_timing_record: outputs/runs/token-ledger-smoke/20260813T035052824278Z/token_usage/summary.json
+    preservation_class: historical-evidence
+    superseded_by: validation-v1-token-contract
+
+  - experiment_id: incomplete-early-runs
+    phase: 01-api-pilot-and-initial-noise
+    date: '2026-08-12'
+    purpose: preserve interrupted early generation attempts
+    benchmarks: [mixed]
+    baselines: [mixed]
+    status: incomplete
+    conclusion: these attempts are retained as failure evidence and must not be counted as completed results
+    config: null
+    input_manifest: null
+    output_root: outputs/runs/incomplete
+    canonical_report: null
+    token_and_timing_record: outputs/runs/incomplete
+    preservation_class: historical-evidence
+    superseded_by: completed-early-runs
+
+  - experiment_id: n1-expanded-20260813
+    phase: 02-expanded-n1
+    date: '2026-08-13'
+    purpose: expanded four-domain N1 validation
+    benchmarks: [spreadsheetbench_verified, officeqa_full, webshop, skilllearnbench]
+    baselines: [skillopt, skilladaptor, skilllearn_self_feedback]
+    status: completed
+    conclusion: larger samples removed the single-example interpretation but N1 did not stabilize across four domains
+    config: null
+    input_manifest: benchmark/validation/n1_expanded/manifest.json
+    output_root: outputs/runs/n1-expanded-20260813
+    canonical_report: docs/archive/experiment-history/02-expanded-n1/2026-08-13-expanded-n1-validation.md
+    token_and_timing_record: outputs/runs/n1-expanded-20260813/aggregate.json
+    preservation_class: historical-evidence
+    superseded_by: validation-v1
+
+  - experiment_id: core1-spreadsheet-n3-expanded
+    phase: 02-expanded-n1
+    date: '2026-08-13'
+    purpose: expanded Spreadsheet Core-1 N3 mechanism run
+    benchmarks: [spreadsheetbench_verified]
+    baselines: [skillopt]
+    status: completed
+    conclusion: historical runtime-noise mechanism evidence retained without promotion to validation-v1 runner
+    config: configs/core1/spreadsheetbench_verified/N3.yaml
+    input_manifest: benchmark/core1/
+    output_root: outputs/runs/core1-spreadsheet-n3-expanded
+    canonical_report: docs/archive/experiment-history/01-api-pilot-and-initial-noise/2026-08-13-core1-validation-status.md
+    token_and_timing_record: outputs/runs/core1-spreadsheet-n3-expanded
+    preservation_class: historical-evidence
+    superseded_by: validation-v1
+
+  - experiment_id: core1-spreadsheet-n3-applicable-confirm
+    phase: 02-expanded-n1
+    date: '2026-08-13'
+    purpose: confirm Spreadsheet N3 applicability
+    benchmarks: [spreadsheetbench_verified]
+    baselines: [skillopt]
+    status: completed
+    conclusion: applicability was confirmed for the historical Core-1 operator only
+    config: configs/core1/spreadsheetbench_verified/N3.yaml
+    input_manifest: benchmark/core1/
+    output_root: outputs/runs/core1-spreadsheet-n3-applicable-confirm
+    canonical_report: docs/archive/experiment-history/01-api-pilot-and-initial-noise/2026-08-13-core1-validation-status.md
+    token_and_timing_record: outputs/runs/core1-spreadsheet-n3-applicable-confirm
+    preservation_class: historical-evidence
+    superseded_by: validation-v1
+
+  - experiment_id: core1-officeqa-n4-expanded
+    phase: 02-expanded-n1
+    date: '2026-08-13'
+    purpose: expanded OfficeQA Core-1 N4 mechanism run
+    benchmarks: [officeqa_full]
+    baselines: [skillopt]
+    status: completed
+    conclusion: historical attribution-mutation evidence was mixed and did not freeze the current runner
+    config: configs/core1/officeqa/N4.yaml
+    input_manifest: benchmark/core1/
+    output_root: outputs/runs/core1-officeqa-n4-expanded
+    canonical_report: docs/archive/experiment-history/01-api-pilot-and-initial-noise/2026-08-13-core1-validation-status.md
+    token_and_timing_record: outputs/runs/core1-officeqa-n4-expanded
+    preservation_class: historical-evidence
+    superseded_by: validation-v1
+
+  - experiment_id: core1-webshop-n1-structural
+    phase: 02-expanded-n1
+    date: '2026-08-13'
+    purpose: WebShop Core-1 N1 structural smoke
+    benchmarks: [webshop]
+    baselines: [skilladaptor]
+    status: completed
+    conclusion: structure executed but the result was not a qualified N1 efficacy comparison
+    config: configs/core1/webshop/N1.yaml
+    input_manifest: benchmark/core1/
+    output_root: outputs/runs/core1-screen-smoke-webshop-n1-structural
+    canonical_report: docs/archive/experiment-history/01-api-pilot-and-initial-noise/2026-08-13-core1-validation-status.md
+    token_and_timing_record: outputs/runs/core1-screen-smoke-webshop-n1-structural
+    preservation_class: historical-evidence
+    superseded_by: validation-v1
+
+  - experiment_id: core1-skilllearn-n3-fixed2
+    phase: 02-expanded-n1
+    date: '2026-08-13'
+    purpose: SkillLearn Core-1 N2-N4 structural smoke
+    benchmarks: [skilllearnbench]
+    baselines: [skilllearn_self_feedback, skilllearn_teacher_feedback]
+    status: completed
+    conclusion: historical weak-baseline mechanism evidence is diagnostic and does not transfer to SkillFlow
+    config: configs/core1/skilllearnbench/
+    input_manifest: benchmark/core1/
+    output_root: outputs/runs/core1-screen-smoke-skilllearn-n3-fixed2
+    canonical_report: docs/archive/experiment-history/01-api-pilot-and-initial-noise/2026-08-13-core1-validation-status.md
+    token_and_timing_record: outputs/runs/core1-screen-smoke-skilllearn-n3-fixed2
+    preservation_class: historical-evidence
+    superseded_by: skillflow-validation-v1
+
+  - experiment_id: clean-v2-20260814
+    phase: 03-clean-qualification-and-repairs
+    date: '2026-08-14'
+    purpose: three-seed clean baseline qualification matrix
+    benchmarks: [spreadsheetbench_verified, officeqa_full, webshop, skilllearnbench]
+    baselines: [skillopt, skilladaptor, skilllearn_self_feedback]
+    status: completed
+    conclusion: all 12 cells completed operational loops; accepted updates and clean gains remained mixed
+    config: configs/experiments/clean-v2.yaml
+    input_manifest: benchmark/validation/clean_qualification_v2/
+    output_root: outputs/runs/clean-v2-20260814
+    canonical_report: docs/archive/experiment-history/03-clean-qualification-and-repairs/2026-08-15-clean-v2-and-fixed-artifact-replay.md
+    token_and_timing_record: outputs/runs/clean-v2-20260814/events.jsonl
+    preservation_class: historical-evidence
+    superseded_by: validation-v1
+
+  - experiment_id: clean-v2-canary-20260814
+    phase: 03-clean-qualification-and-repairs
+    date: '2026-08-14'
+    purpose: failure-targeted clean-v2 canaries
+    benchmarks: [spreadsheetbench_verified, webshop, skilllearnbench]
+    baselines: [skillopt, skilladaptor, skilllearn_self_feedback]
+    status: completed
+    conclusion: selected canaries completed and became part of the diagnostic clean evidence release
+    config: configs/experiments/clean-v2-canary.yaml
+    input_manifest: releases/diagnostic/clean-v2-canaries/manifest.json
+    output_root: outputs/runs/clean-v2-canary-20260814
+    canonical_report: docs/archive/experiment-history/03-clean-qualification-and-repairs/2026-08-14-clean-v2-canaries.md
+    token_and_timing_record: outputs/runs/clean-v2-canary-20260814/aggregate.json
+    preservation_class: frozen-evidence
+    superseded_by: validation-v1-clean-reuse
+
+  - experiment_id: clean-v2-canary-officeqa-confirmation-20260814
+    phase: 03-clean-qualification-and-repairs
+    date: '2026-08-14'
+    purpose: OfficeQA repaired canary confirmation attempt
+    benchmarks: [officeqa_full]
+    baselines: [skillopt]
+    status: completed
+    conclusion: intermediate confirmation evidence preceded the final frozen retry
+    config: configs/experiments/clean-v2-canary-officeqa-retry.yaml
+    input_manifest: benchmark/validation/clean_qualification_v2/officeqa_full.json
+    output_root: outputs/runs/clean-v2-canary-officeqa-confirmation-20260814
+    canonical_report: docs/archive/experiment-history/03-clean-qualification-and-repairs/2026-08-14-clean-v2-canaries.md
+    token_and_timing_record: outputs/runs/clean-v2-canary-officeqa-confirmation-20260814
+    preservation_class: historical-evidence
+    superseded_by: clean-v2-canary-officeqa-retry2-20260814
+
+  - experiment_id: clean-v2-canary-officeqa-retry-20260814
+    phase: 03-clean-qualification-and-repairs
+    date: '2026-08-14'
+    purpose: OfficeQA repaired canary retry
+    benchmarks: [officeqa_full]
+    baselines: [skillopt]
+    status: completed
+    conclusion: intermediate retry retained for failure and repair audit
+    config: configs/experiments/clean-v2-canary-officeqa-retry.yaml
+    input_manifest: benchmark/validation/clean_qualification_v2/officeqa_full.json
+    output_root: outputs/runs/clean-v2-canary-officeqa-retry-20260814
+    canonical_report: docs/archive/experiment-history/03-clean-qualification-and-repairs/2026-08-14-clean-v2-canaries.md
+    token_and_timing_record: outputs/runs/clean-v2-canary-officeqa-retry-20260814/aggregate.json
+    preservation_class: historical-evidence
+    superseded_by: clean-v2-canary-officeqa-retry2-20260814
+
+  - experiment_id: clean-v2-canary-officeqa-retry2-20260814
+    phase: 03-clean-qualification-and-repairs
+    date: '2026-08-14'
+    purpose: final OfficeQA clean-v2 canary used by diagnostic release
+    benchmarks: [officeqa_full]
+    baselines: [skillopt]
+    status: completed
+    conclusion: the method completed an accepted update with a nondegrading 0.65 to 0.65 score tie
+    config: configs/experiments/clean-v2-canary-officeqa-retry.yaml
+    input_manifest: releases/diagnostic/clean-v2-canaries/manifest.json
+    output_root: outputs/runs/clean-v2-canary-officeqa-retry2-20260814
+    canonical_report: docs/archive/experiment-history/03-clean-qualification-and-repairs/2026-08-14-clean-v2-canaries.md
+    token_and_timing_record: releases/diagnostic/clean-v2-canaries/manifest.json
+    preservation_class: frozen-evidence
+    superseded_by: validation-v1-clean-reuse
+
+  - experiment_id: skillopt-fixed-replay-20260815
+    phase: 03-clean-qualification-and-repairs
+    date: '2026-08-15'
+    purpose: repeat evaluation from frozen SkillOpt artifacts
+    benchmarks: [spreadsheetbench_verified, officeqa_full]
+    baselines: [skillopt]
+    status: completed
+    conclusion: artifact replay separated evaluation stability from stochastic update generation
+    config: null
+    input_manifest: benchmark/validation/clean_qualification_v2/
+    output_root: outputs/runs/skillopt-fixed-replay-20260815
+    canonical_report: docs/archive/experiment-history/03-clean-qualification-and-repairs/2026-08-15-clean-v2-and-fixed-artifact-replay.md
+    token_and_timing_record: outputs/runs/skillopt-fixed-replay-20260815
+    preservation_class: historical-evidence
+    superseded_by: validation-v1
+
+  - experiment_id: noise-screen-v1-qualification
+    phase: 04-stable-split-and-skilllearn-screening
+    date: '2026-08-15'
+    purpose: preregistered stable split candidate qualification
+    benchmarks: [spreadsheetbench_verified, officeqa_full, webshop, skilllearnbench]
+    baselines: [skillopt, skilladaptor, skilllearn_self_feedback]
+    status: completed
+    conclusion: no four-domain release passed the stronger stable-efficacy and trace-applicability gate
+    config: configs/experiments/noise-screen-v1-candidate2.yaml
+    input_manifest: benchmark/validation/noise_screen_v1/manifest.json
+    output_root: outputs/runs/noise-screen-v1-qualification
+    canonical_report: docs/archive/experiment-history/04-stable-split-and-skilllearn-screening/2026-08-15-stable-noise-validation-splits.md
+    token_and_timing_record: outputs/runs/noise-screen-v1-qualification
+    preservation_class: historical-evidence
+    superseded_by: validation-v1-mechanism-boundary
+
+  - experiment_id: skilllearn-clean-expanded-v1-20260815
+    phase: 04-stable-split-and-skilllearn-screening
+    date: '2026-08-15'
+    purpose: expanded SkillLearn family clean screening
+    benchmarks: [skilllearnbench]
+    baselines: [skilllearn_self_feedback]
+    status: completed
+    conclusion: the update chain worked but capability improvement did not stabilize across families
+    config: configs/experiments/skilllearn-clean-expanded-v1.yaml
+    input_manifest: benchmark/validation/clean_qualification_v2/skilllearnbench/
+    output_root: outputs/runs/skilllearn-clean-expanded-v1-20260815
+    canonical_report: docs/archive/experiment-history/04-stable-split-and-skilllearn-screening/2026-08-15-skilllearn-expanded-clean-selection.md
+    token_and_timing_record: outputs/runs/skilllearn-clean-expanded-v1-20260815/aggregate.json
+    preservation_class: historical-evidence
+    superseded_by: skillflow-validation-v1
+
+  - experiment_id: skilllearn-clean-expansion-round2-20260816
+    phase: 04-stable-split-and-skilllearn-screening
+    date: '2026-08-16'
+    purpose: second SkillLearn family expansion
+    benchmarks: [skilllearnbench]
+    baselines: [skilllearn_self_feedback]
+    status: completed
+    conclusion: additional official families did not provide stable cross-seed clean gains
+    config: configs/experiments/skilllearn-clean-expansion-round2.yaml
+    input_manifest: benchmark/validation/skilllearn_clean_expansion_v1/
+    output_root: outputs/runs/skilllearn-clean-expansion-round2-20260816
+    canonical_report: docs/archive/experiment-history/04-stable-split-and-skilllearn-screening/2026-08-16-skilllearn-clean-expansion-round2.md
+    token_and_timing_record: outputs/runs/skilllearn-clean-expansion-round2-20260816/aggregate.json
+    preservation_class: historical-evidence
+    superseded_by: skillflow-validation-v1
+
+  - experiment_id: skilllearn-recovery-round2-20260816
+    phase: 04-stable-split-and-skilllearn-screening
+    date: '2026-08-16'
+    purpose: recover selected SkillLearn round-2 failures
+    benchmarks: [skilllearnbench]
+    baselines: [skilllearn_self_feedback]
+    status: completed
+    conclusion: recovery completed selected executions without changing the overall unstable-efficacy conclusion
+    config: configs/experiments/skilllearn-recovery-round2.yaml
+    input_manifest: benchmark/validation/skilllearn_clean_expansion_v1/
+    output_root: outputs/runs/skilllearn-recovery-round2-20260816
+    canonical_report: docs/archive/experiment-history/04-stable-split-and-skilllearn-screening/2026-08-16-skilllearn-clean-expansion-round2.md
+    token_and_timing_record: outputs/runs/skilllearn-recovery-round2-20260816/aggregate.json
+    preservation_class: historical-evidence
+    superseded_by: skillflow-validation-v1
+
+  - experiment_id: skillflow-clean-qualification-v1-20260816
+    phase: 05-skillflow-screening
+    date: '2026-08-16'
+    purpose: initial SkillFlow family clean qualification
+    benchmarks: [skillflow_tasks]
+    baselines: [skillflow]
+    status: completed
+    conclusion: the native execution-update-reuse loop ran and exposed provider/runtime compatibility requirements
+    config: configs/experiments/skillflow-clean-qualification-v1.yaml
+    input_manifest: benchmark/validation/skillflow_clean_qualification_v1/input_manifest.json
+    output_root: outputs/runs/skillflow-clean-qualification-v1-20260816
+    canonical_report: docs/archive/experiment-history/05-skillflow-screening/2026-08-16-skillflow-clean-screening.md
+    token_and_timing_record: outputs/runs/skillflow-clean-qualification-v1-20260816
+    preservation_class: historical-evidence
+    superseded_by: skillflow-clean-qualification-v1-20260816-v4
+
+  - experiment_id: skillflow-clean-qualification-v1-20260816-v2
+    phase: 05-skillflow-screening
+    date: '2026-08-16'
+    purpose: SkillFlow compatibility rerun
+    benchmarks: [skillflow_tasks]
+    baselines: [skillflow]
+    status: completed
+    conclusion: compatibility improved but this root did not define the frozen selection
+    config: configs/experiments/skillflow-clean-qualification-v1.yaml
+    input_manifest: benchmark/validation/skillflow_clean_qualification_v1/input_manifest.json
+    output_root: outputs/runs/skillflow-clean-qualification-v1-20260816-v2
+    canonical_report: docs/archive/experiment-history/05-skillflow-screening/2026-08-16-skillflow-clean-screening.md
+    token_and_timing_record: outputs/runs/skillflow-clean-qualification-v1-20260816-v2
+    preservation_class: historical-evidence
+    superseded_by: skillflow-clean-qualification-v1-20260816-v4
+
+  - experiment_id: skillflow-clean-qualification-v1-20260816-v3
+    phase: 05-skillflow-screening
+    date: '2026-08-16'
+    purpose: interrupted SkillFlow compatibility attempt
+    benchmarks: [skillflow_tasks]
+    baselines: [skillflow]
+    status: incomplete
+    conclusion: no terminal qualification result; retained only as an interrupted-attempt record
+    config: configs/experiments/skillflow-clean-qualification-v1.yaml
+    input_manifest: benchmark/validation/skillflow_clean_qualification_v1/input_manifest.json
+    output_root: outputs/runs/skillflow-clean-qualification-v1-20260816-v3
+    canonical_report: docs/archive/experiment-history/05-skillflow-screening/2026-08-16-skillflow-clean-screening.md
+    token_and_timing_record: outputs/runs/skillflow-clean-qualification-v1-20260816-v3
+    preservation_class: rebuildable-intermediate
+    superseded_by: skillflow-clean-qualification-v1-20260816-v4
+
+  - experiment_id: skillflow-clean-qualification-v1-20260816-v4
+    phase: 05-skillflow-screening
+    date: '2026-08-16'
+    purpose: final SkillFlow screening batch containing frozen HWPX r1 evidence
+    benchmarks: [skillflow_tasks]
+    baselines: [skillflow]
+    status: completed
+    conclusion: complete screening evidence contributed to the frozen three-family mechanism slice
+    config: configs/experiments/skillflow-clean-qualification-v1.yaml
+    input_manifest: benchmark/validation/skillflow_clean_qualification_v1/noise_validation_selection.json
+    output_root: outputs/runs/skillflow-clean-qualification-v1-20260816-v4
+    canonical_report: docs/archive/experiment-history/05-skillflow-screening/2026-08-16-skillflow-clean-screening.md
+    token_and_timing_record: outputs/runs/skillflow-clean-qualification-v1-20260816-v4/aggregate.json
+    preservation_class: frozen-evidence
+    superseded_by: validation-v1-clean-reuse
+
+  - experiment_id: skillflow-hwpx-candidate-v1-20260816
+    phase: 05-skillflow-screening
+    date: '2026-08-16'
+    purpose: HWPX confirm replicates used by frozen selection
+    benchmarks: [skillflow_tasks]
+    baselines: [skillflow]
+    status: completed
+    conclusion: HWPX provided the only local positive clean mechanism signal in the frozen skill slice
+    config: configs/experiments/skillflow-clean-qualification-v1.yaml
+    input_manifest: benchmark/validation/skillflow_clean_qualification_v1/noise_validation_selection.json
+    output_root: outputs/runs/skillflow-hwpx-candidate-v1-20260816
+    canonical_report: docs/archive/experiment-history/05-skillflow-screening/2026-08-16-skillflow-clean-screening.md
+    token_and_timing_record: outputs/runs/skillflow-hwpx-candidate-v1-20260816
+    preservation_class: frozen-evidence
+    superseded_by: validation-v1-clean-reuse
+
+  - experiment_id: skillflow-second-family-screen-v1-20260816
+    phase: 05-skillflow-screening
+    date: '2026-08-16'
+    purpose: first second-family screening batch
+    benchmarks: [skillflow_tasks]
+    baselines: [skillflow]
+    status: completed
+    conclusion: candidate families executed but did not satisfy the earlier strong efficacy gate
+    config: configs/experiments/skillflow-clean-qualification-v1.yaml
+    input_manifest: benchmark/validation/skillflow_clean_qualification_v1/second_family_candidates.json
+    output_root: outputs/runs/skillflow-second-family-screen-v1-20260816
+    canonical_report: docs/archive/experiment-history/05-skillflow-screening/2026-08-16-skillflow-clean-screening.md
+    token_and_timing_record: outputs/runs/skillflow-second-family-screen-v1-20260816
+    preservation_class: historical-evidence
+    superseded_by: validation-v1-mechanism-boundary
+
+  - experiment_id: skillflow-second-family-screen-v2-20260816
+    phase: 05-skillflow-screening
+    date: '2026-08-16'
+    purpose: second-family screening batch 2
+    benchmarks: [skillflow_tasks]
+    baselines: [skillflow]
+    status: completed
+    conclusion: Distribution and Embedded candidates contributed complete execution-update tie evidence
+    config: configs/experiments/skillflow-clean-qualification-v1.yaml
+    input_manifest: benchmark/validation/skillflow_clean_qualification_v1/second_family_candidates_batch2.json
+    output_root: outputs/runs/skillflow-second-family-screen-v2-20260816
+    canonical_report: docs/archive/experiment-history/05-skillflow-screening/2026-08-16-skillflow-clean-screening.md
+    token_and_timing_record: outputs/runs/skillflow-second-family-screen-v2-20260816
+    preservation_class: historical-evidence
+    superseded_by: validation-v1-clean-reuse
+
+  - experiment_id: skillflow-second-family-screen-v3-20260816
+    phase: 05-skillflow-screening
+    date: '2026-08-16'
+    purpose: second-family screening batch 3
+    benchmarks: [skillflow_tasks]
+    baselines: [skillflow]
+    status: completed
+    conclusion: additional candidates did not produce a second stable positive family
+    config: configs/experiments/skillflow-clean-qualification-v1.yaml
+    input_manifest: benchmark/validation/skillflow_clean_qualification_v1/second_family_candidates_batch3.json
+    output_root: outputs/runs/skillflow-second-family-screen-v3-20260816
+    canonical_report: docs/archive/experiment-history/05-skillflow-screening/2026-08-16-skillflow-clean-screening.md
+    token_and_timing_record: outputs/runs/skillflow-second-family-screen-v3-20260816
+    preservation_class: historical-evidence
+    superseded_by: validation-v1-mechanism-boundary
+
+  - experiment_id: skillflow-second-family-screen-v4-20260816
+    phase: 05-skillflow-screening
+    date: '2026-08-16'
+    purpose: final second-family screening batch
+    benchmarks: [skillflow_tasks]
+    baselines: [skillflow]
+    status: completed
+    conclusion: screening exhausted the approved candidates without a second strong positive family
+    config: configs/experiments/skillflow-clean-qualification-v1.yaml
+    input_manifest: benchmark/validation/skillflow_clean_qualification_v1/second_family_candidates_batch4.json
+    output_root: outputs/runs/skillflow-second-family-screen-v4-20260816
+    canonical_report: docs/archive/experiment-history/05-skillflow-screening/2026-08-16-skillflow-clean-screening.md
+    token_and_timing_record: outputs/runs/skillflow-second-family-screen-v4-20260816
+    preservation_class: historical-evidence
+    superseded_by: validation-v1-mechanism-boundary

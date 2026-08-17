@@ -12,7 +12,7 @@ validation-v1 已把此前分散在 clean qualification、Core-1 pilot、baselin
 2. 三个 active 方法族对应四个精确 `MethodRelease`，SkillOpt 的 Spreadsheet 与 OfficeQA profile 不再错误合并；
 3. SkillLearn self-feedback 保留为 `validated_inactive`，其历史结果不再进入主 4×4；
 4. N1/N2 使用静态数据接口，N3/N4 使用统一 evidence 接口，四个 stage 分目录独立维护；
-5. [validation-v1 matrix](../../configs/validation/validation-v1.yaml) 只展开 16 个 noisy cell，clean control 通过不可变 evidence identity 复用；
+5. [validation-v1 matrix](../../../configs/validation/validation-v1.yaml) 只展开 16 个 noisy cell，clean control 通过不可变 evidence identity 复用；
 6. scheduler 允许 16 个 cell 并行，并从固定 upstream revision 为每个 attempt 重放对应 MethodRelease 的补丁；
 7. provider-free preflight 已验证 139 个本地 artifact locator、四套 active release patch replay 和 16 个 cell，provider 调用数为 0。
 
@@ -29,10 +29,10 @@ validation-v1 已把此前分散在 clean qualification、Core-1 pilot、baselin
 
 机器可读 manifest：
 
-- [SpreadsheetBench-Verified](../../benchmark/datasets/spreadsheet/spreadsheetbench_verified/releases/validation-v1/manifest.json)
-- [OfficeQA Full](../../benchmark/datasets/document/officeqa_full/releases/validation-v1/manifest.json)
-- [WebShop](../../benchmark/datasets/interactive/webshop/releases/validation-v1/manifest.json)
-- [SkillFlow Tasks](../../benchmark/datasets/skill/skillflow_tasks/releases/validation-v1/manifest.json)
+- [SpreadsheetBench-Verified](../../../benchmark/datasets/spreadsheet/spreadsheetbench_verified/releases/validation-v1/manifest.json)
+- [OfficeQA Full](../../../benchmark/datasets/document/officeqa_full/releases/validation-v1/manifest.json)
+- [WebShop](../../../benchmark/datasets/interactive/webshop/releases/validation-v1/manifest.json)
+- [SkillFlow Tasks](../../../benchmark/datasets/skill/skillflow_tasks/releases/validation-v1/manifest.json)
 
 SkillFlow 的三个有序 group 为：
 
@@ -54,7 +54,7 @@ Family 内必须按表中顺序进化，family 间必须重置 skill library。�
 | `skillflow-validation-v1` | SkillFlow Tasks | `e329b830e2a65748f5fc8736a2dd7f56781a28f400281b9ee608a85c98aca875` | active |
 | `skilllearn-self-feedback-diagnostic-v1` | SkillLearnBench history | `033cc887ba59a8692a7c416f0a050dff37f086e4d8715b690096189a8df1ebf7` | validated_inactive |
 
-Release 文件位于 [validated methods](../../methods/validated/)。候选方法位于 [candidate methods](../../methods/candidates/)，不能满足 validation-v1 的 active method 解析。
+Release 文件位于 [validated methods](../../../methods/validated/)。候选方法位于 [candidate methods](../../../methods/candidates/)，不能满足 validation-v1 的 active method 解析。
 
 Harness 仍归各 baseline 所有。RSEBench 只负责 DatasetRelease 转换、身份、secret 注入、attempt 隔离、token/timing/audit 和聚合，不在外层静默改写 baseline 的 prompt、动作选择、skill update 或 scorer。DeepSeek 兼容属于明确登记的 patch identity。
 
@@ -64,10 +64,10 @@ Harness 仍归各 baseline 所有。RSEBench 只负责 DatasetRelease 转换、�
 
 | Stage | 边界 | 形式 | 负责人只需修改的目录 | 必须保护 |
 |---|---|---|---|---|
-| N1 | task context | static | [n1](../../src/rsebench/noise/stages/n1/) | objective、gold、artifact、verifier |
-| N2 | environment evidence | static | [n2](../../src/rsebench/noise/stages/n2/) | gold 可达性、原解法、verifier |
-| N3 | stored trajectory | runtime | [n3](../../src/rsebench/noise/stages/n3/) | reward、success、环境状态、final result |
-| N4 | update feedback | runtime | [n4](../../src/rsebench/noise/stages/n4/) | trajectory、scalar reward、official score |
+| N1 | task context | static | [n1](../../../src/rsebench/noise/stages/n1/) | objective、gold、artifact、verifier |
+| N2 | environment evidence | static | [n2](../../../src/rsebench/noise/stages/n2/) | gold 可达性、原解法、verifier |
+| N3 | stored trajectory | runtime | [n3](../../../src/rsebench/noise/stages/n3/) | reward、success、环境状态、final result |
+| N4 | update feedback | runtime | [n4](../../../src/rsebench/noise/stages/n4/) | trajectory、scalar reward、official score |
 
 四位协作者不需要修改中央 registry。每位负责人在自己的 `operators/` 包内实现 benchmark-specific operator，并在该包的 `CELL_RUNNERS` 映射中登记 matrix 已冻结的 operator ID。共享合同只允许 N1/N2 返回 `StaticNoiseResult`，N3/N4 返回带 input/output/audit 的 `MutationResult`。
 
@@ -115,7 +115,7 @@ python -m rsebench.cli validation aggregate \
   --matrix configs/validation/validation-v1.yaml
 ```
 
-旧 clean-v2、Core-1 和分领域 launcher 只作为兼容与历史重放入口。完整的架构约束见 [validation-v1 architecture](../architecture/validation-v1-architecture.md)，后续任务状态见 [项目路线图](../project-roadmap.md)。
+旧 clean-v2、Core-1 和分领域 launcher 只作为兼容与历史重放入口。完整的架构约束见 [validation-v1 architecture](../../architecture/validation-v1-architecture.md)，后续任务状态见 [项目路线图](../../project-roadmap.md)。
 
 ## 7. 当前未完成项
 

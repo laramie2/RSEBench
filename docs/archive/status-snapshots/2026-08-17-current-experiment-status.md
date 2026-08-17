@@ -1,5 +1,10 @@
 # Current Robust Self-Evolution Validation Status
 
+> **Archived cumulative snapshot.** This document combines several historical
+> states and is superseded by
+> [current-project-status.md](../../reports/current/current-project-status.md).
+> Use it only to trace earlier conclusions and output locators.
+
 Current scope update: 2026-08-17
 Historical result snapshot below: 2026-08-13
 
