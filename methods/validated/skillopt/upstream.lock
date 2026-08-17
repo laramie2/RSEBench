@@ -1,0 +1,3 @@
+repository: https://github.com/microsoft/SkillOpt.git
+revision: 47fe269d75d3def79ffd90236261d26d84868ae5
+source_policy: clone-on-bootstrap-do-not-vendor

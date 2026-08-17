@@ -1,0 +1,8 @@
+schema_version: rsebench.method.v1
+method: skillsbench
+status: candidate
+upstream_repository: https://github.com/benchflow-ai/skillsbench.git
+upstream_revision: 9a1f4dd5f7659f75707435da3ce854b6e48321d1
+code_status: benchmark
+local_checkout: skillsbench
+releases: []

@@ -33,7 +33,7 @@ V2_CALIBRATION_EVIDENCE = (
     V2_OUTPUT_ROOT / "webshop_validation_retrieval_evidence.jsonl"
 )
 PATCH_SERIES = (
-    PROJECT_ROOT / "patches/baselines/skilladaptor/series.yaml"
+    PROJECT_ROOT / "methods/validated/skilladaptor/patches/series.yaml"
 )
 
 

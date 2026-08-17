@@ -1,0 +1,72 @@
+{
+  "schema_version": "rsebench.method-release.v1",
+  "release_id": "skillflow-validation-v1",
+  "method": "skillflow",
+  "status": "active",
+  "upstream_repository": "https://github.com/ZhangZi-a/SkillFlow.git",
+  "upstream_revision": "7b49ff5a7e26cd7706e959bfa0dba4746d18440d",
+  "patch_series": [
+    {
+      "uri": "rsebench-project://methods/validated/skillflow/patches/skillflow-deepseek-provider.patch",
+      "sha256": "87632ba70a30764874b577db7812937ba5d3a8f88a3eb488c668d48f692f0c72",
+      "purpose": "provider"
+    },
+    {
+      "uri": "rsebench-project://methods/validated/skillflow/patches/skillflow-observability.patch",
+      "sha256": "44b130596edd212a582087679de020552709a2fc76d6a43c8bc2a93af35bfe0d",
+      "purpose": "evidence"
+    },
+    {
+      "uri": "rsebench-project://methods/validated/skillflow/patches/skillflow-harbor-compat.patch",
+      "sha256": "3e465d27d78e46bc1ed413c1f399941e8ee7eabba976649cf2ac1902bf12e6d8",
+      "purpose": "compatibility"
+    },
+    {
+      "uri": "rsebench-project://methods/validated/skillflow/patches/skillflow-worker-token-budget.patch",
+      "sha256": "46df81b70348c46de6aafe497ea131258afdedd7d7018671fd1f5265b63230a4",
+      "purpose": "compatibility"
+    },
+    {
+      "uri": "rsebench-project://methods/validated/skillflow/patches/skillflow-skill-discovery.patch",
+      "sha256": "2e58b75b0f21c0b642f6f24b80448499cf467c808438d2766f3e0165a77b9b7d",
+      "purpose": "compatibility"
+    }
+  ],
+  "harness": {
+    "entrypoint": "iterative_shared_skills_runner:main",
+    "version": "validation-v1",
+    "fingerprint": "e329b830e2a65748f5fc8736a2dd7f56781a28f400281b9ee608a85c98aca875"
+  },
+  "provider": {
+    "family": "openai-compatible",
+    "model": "deepseek-v4-flash",
+    "adapter": "skillflow.deepseek-v4-flash"
+  },
+  "environment_lock": "rsebench-project://methods/validated/skillflow/integration/environment.lock",
+  "supported_datasets": [
+    "skillflow-tasks-validation-v1"
+  ],
+  "clean_evidence": [
+    {
+      "uri": "rsebench-project://benchmark/validation/skillflow_clean_qualification_v1/noise_validation_selection.json",
+      "sha256": "1d7caec1bd273a742e7c62467c9b694b0c7b8cbf17bb61fab2e7723fa2a2b0d7",
+      "kind": "clean-control"
+    },
+    {
+      "uri": "rsebench-project://benchmark/validation/skillflow_clean_qualification_v1/second_family_candidates_batch2.json",
+      "sha256": "205fea257c57537e8f7ea54f3fcc97530106d6a0b43202a717f17504c2476016",
+      "kind": "clean-control"
+    }
+  ],
+  "smoke_command": [
+    "python",
+    "scripts/run_skillflow_clean.py",
+    "--help"
+  ],
+  "baseline_fingerprint": "e329b830e2a65748f5fc8736a2dd7f56781a28f400281b9ee608a85c98aca875",
+  "metadata": {
+    "clean_control_cell": "skillflow-three-family-selection",
+    "harness_ownership": "method-owned"
+  },
+  "content_hash": "e97deb7babd9016831d73a0ca2ca6a984996dab0c82687e173d13a887dcbfff8"
+}

@@ -10,4 +10,6 @@ htmlcov/
 data/
 outputs/
 methods/external/
+methods/validated/*/source/
+methods/candidates/*/source/
 cache/

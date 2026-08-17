@@ -1,0 +1,8 @@
+schema_version: rsebench.method.v1
+method: rethinkskill
+status: candidate
+upstream_repository: https://github.com/HKUST-KnowComp/rethinkskill.git
+upstream_revision: 4138419afc00a1fa3ff0885c0bb1618e18258354
+code_status: runnable_secondary
+local_checkout: rethinkskill
+releases: []

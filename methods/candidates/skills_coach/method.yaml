@@ -1,0 +1,8 @@
+schema_version: rsebench.method.v1
+method: skills_coach
+status: candidate
+upstream_repository: https://github.com/T1aNS1R/Skills-Coach.git
+upstream_revision: 77dc5492d85e01cdaf145c0c04bd554d900266e5
+code_status: runnable_with_generated_verifiers
+local_checkout: skills_coach
+releases: []

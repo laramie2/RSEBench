@@ -1,4 +1,12 @@
-# Baseline patch order
+# Validated and candidate methods
+
+Third-party source is never vendored. `validated/` contains immutable releases,
+upstream/environment locks, integration metadata, and replayable patches;
+`candidates/` contains methods that cannot enter the validation matrix yet.
+Local clones belong in each method's ignored `source/` directory. During the
+one-version transition, `methods/external/` remains a read-only fallback.
+
+## Baseline patch order
 
 Patches are applied from each external repository root. Core-1 calibration
 patches are incremental and therefore follow the provider/evidence patches.
@@ -6,10 +14,10 @@ patches are incremental and therefore follow the provider/evidence patches.
 ## SkillOpt
 
 ```bash
-git apply "$RSEBENCH_ROOT/patches/baselines/skillopt/skillopt-deepseek-thinking.patch"
-git apply "$RSEBENCH_ROOT/patches/baselines/skillopt/skillopt-evidence-hook.patch"
-git apply "$RSEBENCH_ROOT/patches/baselines/skillopt/skillopt-officeqa-tool-json-repair.patch"
-git apply "$RSEBENCH_ROOT/patches/baselines/skillopt/skillopt-officeqa-bounded-recovery.patch"
+git apply "$RSEBENCH_ROOT/methods/validated/skillopt/patches/skillopt-deepseek-thinking.patch"
+git apply "$RSEBENCH_ROOT/methods/validated/skillopt/patches/skillopt-evidence-hook.patch"
+git apply "$RSEBENCH_ROOT/methods/validated/skillopt/patches/skillopt-officeqa-tool-json-repair.patch"
+git apply "$RSEBENCH_ROOT/methods/validated/skillopt/patches/skillopt-officeqa-bounded-recovery.patch"
 ```
 
 The tool-JSON patch accepts literal JSON control characters emitted inside
@@ -20,12 +28,12 @@ consuming the entire tool-turn budget while preserving one normal repair turn.
 ## SkillAdaptor
 
 ```bash
-git apply "$RSEBENCH_ROOT/patches/baselines/skilladaptor/skilladaptor-deepseek-runtime.patch"
-git apply "$RSEBENCH_ROOT/patches/baselines/skilladaptor/skilladaptor-evidence-hook.patch"
-git apply "$RSEBENCH_ROOT/patches/baselines/skilladaptor/skilladaptor-webshop-static-overlay.patch"
-git apply "$RSEBENCH_ROOT/patches/baselines/skilladaptor/skilladaptor-core1-calibration.patch"
-git apply "$RSEBENCH_ROOT/patches/baselines/skilladaptor/skilladaptor-lexical-fault-dedup.patch"
-git apply "$RSEBENCH_ROOT/patches/baselines/skilladaptor/skilladaptor-clean-qualification.patch"
+git apply "$RSEBENCH_ROOT/methods/validated/skilladaptor/patches/skilladaptor-deepseek-runtime.patch"
+git apply "$RSEBENCH_ROOT/methods/validated/skilladaptor/patches/skilladaptor-evidence-hook.patch"
+git apply "$RSEBENCH_ROOT/methods/validated/skilladaptor/patches/skilladaptor-webshop-static-overlay.patch"
+git apply "$RSEBENCH_ROOT/methods/validated/skilladaptor/patches/skilladaptor-core1-calibration.patch"
+git apply "$RSEBENCH_ROOT/methods/validated/skilladaptor/patches/skilladaptor-lexical-fault-dedup.patch"
+git apply "$RSEBENCH_ROOT/methods/validated/skilladaptor/patches/skilladaptor-clean-qualification.patch"
 ```
 
 The calibration patch fixes the eight-step WebShop smoke runtime, optional
@@ -47,17 +55,17 @@ manifests contain no keys.
 ## SkillLearn self feedback
 
 ```bash
-git apply "$RSEBENCH_ROOT/patches/baselines/skilllearn_self_feedback/skilllearn-deepseek-evidence.patch"
+git apply "$RSEBENCH_ROOT/methods/validated/skilllearn_self_feedback/patches/skilllearn-deepseek-evidence.patch"
 ```
 
 ## SkillFlow
 
 ```bash
-git apply "$RSEBENCH_ROOT/patches/baselines/skillflow/skillflow-deepseek-provider.patch"
-git apply "$RSEBENCH_ROOT/patches/baselines/skillflow/skillflow-observability.patch"
-git apply "$RSEBENCH_ROOT/patches/baselines/skillflow/skillflow-harbor-compat.patch"
-git apply "$RSEBENCH_ROOT/patches/baselines/skillflow/skillflow-worker-token-budget.patch"
-git apply "$RSEBENCH_ROOT/patches/baselines/skillflow/skillflow-skill-discovery.patch"
+git apply "$RSEBENCH_ROOT/methods/validated/skillflow/patches/skillflow-deepseek-provider.patch"
+git apply "$RSEBENCH_ROOT/methods/validated/skillflow/patches/skillflow-observability.patch"
+git apply "$RSEBENCH_ROOT/methods/validated/skillflow/patches/skillflow-harbor-compat.patch"
+git apply "$RSEBENCH_ROOT/methods/validated/skillflow/patches/skillflow-worker-token-budget.patch"
+git apply "$RSEBENCH_ROOT/methods/validated/skillflow/patches/skillflow-skill-discovery.patch"
 ```
 
 The provider patch pins the Harbor revision, adds the DeepSeek API Harbor agent,

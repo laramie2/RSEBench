@@ -1,0 +1,8 @@
+schema_version: rsebench.method.v1
+method: evoskill
+status: candidate
+upstream_repository: https://github.com/sentient-agi/EvoSkill.git
+upstream_revision: 36f6f04952293d7054145550c2b9f0b0411bff1c
+code_status: runnable
+local_checkout: evoskill
+releases: []

@@ -1,0 +1,123 @@
+{
+  "$defs": {
+    "EvidenceReference": {
+      "additionalProperties": false,
+      "description": "A content-addressed provenance record supporting a release decision.",
+      "properties": {
+        "uri": {"minLength": 1, "title": "Uri", "type": "string"},
+        "sha256": {"pattern": "^[0-9a-f]{64}$", "title": "Sha256", "type": "string"},
+        "kind": {"default": "manifest", "minLength": 1, "title": "Kind", "type": "string"}
+      },
+      "required": ["uri", "sha256"],
+      "title": "EvidenceReference",
+      "type": "object"
+    },
+    "HarnessIdentity": {
+      "additionalProperties": false,
+      "description": "The method-owned entrypoint and behavior identity.",
+      "properties": {
+        "entrypoint": {"minLength": 1, "title": "Entrypoint", "type": "string"},
+        "version": {"minLength": 1, "title": "Version", "type": "string"},
+        "fingerprint": {"pattern": "^[0-9a-f]{64}$", "title": "Fingerprint", "type": "string"}
+      },
+      "required": ["entrypoint", "version", "fingerprint"],
+      "title": "HarnessIdentity",
+      "type": "object"
+    },
+    "PatchIdentity": {
+      "additionalProperties": false,
+      "description": "One ordered, content-addressed integration patch.",
+      "properties": {
+        "uri": {"minLength": 1, "title": "Uri", "type": "string"},
+        "sha256": {"pattern": "^[0-9a-f]{64}$", "title": "Sha256", "type": "string"},
+        "purpose": {
+          "enum": ["provider", "evidence", "compatibility", "robustness"],
+          "title": "Purpose",
+          "type": "string"
+        }
+      },
+      "required": ["uri", "sha256", "purpose"],
+      "title": "PatchIdentity",
+      "type": "object"
+    },
+    "ProviderIdentity": {
+      "additionalProperties": false,
+      "description": "Provider-facing runtime profile without credentials.",
+      "properties": {
+        "family": {"minLength": 1, "title": "Family", "type": "string"},
+        "model": {"minLength": 1, "title": "Model", "type": "string"},
+        "adapter": {"minLength": 1, "title": "Adapter", "type": "string"}
+      },
+      "required": ["family", "model", "adapter"],
+      "title": "ProviderIdentity",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "A reproducible validated method plus its clean control identity.",
+  "properties": {
+    "schema_version": {
+      "const": "rsebench.method-release.v1",
+      "default": "rsebench.method-release.v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "release_id": {"minLength": 1, "title": "Release Id", "type": "string"},
+    "method": {"minLength": 1, "title": "Method", "type": "string"},
+    "status": {"enum": ["active", "validated_inactive"], "title": "Status", "type": "string"},
+    "upstream_repository": {"minLength": 1, "title": "Upstream Repository", "type": "string"},
+    "upstream_revision": {"pattern": "^[0-9a-f]{40}$", "title": "Upstream Revision", "type": "string"},
+    "patch_series": {
+      "items": {"$ref": "#/$defs/PatchIdentity"},
+      "minItems": 1,
+      "title": "Patch Series",
+      "type": "array"
+    },
+    "harness": {"$ref": "#/$defs/HarnessIdentity"},
+    "provider": {"$ref": "#/$defs/ProviderIdentity"},
+    "environment_lock": {"minLength": 1, "title": "Environment Lock", "type": "string"},
+    "supported_datasets": {
+      "items": {"type": "string"},
+      "minItems": 1,
+      "title": "Supported Datasets",
+      "type": "array"
+    },
+    "clean_evidence": {
+      "items": {"$ref": "#/$defs/EvidenceReference"},
+      "minItems": 1,
+      "title": "Clean Evidence",
+      "type": "array"
+    },
+    "smoke_command": {
+      "items": {"type": "string"},
+      "minItems": 1,
+      "title": "Smoke Command",
+      "type": "array"
+    },
+    "baseline_fingerprint": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Baseline Fingerprint",
+      "type": "string"
+    },
+    "metadata": {"additionalProperties": true, "title": "Metadata", "type": "object"},
+    "content_hash": {"pattern": "^[0-9a-f]{64}$", "title": "Content Hash", "type": "string"}
+  },
+  "required": [
+    "release_id",
+    "method",
+    "status",
+    "upstream_repository",
+    "upstream_revision",
+    "patch_series",
+    "harness",
+    "provider",
+    "environment_lock",
+    "supported_datasets",
+    "clean_evidence",
+    "smoke_command",
+    "baseline_fingerprint",
+    "content_hash"
+  ],
+  "title": "MethodRelease",
+  "type": "object"
+}

@@ -1,0 +1,9 @@
+schema_version: rsebench.method.v1
+method: skilladaptor
+status: active
+upstream_repository: https://github.com/zjunlp/SkillAdaptor.git
+upstream_revision: b26d1ab5a798f07e53048b5ff509e8535e9fa228
+code_status: validated_method_owned_harness
+local_checkout: skilladaptor
+releases:
+- skilladaptor-webshop-validation-v1

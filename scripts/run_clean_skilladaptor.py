@@ -45,7 +45,7 @@ RUNTIME = {
     "min_sample_size": 5,
 }
 PATCH_SERIES = (
-    PROJECT_ROOT / "patches/baselines/skilladaptor/series.yaml"
+    PROJECT_ROOT / "methods/validated/skilladaptor/patches/series.yaml"
 )
 
 

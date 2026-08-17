@@ -1,0 +1,9 @@
+schema_version: rsebench.method.v1
+method: skillflow
+status: active
+upstream_repository: https://github.com/ZhangZi-a/SkillFlow.git
+upstream_revision: 7b49ff5a7e26cd7706e959bfa0dba4746d18440d
+code_status: validated_method_owned_harness
+local_checkout: skillflow
+releases:
+- skillflow-validation-v1

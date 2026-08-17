@@ -1,0 +1,8 @@
+schema_version: rsebench.method.v1
+method: skilllearn_teacher_feedback
+status: candidate
+upstream_repository: https://github.com/cxcscmu/SkillLearnBench.git
+upstream_revision: a0da045a8bf64b8a8ff20730c4d6ef10dc4e2c5b
+code_status: runnable_with_deepseek_adapter
+local_checkout: skilllearnbench
+releases: []

@@ -135,5 +135,5 @@ def test_skillflow_registry_pins_replayable_provider_patch() -> None:
     )["methods"]
 
     assert methods["skillflow"]["patch_series"] == (
-        "patches/baselines/skillflow/series.yaml"
+        "methods/validated/skillflow/patches/series.yaml"
     )

@@ -153,6 +153,15 @@ def test_load_patch_series_rejects_stale_hash(tmp_path: Path) -> None:
         load_patch_series(series_path)
 
 
+def test_legacy_patch_locator_resolves_canonical_method_directory() -> None:
+    legacy = ROOT / "patches/baselines/skillopt/series.yaml"
+
+    with pytest.warns(DeprecationWarning, match="legacy locator"):
+        series = load_patch_series(legacy)
+
+    assert series.baseline == "skillopt"
+
+
 def test_registered_bootstrap_applies_patches_then_verifies(tmp_path: Path) -> None:
     fixture_root = tmp_path / "fixture"
     fixture_root.mkdir()

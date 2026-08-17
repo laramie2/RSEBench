@@ -1,0 +1,8 @@
+schema_version: rsebench.method.v1
+method: trace2skill
+status: candidate
+upstream_repository: https://github.com/Qwen-Applications/Trace2Skill.git
+upstream_revision: 3d0b52a140f002a512930252b613c49048f7d5ac
+code_status: runnable
+local_checkout: trace2skill
+releases: []

@@ -1,0 +1,3 @@
+repository: https://github.com/ZhangZi-a/SkillFlow.git
+revision: 7b49ff5a7e26cd7706e959bfa0dba4746d18440d
+source_policy: clone-on-bootstrap-do-not-vendor

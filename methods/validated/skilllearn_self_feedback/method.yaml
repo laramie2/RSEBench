@@ -1,0 +1,9 @@
+schema_version: rsebench.method.v1
+method: skilllearn_self_feedback
+status: validated_inactive
+upstream_repository: https://github.com/cxcscmu/SkillLearnBench.git
+upstream_revision: a0da045a8bf64b8a8ff20730c4d6ef10dc4e2c5b
+code_status: validated_method_owned_harness
+local_checkout: skilllearnbench
+releases:
+- skilllearn-self-feedback-diagnostic-v1

@@ -39,7 +39,7 @@ DEFAULT_RUN_ROOT = (
     / "outputs/preflight/clean-qualification-v1/webshop/validation_calibration"
 )
 PATCH_SERIES = (
-    PROJECT_ROOT / "patches/baselines/skilladaptor/series.yaml"
+    PROJECT_ROOT / "methods/validated/skilladaptor/patches/series.yaml"
 )
 
 

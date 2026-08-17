@@ -1,0 +1,7 @@
+schema_version: rsebench.method-environment.v1
+python: 3.13.9
+provider: deepseek
+model: deepseek-v4-flash
+provider_config: rsebench-project://configs/pilot/deepseek-v4-flash-4096.yaml
+provider_config_sha256: 97b4bdb24f2a9e1d49d5cf5a74951b3c9abf7fc5b4fcfef90caa793b100c92dc
+dependency_policy: upstream-lock-plus-pinned-patch-series

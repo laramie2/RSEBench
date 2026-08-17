@@ -1,0 +1,3 @@
+repository: https://github.com/zjunlp/SkillAdaptor.git
+revision: b26d1ab5a798f07e53048b5ff509e8535e9fa228
+source_policy: clone-on-bootstrap-do-not-vendor

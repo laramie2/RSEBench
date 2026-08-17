@@ -1,0 +1,8 @@
+schema_version: rsebench.method.v1
+method: coevoskills
+status: candidate
+upstream_repository: https://github.com/Zhang-Henry/CoEvoSkills.git
+upstream_revision: 3171de28cc8d3c3bbbec0ef5445e59faca46815b
+code_status: paper_only
+local_checkout: coevoskills
+releases: []

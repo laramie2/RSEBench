@@ -14,7 +14,7 @@ methods:
     git_lfs: false
     native_domains: [spreadsheet, document, math]
     code_status: runnable
-    patch_series: patches/baselines/skillopt/series.yaml
+    patch_series: methods/validated/skillopt/patches/series.yaml
   skillgrad:
     active: false
     repository: https://github.com/wwwhy725/SkillGrad.git
@@ -64,7 +64,7 @@ methods:
     git_lfs: false
     native_domains: [skill_native]
     code_status: runnable_with_deepseek_adapter
-    patch_series: patches/baselines/skillflow/series.yaml
+    patch_series: methods/validated/skillflow/patches/series.yaml
   skilllearn_self_feedback:
     active: false
     repository: https://github.com/cxcscmu/SkillLearnBench.git
@@ -72,7 +72,7 @@ methods:
     git_lfs: false
     native_domains: [skill_learning]
     code_status: runnable_with_deepseek_adapter
-    patch_series: patches/baselines/skilllearn_self_feedback/series.yaml
+    patch_series: methods/validated/skilllearn_self_feedback/patches/series.yaml
   skilllearn_teacher_feedback:
     active: false
     repository: https://github.com/cxcscmu/SkillLearnBench.git
@@ -80,7 +80,7 @@ methods:
     git_lfs: false
     native_domains: [skill_learning]
     code_status: runnable_with_deepseek_adapter
-    patch_series: patches/baselines/skilllearn_self_feedback/series.yaml
+    patch_series: methods/validated/skilllearn_self_feedback/patches/series.yaml
   skilladaptor:
     active: true
     repository: https://github.com/zjunlp/SkillAdaptor.git
@@ -88,7 +88,7 @@ methods:
     git_lfs: false
     native_domains: [interactive]
     code_status: runnable
-    patch_series: patches/baselines/skilladaptor/series.yaml
+    patch_series: methods/validated/skilladaptor/patches/series.yaml
   rethinkskill:
     active: false
     repository: https://github.com/HKUST-KnowComp/rethinkskill.git

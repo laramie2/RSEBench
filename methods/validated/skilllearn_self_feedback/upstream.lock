@@ -1,0 +1,3 @@
+repository: https://github.com/cxcscmu/SkillLearnBench.git
+revision: a0da045a8bf64b8a8ff20730c4d6ef10dc4e2c5b
+source_policy: clone-on-bootstrap-do-not-vendor

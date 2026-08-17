@@ -9,6 +9,7 @@ import shlex
 import subprocess
 import tarfile
 import tempfile
+import warnings
 from pathlib import Path
 from typing import Any, Literal, Sequence
 
@@ -49,6 +50,33 @@ _CHECKOUT_NAMES = {
 }
 
 
+def resolve_patch_series_path(path: Path | str) -> Path:
+    """Resolve a canonical series path, with one-version old-layout fallback."""
+
+    requested = Path(path).resolve()
+    if requested.exists():
+        return requested
+    parts = requested.parts
+    for index in range(len(parts) - 3):
+        if parts[index : index + 2] != ("patches", "baselines"):
+            continue
+        project_root = Path(*parts[:index])
+        method = parts[index + 2]
+        tail = parts[index + 3 :]
+        for lifecycle in ("validated", "candidates"):
+            canonical = (
+                project_root / "methods" / lifecycle / method / "patches" / Path(*tail)
+            ).resolve()
+            if canonical.exists():
+                warnings.warn(
+                    f"using canonical method patch for legacy locator {requested}",
+                    DeprecationWarning,
+                    stacklevel=2,
+                )
+                return canonical
+    return requested
+
+
 def _series_patch_paths(series_path: Path, series: PatchSeries) -> list[Path]:
     root = series_path.resolve().parent
     paths: list[Path] = []
@@ -68,7 +96,7 @@ def _series_patch_paths(series_path: Path, series: PatchSeries) -> list[Path]:
 def load_patch_series(path: Path | str) -> PatchSeries:
     """Load a series and prove that every registered patch still has its pin."""
 
-    series_path = Path(path).resolve()
+    series_path = resolve_patch_series_path(path)
     payload = yaml.safe_load(series_path.read_text(encoding="utf-8"))
     series = PatchSeries.model_validate(payload)
     for entry, patch_path in zip(
@@ -88,7 +116,7 @@ def load_patch_series(path: Path | str) -> PatchSeries:
 def patch_paths_for_series(
     series_path: Path | str, series: PatchSeries | None = None
 ) -> list[Path]:
-    path = Path(series_path).resolve()
+    path = resolve_patch_series_path(series_path)
     loaded = series or load_patch_series(path)
     return _series_patch_paths(path, loaded)
 
@@ -96,7 +124,7 @@ def patch_paths_for_series(
 def patch_hashes_for_series(series_path: Path | str) -> dict[str, str]:
     """Return basename-keyed hashes for compatibility with existing manifests."""
 
-    path = Path(series_path).resolve()
+    path = resolve_patch_series_path(series_path)
     series = load_patch_series(path)
     return {
         Path(entry.path).name: entry.sha256
@@ -223,7 +251,7 @@ def verify_baseline(
             f"baseline origin mismatch: expected {repository}, got {actual_origin}"
         )
 
-    path = Path(series_path).resolve()
+    path = resolve_patch_series_path(series_path)
     loaded = load_patch_series(path)
     if loaded != series:
         raise ValueError("supplied patch series differs from the pinned series file")

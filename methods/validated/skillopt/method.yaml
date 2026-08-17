@@ -1,0 +1,10 @@
+schema_version: rsebench.method.v1
+method: skillopt
+status: active
+upstream_repository: https://github.com/microsoft/SkillOpt.git
+upstream_revision: 47fe269d75d3def79ffd90236261d26d84868ae5
+code_status: validated_method_owned_harness
+local_checkout: skillopt
+releases:
+- skillopt-officeqa-validation-v1
+- skillopt-spreadsheet-validation-v1

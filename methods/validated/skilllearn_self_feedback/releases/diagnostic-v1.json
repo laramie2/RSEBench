@@ -1,0 +1,47 @@
+{
+  "schema_version": "rsebench.method-release.v1",
+  "release_id": "skilllearn-self-feedback-diagnostic-v1",
+  "method": "skilllearn_self_feedback",
+  "status": "validated_inactive",
+  "upstream_repository": "https://github.com/cxcscmu/SkillLearnBench.git",
+  "upstream_revision": "a0da045a8bf64b8a8ff20730c4d6ef10dc4e2c5b",
+  "patch_series": [
+    {
+      "uri": "rsebench-project://methods/validated/skilllearn_self_feedback/patches/skilllearn-deepseek-evidence.patch",
+      "sha256": "efc26159e5c96c0ff21c3d5ffea0523fea5e093a6de9d51516a7ff388e725f7b",
+      "purpose": "provider"
+    }
+  ],
+  "harness": {
+    "entrypoint": "baselines.self_feedback:main",
+    "version": "validation-v1",
+    "fingerprint": "033cc887ba59a8692a7c416f0a050dff37f086e4d8715b690096189a8df1ebf7"
+  },
+  "provider": {
+    "family": "openai-compatible",
+    "model": "deepseek-v4-flash",
+    "adapter": "skilllearn_self_feedback.deepseek-v4-flash"
+  },
+  "environment_lock": "rsebench-project://methods/validated/skilllearn_self_feedback/integration/environment.lock",
+  "supported_datasets": [
+    "skilllearnbench-diagnostic-clean-v2"
+  ],
+  "clean_evidence": [
+    {
+      "uri": "rsebench-project://releases/diagnostic/clean-v2-canaries/manifest.json",
+      "sha256": "24621ac4edcd4f75dab89f1e558b96bd2695140bcc61758adfdc718f514ff3ab",
+      "kind": "clean-control"
+    }
+  ],
+  "smoke_command": [
+    "python",
+    "scripts/run_clean_skilllearn.py",
+    "--help"
+  ],
+  "baseline_fingerprint": "033cc887ba59a8692a7c416f0a050dff37f086e4d8715b690096189a8df1ebf7",
+  "metadata": {
+    "clean_control_cell": "skilllearn-offer-letter",
+    "harness_ownership": "method-owned"
+  },
+  "content_hash": "f2db4daed9813821e43cec604b5eace619e9a99b5cf360563ef5b2a2f909a6b0"
+}

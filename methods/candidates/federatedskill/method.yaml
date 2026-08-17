@@ -1,0 +1,8 @@
+schema_version: rsebench.method.v1
+method: federatedskill
+status: candidate
+upstream_repository: https://github.com/UCSB-NLP-Chang/FederatedSkill.git
+upstream_revision: ddefb76a70e58659ba1869162f3d68b8cd6bdb1c
+code_status: runnable
+local_checkout: federatedskill
+releases: []
