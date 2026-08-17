@@ -1,10 +1,28 @@
 # RSE-Bench
 
-RSE-Bench evaluates whether skill self-evolution remains effective when task context, environment evidence, stored trajectories, or update feedback contain controlled noise. The active Core-1 scope covers SpreadsheetBench-Verified, OfficeQA Full, WebShop, and SkillLearnBench.
+RSE-Bench evaluates whether skill self-evolution remains effective when task context, environment evidence, stored trajectories, or update feedback contain controlled noise. Validation-v1 covers SpreadsheetBench-Verified / SkillOpt, OfficeQA Full / SkillOpt, WebShop / SkillAdaptor, and SkillFlow-Task / SkillFlow. SkillLearnBench remains diagnostic history and is not the fourth active domain.
 
-## Collaborator roadmap
+## Start here
 
-Start with the [Chinese project roadmap](docs/project-roadmap.md) for the active benchmarks, baseline methods, N1–N4 noise matrix, experiment gates, current limitations, and pending work. Machine-readable registries and executable configs remain the source of truth.
+- [Documentation index](docs/README.md)
+- [Chinese project onboarding](docs/project-onboarding.md)
+- [Project roadmap](docs/project-roadmap.md)
+- [Current project status](docs/reports/current/current-project-status.md)
+- [N1–N4 collaboration progress](docs/progress/README.md)
+- [Validation runbook](docs/operations/validation-runbook.md)
+
+Machine-readable DatasetRelease, MethodRelease, registry, and matrix files are the executable sources of truth. Prose documents explain scope and conclusion boundaries but do not override frozen identities.
+
+## Current validation-v1 scope
+
+| Domain | Benchmark | Method profile | Frozen scale |
+|---|---|---|---:|
+| Spreadsheet | SpreadsheetBench-Verified | SkillOpt | 20/10/30 |
+| Document QA | OfficeQA Full | SkillOpt | 12/12/20 |
+| Interactive | WebShop | SkillAdaptor | 5/5/20 |
+| Longitudinal skill | SkillFlow-Task | SkillFlow | 3 families × 6 ordered tasks |
+
+The four noise stages are independent arms: N1 task context, N2 environment evidence, N3 stored trajectory, and N4 update feedback. Validation-v1 expands to exactly 16 noisy cells and reuses frozen clean evidence.
 
 ## Setup
 
@@ -13,11 +31,22 @@ python -m pip install -e '.[test]'
 cp .env.example .env
 ```
 
-Leave `DEEPSEEK_API_KEY` empty for download, materialization, rule-based noise generation, and offline validation. Add a valid key only before model-backed noise generation or pilot execution.
+Leave `DEEPSEEK_API_KEY` empty for bootstrap, audit, materialization, dry-run, status, aggregate, and provider-free preflight. Add credentials only immediately before an explicitly approved paid run.
 
-The full approved design is in `docs/superpowers/specs/2026-08-11-robust-skill-evolution-benchmark-design.md`.
+## Provider-free validation
 
-## Reproduce downloads and audits
+```bash
+python -m rsebench.cli validation preflight \
+  --matrix configs/validation/validation-v1.yaml
+python -m rsebench.cli validation status \
+  --matrix configs/validation/validation-v1.yaml
+python -m rsebench.cli validation aggregate \
+  --matrix configs/validation/validation-v1.yaml
+```
+
+The current stage interfaces are frozen, but concrete `CELL_RUNNERS` are not implemented. Preflight therefore reports `execution_ready=false`, and `validation run` must fail closed before any provider call.
+
+## Data and baseline bootstrap
 
 ```bash
 bash scripts/download/baselines.sh
@@ -25,40 +54,6 @@ python scripts/download/datasets.py --profile core --resume
 python scripts/materialize_splits.py
 python scripts/audit_baselines.py
 python scripts/audit_datasets.py
-python scripts/audit_skill_native.py
 ```
 
-Large assets are stored under the central project `data/` and
-`methods/external/` directories and are not committed.
-
-## Run noise-generation validation
-
-The offline smoke validates generation and label-preservation gates; it does not
-claim that noise reduces model accuracy.
-
-```bash
-bash scripts/run/pilot_a.sh --offline --limit 5
-
-python -m rsebench.cli generate-noise \
-  --profile configs/pilot/spreadsheet.yaml --limit 10 --offline
-python -m rsebench.cli generate-noise \
-  --profile configs/pilot/officeqa.yaml --limit 10 --offline
-python -m rsebench.cli generate-noise \
-  --profile configs/pilot/docvqa.yaml --limit 10 --offline
-```
-
-`configs/pilot/officeqa-demo.yaml` remains available only as a small reproduction
-fixture; formal validation uses all 246 OfficeQA rows and the downloaded corpus.
-
-After adding a valid DeepSeek key to `.env`, run the small paired effectiveness
-experiment:
-
-```bash
-python -m rsebench.cli provider-check \
-  --config configs/pilot/deepseek-v4-flash.yaml
-python -m rsebench.cli math-pilot-a --limit 5
-```
-
-See `docs/reports/phase0-download-audit.md`,
-`docs/reports/baseline-benchmark-audit.md`, and
-`docs/reports/pilot-readiness.md` for exact states, limitations, and next gates.
+Large datasets, external checkouts, raw outputs, caches, and credentials are Git-ignored. Earlier generation, Core-1, clean-qualification, SkillLearn, and SkillFlow screening commands are historical reproduction paths; find them through the [experiment history](docs/archive/experiment-history/README.md).

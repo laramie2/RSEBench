@@ -1,5 +1,11 @@
 # RSEBench Core-1
 
+> **Legacy diagnostic slice.** This directory preserves the earlier Core-1
+> operator pilot whose fourth row was SkillLearnBench. The active validation-v1
+> matrix uses SkillFlow-Task as the fourth domain and is defined by
+> `configs/validation/validation-v1.yaml`. Do not start new formal runs from this
+> README. Use the [current validation runbook](../../docs/operations/validation-runbook.md).
+
 Core-1 is the executable validation slice of RSEBench. Its four peer domains
 are evaluated together; SkillLearnBench is a skill-native diagnostic domain,
 not a replacement for task benchmarks.
