@@ -1,0 +1,80 @@
+schema_version: rsebench.validation-matrix.v1
+release_id: validation-v1
+datasets:
+  spreadsheet: spreadsheetbench-verified-validation-v1
+  document: officeqa-full-validation-v1
+  interactive: webshop-validation-v1
+  skill: skillflow-tasks-validation-v1
+methods:
+  spreadsheet: skillopt-spreadsheet-validation-v1
+  document: skillopt-officeqa-validation-v1
+  interactive: skilladaptor-webshop-validation-v1
+  skill: skillflow-validation-v1
+stages:
+- N1
+- N2
+- N3
+- N4
+operators:
+  spreadsheet:
+    N1: spreadsheet_n1_erroneous_handover
+    N2: spreadsheet_n2_unlabeled_stale_sheet
+    N3: spreadsheet_n3_omit_workbook_edit
+    N4: spreadsheet_n4_replace_blamed_range
+  document:
+    N1: officeqa_n1_one_axis_derivation
+    N2: officeqa_n2_conflicting_period_source
+    N3: officeqa_n3_omit_oracle_source
+    N4: officeqa_n4_replace_failure_axis
+  interactive:
+    N1: webshop_n1_near_match_session
+    N2: webshop_n2_promote_near_match
+    N3: webshop_n3_omit_constraint_event
+    N4: webshop_n4_replace_fault_step
+  skill:
+    N1: skillflow_n1_unverified_prior_skill
+    N2: skillflow_n2_stale_same_family_artifact
+    N3: skillflow_n3_omit_skill_use_event
+    N4: skillflow_n4_replace_patch_attribution
+runtime:
+  spreadsheet:
+    max_steps: 3
+    batch_size: 7
+    workers: 2
+    max_tool_turns: 3
+    max_completion_tokens: 2048
+  document:
+    max_steps: 3
+    batch_size: 4
+    workers: 2
+    max_tool_turns: 12
+    max_completion_tokens: 4096
+  interactive:
+    max_iterations: 3
+    max_episode_steps: 15
+    min_sample_size: 5
+  skill:
+    replicates:
+    - r1
+    - r2
+    - r3
+    max_turns: 60
+    max_completion_tokens: 8192
+    patch_max_steps: 60
+    patch_max_tokens: 8192
+    docker_image: skillevlove/harbor-cli-openhands:ubuntu24.04
+source_modes:
+  spreadsheet: read_only
+  document: read_only
+  interactive: read_only
+  skill: copy_on_run
+provider:
+  family: openai-compatible
+  model: deepseek-v4-flash
+  temperature: 0.0
+  thinking: disabled
+noise_seed: 20260817
+execution:
+  cell_parallelism: 16
+  seed_parallelism: 1
+content_hash: fed771aee0fbf7a351085886653442911d5c54213979616d3ce1239a02941f81

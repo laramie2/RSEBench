@@ -1,0 +1,1 @@
+"""Method release tests."""
