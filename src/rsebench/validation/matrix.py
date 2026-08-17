@@ -188,6 +188,8 @@ def expand_validation_cells(
                     method=method.method,
                     method_release_id=method.release_id,
                     method_release_hash=method.content_hash,
+                    upstream_revision=method.upstream_revision,
+                    patch_series=method.patch_series,
                     baseline_fingerprint=method.baseline_fingerprint,
                     clean_evidence=method.clean_evidence,
                     clean_evidence_hash=clean_evidence_hash,

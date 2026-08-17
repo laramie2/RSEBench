@@ -64,9 +64,9 @@ runtime:
     patch_max_tokens: 8192
     docker_image: skillevlove/harbor-cli-openhands:ubuntu24.04
 source_modes:
-  spreadsheet: read_only
-  document: read_only
-  interactive: read_only
+  spreadsheet: copy_on_run
+  document: copy_on_run
+  interactive: copy_on_run
   skill: copy_on_run
 provider:
   family: openai-compatible
@@ -77,4 +77,4 @@ noise_seed: 20260817
 execution:
   cell_parallelism: 16
   seed_parallelism: 1
-content_hash: fed771aee0fbf7a351085886653442911d5c54213979616d3ce1239a02941f81
+content_hash: 07e72a189af40c4436bf7f005a2eae2dd8b9790b54e5c20229bdc637182bf932

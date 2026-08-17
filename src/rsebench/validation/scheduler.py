@@ -31,6 +31,18 @@ def _method_source(project_root: Path, method: str) -> Path:
     return canonical.resolve()
 
 
+def _project_patch(project_root: Path, uri: str) -> Path:
+    prefix = "rsebench-project://"
+    if not uri.startswith(prefix):
+        raise ValueError(f"release patch must use a project URI: {uri}")
+    path = (project_root / uri.removeprefix(prefix)).resolve()
+    try:
+        path.relative_to(project_root)
+    except ValueError as exc:
+        raise ValueError(f"release patch escapes project root: {uri}") from exc
+    return path
+
+
 def build_validation_units(
     cells: Sequence[ValidationCell],
     run_root: Path | str,
@@ -73,6 +85,11 @@ def build_validation_units(
                 adapter_max_parallel=16,
                 source_dir=str(_method_source(project, cell.method)),
                 source_mode=cell.source_mode,
+                source_revision=cell.upstream_revision,
+                patch_paths=[
+                    str(_project_patch(project, patch.uri))
+                    for patch in cell.patch_series
+                ],
             )
         )
     if len({unit.key for unit in units}) != len(units):

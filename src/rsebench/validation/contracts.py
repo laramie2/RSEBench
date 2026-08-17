@@ -11,6 +11,7 @@ from rsebench.datasets import EvidenceReference
 from rsebench.datasets.contracts import FrozenStrictModel
 from rsebench.evidence import canonical_hash
 from rsebench.noise.contracts import NoiseForm, NoiseStage
+from rsebench.methods import PatchIdentity
 
 
 ValidationDomain = Literal["spreadsheet", "document", "interactive", "skill"]
@@ -105,6 +106,8 @@ class ValidationCell(FrozenStrictModel):
     method: str = Field(min_length=1)
     method_release_id: str = Field(min_length=1)
     method_release_hash: str = Field(pattern=_HASH_PATTERN)
+    upstream_revision: str = Field(pattern=r"^[0-9a-f]{40}$")
+    patch_series: tuple[PatchIdentity, ...]
     baseline_fingerprint: str = Field(pattern=_HASH_PATTERN)
     clean_evidence: tuple[EvidenceReference, ...]
     clean_evidence_hash: str = Field(pattern=_HASH_PATTERN)

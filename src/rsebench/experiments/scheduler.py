@@ -8,6 +8,7 @@ import re
 import signal
 import shutil
 import subprocess
+import tarfile
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -50,6 +51,8 @@ class ScheduledUnit(StrictModel):
     adapter_max_parallel: int = Field(default=1, ge=1)
     source_dir: str | None = None
     source_mode: Literal["read_only", "copy_on_run"] = "read_only"
+    source_revision: str | None = Field(default=None, pattern=r"^[0-9a-f]{40}$")
+    patch_paths: list[str] = Field(default_factory=list)
 
     @field_validator("mutable_resource_keys")
     @classmethod
@@ -66,6 +69,12 @@ class ScheduledUnit(StrictModel):
             raise ValueError("scheduled identity differs from experiment_id")
         if self.source_mode == "copy_on_run" and not self.source_dir:
             raise ValueError("copy_on_run requires a method source directory")
+        if len(self.patch_paths) != len(set(self.patch_paths)):
+            raise ValueError("release patch paths must be unique")
+        if any(not path for path in self.patch_paths):
+            raise ValueError("release patch paths must not be empty")
+        if self.patch_paths and not self.source_revision:
+            raise ValueError("release patch replay requires an upstream revision")
         return self
 
 
@@ -352,12 +361,64 @@ class ExperimentScheduler:
         if unit.source_mode == "read_only":
             return source
         destination = attempt_dir / "workspace" / "method-source"
-        shutil.copytree(
-            source,
-            destination,
-            symlinks=True,
-            ignore=self._copy_ignore,
-        )
+        if unit.source_revision and (source / ".git").is_dir():
+            archive = attempt_dir / "tmp" / "method-source.tar"
+            archive.parent.mkdir(parents=True, exist_ok=True)
+            completed = subprocess.run(
+                [
+                    "git",
+                    "-C",
+                    str(source),
+                    "archive",
+                    "--format=tar",
+                    f"--output={archive}",
+                    unit.source_revision,
+                ],
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+            if completed.returncode:
+                detail = (completed.stderr or completed.stdout).strip()
+                raise RuntimeError(f"method source archive failed: {detail}")
+            destination.mkdir(parents=True)
+            with tarfile.open(archive) as handle:
+                handle.extractall(destination, filter="fully_trusted")
+        else:
+            shutil.copytree(
+                source,
+                destination,
+                symlinks=True,
+                ignore=self._copy_ignore,
+            )
+        if unit.patch_paths:
+            subprocess.run(
+                ["git", "-C", str(destination), "init", "--quiet"],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            for raw_patch in unit.patch_paths:
+                patch = Path(raw_patch).resolve()
+                try:
+                    patch.relative_to(self.project_root)
+                except ValueError as exc:
+                    raise ValueError(
+                        f"release patch escapes project root: {patch}"
+                    ) from exc
+                if not patch.is_file():
+                    raise FileNotFoundError(f"release patch is missing: {patch}")
+                completed = subprocess.run(
+                    ["git", "-C", str(destination), "apply", str(patch)],
+                    check=False,
+                    capture_output=True,
+                    text=True,
+                )
+                if completed.returncode:
+                    detail = (completed.stderr or completed.stdout).strip()
+                    raise RuntimeError(
+                        f"release patch replay failed for {patch.name}: {detail}"
+                    )
         return destination
 
     @staticmethod
