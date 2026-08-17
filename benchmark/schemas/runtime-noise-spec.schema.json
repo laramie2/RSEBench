@@ -47,6 +47,12 @@
       "title": "Protected Fields",
       "type": "array"
     },
+    "schema_version": {
+      "const": "rsebench.runtime-noise-spec.v1",
+      "default": "rsebench.runtime-noise-spec.v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
     "seed": {
       "title": "Seed",
       "type": "integer"

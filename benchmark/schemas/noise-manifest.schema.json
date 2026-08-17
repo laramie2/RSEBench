@@ -143,6 +143,12 @@
       "title": "Operator",
       "type": "string"
     },
+    "schema_version": {
+      "const": "rsebench.noise-manifest.v1",
+      "default": "rsebench.noise-manifest.v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
     "seed": {
       "title": "Seed",
       "type": "integer"

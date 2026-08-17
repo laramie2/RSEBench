@@ -77,6 +77,9 @@ EvidenceRecord = TrajectoryRecord | FeedbackRecord
 
 
 class RuntimeNoiseSpec(StrictModel):
+    schema_version: Literal["rsebench.runtime-noise-spec.v1"] = (
+        "rsebench.runtime-noise-spec.v1"
+    )
     stage: EvidenceStage
     operator: str = Field(min_length=1)
     benchmark: str = Field(min_length=1)
@@ -145,4 +148,3 @@ class MutationResult(StrictModel):
             if self.input_record.scalar_reward != self.output_record.scalar_reward:
                 raise ValueError("N4 must preserve scalar reward")
         return self
-

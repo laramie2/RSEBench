@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -72,6 +72,9 @@ class TaskManifest(StrictModel):
 
 
 class NoiseManifest(StrictModel):
+    schema_version: Literal["rsebench.noise-manifest.v1"] = (
+        "rsebench.noise-manifest.v1"
+    )
     noise_id: str = Field(min_length=1)
     channel: Channel
     mechanism: Mechanism

@@ -1,0 +1,8 @@
+schema_version: rsebench.noise-plugin.v1
+stage: N1
+form: static
+entrypoint: rsebench.noise.stages.n1:PLUGIN
+version: "1"
+operators_root: rsebench.noise.stages.n1.operators
+metadata:
+  owner_scope: task-context-data

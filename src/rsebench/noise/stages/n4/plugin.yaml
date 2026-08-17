@@ -1,0 +1,8 @@
+schema_version: rsebench.noise-plugin.v1
+stage: N4
+form: runtime
+entrypoint: rsebench.noise.stages.n4:PLUGIN
+version: "1"
+operators_root: rsebench.noise.stages.n4.operators
+metadata:
+  owner_scope: feedback-evidence

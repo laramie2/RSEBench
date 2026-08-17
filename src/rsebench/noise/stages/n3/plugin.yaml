@@ -1,0 +1,8 @@
+schema_version: rsebench.noise-plugin.v1
+stage: N3
+form: runtime
+entrypoint: rsebench.noise.stages.n3:PLUGIN
+version: "1"
+operators_root: rsebench.noise.stages.n3.operators
+metadata:
+  owner_scope: trajectory-evidence
