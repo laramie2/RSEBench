@@ -121,7 +121,7 @@ def test_replay_parser_rejects_removed_synthetic_spec_mode() -> None:
 def test_task8_replay_commands_are_provider_confirmed() -> None:
     plan = (
         PROJECT_ROOT
-        / "docs/superpowers/plans/2026-08-15-stable-noise-validation-splits.md"
+        / "docs/archive/implementation-plans/2026-08-15-stable-noise-validation-splits.md"
     ).read_text(encoding="utf-8")
     task8 = plan.split("### Task 8:", maxsplit=1)[1]
     blocks = task8.split("PYTHONPATH=src python scripts/run_noise_screen_replays.py")[1:]

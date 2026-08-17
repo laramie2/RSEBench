@@ -10,7 +10,7 @@ from rsebench.validation import ValidationCatalogs, load_and_expand
 
 ROOT = Path(__file__).resolve().parents[2]
 MATRIX = ROOT / "configs/validation/validation-v1.yaml"
-REPORT = ROOT / "docs/reports/2026-08-17-validation-v1-freeze.md"
+REPORT = ROOT / "docs/reports/current/2026-08-17-validation-v1-freeze.md"
 
 
 def test_validation_release_has_exact_frozen_scope() -> None:

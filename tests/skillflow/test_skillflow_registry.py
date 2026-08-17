@@ -51,14 +51,19 @@ def test_skillflow_method_adapter_and_split_are_active() -> None:
 
 def test_docs_preserve_skilllearn_history_and_record_validation_v1_freeze() -> None:
     roadmap = (ROOT / "docs/project-roadmap.md").read_text(encoding="utf-8")
-    status = (ROOT / "docs/reports/current-experiment-status.md").read_text(
-        encoding="utf-8"
-    )
+    current_status = (
+        ROOT / "docs/reports/current/current-project-status.md"
+    ).read_text(encoding="utf-8")
+    historical_status = (
+        ROOT / "docs/archive/status-snapshots/2026-08-17-current-experiment-status.md"
+    ).read_text(encoding="utf-8")
 
-    for text in (roadmap, status):
+    for text in (roadmap, current_status):
         assert "SkillLearn" in text
         assert "diagnostic" in text.lower()
         assert "validation-v1" in text
-        assert "interface" in text.lower()
     assert "SkillFlow-Task" in roadmap
-    assert "Self-Feedback" in status
+    assert "operator 与 runner" in roadmap
+    assert "interface-only" in current_status
+    assert "Archived cumulative snapshot" in historical_status
+    assert "Self-Feedback" in historical_status

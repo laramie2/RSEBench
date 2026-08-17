@@ -30,7 +30,7 @@ These inputs support controlled mechanism comparison. They do not establish a st
 | Interactive | `skilladaptor-webshop-validation-v1` | active |
 | Skill | `skillflow-validation-v1` | active |
 
-`skilllearn-self-feedback-diagnostic-v1` remains `validated_inactive` and is retained only as historical diagnostic evidence.
+SkillLearn Self-Feedback release `skilllearn-self-feedback-diagnostic-v1` remains `validated_inactive` and is retained only as historical diagnostic evidence.
 
 ## Infrastructure verification
 
