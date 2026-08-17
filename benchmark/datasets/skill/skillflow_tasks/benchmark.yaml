@@ -1,0 +1,6 @@
+schema_version: rsebench.benchmark.v1
+benchmark: skillflow_tasks
+domain: skill
+default_release: validation-v1
+releases:
+  validation-v1: releases/validation-v1/manifest.json

@@ -1,0 +1,6 @@
+schema_version: rsebench.benchmark.v1
+benchmark: webshop
+domain: interactive
+default_release: validation-v1
+releases:
+  validation-v1: releases/validation-v1/manifest.json

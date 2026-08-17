@@ -1,0 +1,338 @@
+{
+  "schema_version": "rsebench.dataset-release.v1",
+  "release_id": "skillflow-tasks-validation-v1",
+  "domain": "skill",
+  "benchmark": "skillflow_tasks",
+  "benchmark_version": "7b49ff5a7e26cd7706e959bfa0dba4746d18440d",
+  "loader": "skillflow.harbor_task.v1",
+  "verifier": "skillflow_harbor_v1",
+  "tasks": {
+    "hwpx-supplier-contact-sheet": {
+      "task_id": "hwpx-supplier-contact-sheet",
+      "benchmark": "skillflow_tasks",
+      "domain": "skill",
+      "prompt": "Execute the frozen SkillFlow task hwpx-supplier-contact-sheet.",
+      "gold_answers": [],
+      "source_hash": "314f185b962bdb97bce790b8a5c038ccb7551dac0252cbf3294fe41cbc6765d7",
+      "artifact_path": "rsebench-data://raw/skillflow_tasks/test_tasks/HWPX-Document-Automation/hwpx-supplier-contact-sheet",
+      "verifier": "skillflow_harbor_v1",
+      "metadata": {
+        "family": "HWPX-Document-Automation",
+        "order": 1,
+        "relative_path": "HWPX-Document-Automation/hwpx-supplier-contact-sheet"
+      }
+    },
+    "hwpx-event-announcement": {
+      "task_id": "hwpx-event-announcement",
+      "benchmark": "skillflow_tasks",
+      "domain": "skill",
+      "prompt": "Execute the frozen SkillFlow task hwpx-event-announcement.",
+      "gold_answers": [],
+      "source_hash": "6d7a227941ce30e7677acf9d2643f5737be78a546c9a43fa99c6dd7c6d343402",
+      "artifact_path": "rsebench-data://raw/skillflow_tasks/test_tasks/HWPX-Document-Automation/hwpx-event-announcement",
+      "verifier": "skillflow_harbor_v1",
+      "metadata": {
+        "family": "HWPX-Document-Automation",
+        "order": 2,
+        "relative_path": "HWPX-Document-Automation/hwpx-event-announcement"
+      }
+    },
+    "hwpx-clinic-intake-summary": {
+      "task_id": "hwpx-clinic-intake-summary",
+      "benchmark": "skillflow_tasks",
+      "domain": "skill",
+      "prompt": "Execute the frozen SkillFlow task hwpx-clinic-intake-summary.",
+      "gold_answers": [],
+      "source_hash": "bfda23a3a6b637b7b68c30e8fd9bbff40059a680a0f98469c9b0c34f0ea4cb64",
+      "artifact_path": "rsebench-data://raw/skillflow_tasks/test_tasks/HWPX-Document-Automation/hwpx-clinic-intake-summary",
+      "verifier": "skillflow_harbor_v1",
+      "metadata": {
+        "family": "HWPX-Document-Automation",
+        "order": 3,
+        "relative_path": "HWPX-Document-Automation/hwpx-clinic-intake-summary"
+      }
+    },
+    "hwpx-project-proposal": {
+      "task_id": "hwpx-project-proposal",
+      "benchmark": "skillflow_tasks",
+      "domain": "skill",
+      "prompt": "Execute the frozen SkillFlow task hwpx-project-proposal.",
+      "gold_answers": [],
+      "source_hash": "637365039eeb794bd901911145f021c852154d873cd6d1e9e3f5113f579613e2",
+      "artifact_path": "rsebench-data://raw/skillflow_tasks/test_tasks/HWPX-Document-Automation/hwpx-project-proposal",
+      "verifier": "skillflow_harbor_v1",
+      "metadata": {
+        "family": "HWPX-Document-Automation",
+        "order": 4,
+        "relative_path": "HWPX-Document-Automation/hwpx-project-proposal"
+      }
+    },
+    "hwpx-training-feedback": {
+      "task_id": "hwpx-training-feedback",
+      "benchmark": "skillflow_tasks",
+      "domain": "skill",
+      "prompt": "Execute the frozen SkillFlow task hwpx-training-feedback.",
+      "gold_answers": [],
+      "source_hash": "acfd2207366383b6b0da894b62775f0100587fa869336e8217e98d3d9c22fa44",
+      "artifact_path": "rsebench-data://raw/skillflow_tasks/test_tasks/HWPX-Document-Automation/hwpx-training-feedback",
+      "verifier": "skillflow_harbor_v1",
+      "metadata": {
+        "family": "HWPX-Document-Automation",
+        "order": 5,
+        "relative_path": "HWPX-Document-Automation/hwpx-training-feedback"
+      }
+    },
+    "hwpx-safety-audit-brief": {
+      "task_id": "hwpx-safety-audit-brief",
+      "benchmark": "skillflow_tasks",
+      "domain": "skill",
+      "prompt": "Execute the frozen SkillFlow task hwpx-safety-audit-brief.",
+      "gold_answers": [],
+      "source_hash": "ff8bcf8fe0be2d4b436675a58787b45c1d1a65e03f92e2f9bad362cfe2d5c66f",
+      "artifact_path": "rsebench-data://raw/skillflow_tasks/test_tasks/HWPX-Document-Automation/hwpx-safety-audit-brief",
+      "verifier": "skillflow_harbor_v1",
+      "metadata": {
+        "family": "HWPX-Document-Automation",
+        "order": 6,
+        "relative_path": "HWPX-Document-Automation/hwpx-safety-audit-brief"
+      }
+    },
+    "harbor_receiving_exception_audit": {
+      "task_id": "harbor_receiving_exception_audit",
+      "benchmark": "skillflow_tasks",
+      "domain": "skill",
+      "prompt": "Execute the frozen SkillFlow task harbor_receiving_exception_audit.",
+      "gold_answers": [],
+      "source_hash": "d69f368e4202ab50cc9df305f8fbab0a77f976df20379fd76bf4470614e18dfd",
+      "artifact_path": "rsebench-data://raw/skillflow_tasks/test_tasks/Distribution-Center-Auditing/harbor_receiving_exception_audit",
+      "verifier": "skillflow_harbor_v1",
+      "metadata": {
+        "family": "Distribution-Center-Auditing",
+        "order": 1,
+        "relative_path": "Distribution-Center-Auditing/harbor_receiving_exception_audit"
+      }
+    },
+    "harbor_trailer_detention_audit": {
+      "task_id": "harbor_trailer_detention_audit",
+      "benchmark": "skillflow_tasks",
+      "domain": "skill",
+      "prompt": "Execute the frozen SkillFlow task harbor_trailer_detention_audit.",
+      "gold_answers": [],
+      "source_hash": "195759349a593b93b07e01e757a95fd1440e3dcf5d4e4df001a60f82c4d68202",
+      "artifact_path": "rsebench-data://raw/skillflow_tasks/test_tasks/Distribution-Center-Auditing/harbor_trailer_detention_audit",
+      "verifier": "skillflow_harbor_v1",
+      "metadata": {
+        "family": "Distribution-Center-Auditing",
+        "order": 2,
+        "relative_path": "Distribution-Center-Auditing/harbor_trailer_detention_audit"
+      }
+    },
+    "harbor_promo_register_audit": {
+      "task_id": "harbor_promo_register_audit",
+      "benchmark": "skillflow_tasks",
+      "domain": "skill",
+      "prompt": "Execute the frozen SkillFlow task harbor_promo_register_audit.",
+      "gold_answers": [],
+      "source_hash": "7a2274f9f22c31f504a0090a6266584011c17ed286c9d09d2ce68832006cf031",
+      "artifact_path": "rsebench-data://raw/skillflow_tasks/test_tasks/Distribution-Center-Auditing/harbor_promo_register_audit",
+      "verifier": "skillflow_harbor_v1",
+      "metadata": {
+        "family": "Distribution-Center-Auditing",
+        "order": 3,
+        "relative_path": "Distribution-Center-Auditing/harbor_promo_register_audit"
+      }
+    },
+    "harbor_service_queue_sla_audit": {
+      "task_id": "harbor_service_queue_sla_audit",
+      "benchmark": "skillflow_tasks",
+      "domain": "skill",
+      "prompt": "Execute the frozen SkillFlow task harbor_service_queue_sla_audit.",
+      "gold_answers": [],
+      "source_hash": "fd2f8dd8c9d6a594b5db6bf1bada6443c323014cfad7655a3320f7201ec9657f",
+      "artifact_path": "rsebench-data://raw/skillflow_tasks/test_tasks/Distribution-Center-Auditing/harbor_service_queue_sla_audit",
+      "verifier": "skillflow_harbor_v1",
+      "metadata": {
+        "family": "Distribution-Center-Auditing",
+        "order": 4,
+        "relative_path": "Distribution-Center-Auditing/harbor_service_queue_sla_audit"
+      }
+    },
+    "harbor_timesheet_policy_audit": {
+      "task_id": "harbor_timesheet_policy_audit",
+      "benchmark": "skillflow_tasks",
+      "domain": "skill",
+      "prompt": "Execute the frozen SkillFlow task harbor_timesheet_policy_audit.",
+      "gold_answers": [],
+      "source_hash": "710fa3e71fd8ac2ff8bac43779fe278df8c2190bd706566b8e761c7cfb05e2a4",
+      "artifact_path": "rsebench-data://raw/skillflow_tasks/test_tasks/Distribution-Center-Auditing/harbor_timesheet_policy_audit",
+      "verifier": "skillflow_harbor_v1",
+      "metadata": {
+        "family": "Distribution-Center-Auditing",
+        "order": 5,
+        "relative_path": "Distribution-Center-Auditing/harbor_timesheet_policy_audit"
+      }
+    },
+    "harbor_returns_disposition_audit": {
+      "task_id": "harbor_returns_disposition_audit",
+      "benchmark": "skillflow_tasks",
+      "domain": "skill",
+      "prompt": "Execute the frozen SkillFlow task harbor_returns_disposition_audit.",
+      "gold_answers": [],
+      "source_hash": "80281ce6de8739ecdb883b47ca383c881d3d4d685407a4ac6c365c6575715bce",
+      "artifact_path": "rsebench-data://raw/skillflow_tasks/test_tasks/Distribution-Center-Auditing/harbor_returns_disposition_audit",
+      "verifier": "skillflow_harbor_v1",
+      "metadata": {
+        "family": "Distribution-Center-Auditing",
+        "order": 6,
+        "relative_path": "Distribution-Center-Auditing/harbor_returns_disposition_audit"
+      }
+    },
+    "fx-spot-matrix-refresh": {
+      "task_id": "fx-spot-matrix-refresh",
+      "benchmark": "skillflow_tasks",
+      "domain": "skill",
+      "prompt": "Execute the frozen SkillFlow task fx-spot-matrix-refresh.",
+      "gold_answers": [],
+      "source_hash": "c5523eacfbf2eaa419a439550c561e5b07d1241fb279d8436dc5e5354fa396b4",
+      "artifact_path": "rsebench-data://raw/skillflow_tasks/test_tasks/Embedded-Data-Repair/fx-spot-matrix-refresh",
+      "verifier": "skillflow_harbor_v1",
+      "metadata": {
+        "family": "Embedded-Data-Repair",
+        "order": 1,
+        "relative_path": "Embedded-Data-Repair/fx-spot-matrix-refresh"
+      }
+    },
+    "fx-cross-rate-inverse-fix": {
+      "task_id": "fx-cross-rate-inverse-fix",
+      "benchmark": "skillflow_tasks",
+      "domain": "skill",
+      "prompt": "Execute the frozen SkillFlow task fx-cross-rate-inverse-fix.",
+      "gold_answers": [],
+      "source_hash": "9e669031111a9c78330cd0493f615047ab17b45372cb9f936ce4c10caa8f8829",
+      "artifact_path": "rsebench-data://raw/skillflow_tasks/test_tasks/Embedded-Data-Repair/fx-cross-rate-inverse-fix",
+      "verifier": "skillflow_harbor_v1",
+      "metadata": {
+        "family": "Embedded-Data-Repair",
+        "order": 2,
+        "relative_path": "Embedded-Data-Repair/fx-cross-rate-inverse-fix"
+      }
+    },
+    "warehouse-slot-factor-refresh": {
+      "task_id": "warehouse-slot-factor-refresh",
+      "benchmark": "skillflow_tasks",
+      "domain": "skill",
+      "prompt": "Execute the frozen SkillFlow task warehouse-slot-factor-refresh.",
+      "gold_answers": [],
+      "source_hash": "0952fb2ad06cbe02b328e3a4864fecd37a5a6ba21a492e76be27408c4bf347ff",
+      "artifact_path": "rsebench-data://raw/skillflow_tasks/test_tasks/Embedded-Data-Repair/warehouse-slot-factor-refresh",
+      "verifier": "skillflow_harbor_v1",
+      "metadata": {
+        "family": "Embedded-Data-Repair",
+        "order": 3,
+        "relative_path": "Embedded-Data-Repair/warehouse-slot-factor-refresh"
+      }
+    },
+    "supplier-pack-matrix-refresh": {
+      "task_id": "supplier-pack-matrix-refresh",
+      "benchmark": "skillflow_tasks",
+      "domain": "skill",
+      "prompt": "Execute the frozen SkillFlow task supplier-pack-matrix-refresh.",
+      "gold_answers": [],
+      "source_hash": "c42e7e22e58813b56f9aa2490b6c2b6da6646e5debba0a705b13d90697e279ce",
+      "artifact_path": "rsebench-data://raw/skillflow_tasks/test_tasks/Embedded-Data-Repair/supplier-pack-matrix-refresh",
+      "verifier": "skillflow_harbor_v1",
+      "metadata": {
+        "family": "Embedded-Data-Repair",
+        "order": 4,
+        "relative_path": "Embedded-Data-Repair/supplier-pack-matrix-refresh"
+      }
+    },
+    "catalyst-balance-matrix-sync": {
+      "task_id": "catalyst-balance-matrix-sync",
+      "benchmark": "skillflow_tasks",
+      "domain": "skill",
+      "prompt": "Execute the frozen SkillFlow task catalyst-balance-matrix-sync.",
+      "gold_answers": [],
+      "source_hash": "5551bb7199f162c4d04f3dc2dff55deb8ff72b66f0e6f4edce08e9c785936fdd",
+      "artifact_path": "rsebench-data://raw/skillflow_tasks/test_tasks/Embedded-Data-Repair/catalyst-balance-matrix-sync",
+      "verifier": "skillflow_harbor_v1",
+      "metadata": {
+        "family": "Embedded-Data-Repair",
+        "order": 5,
+        "relative_path": "Embedded-Data-Repair/catalyst-balance-matrix-sync"
+      }
+    },
+    "buffer-dilution-matrix-repair": {
+      "task_id": "buffer-dilution-matrix-repair",
+      "benchmark": "skillflow_tasks",
+      "domain": "skill",
+      "prompt": "Execute the frozen SkillFlow task buffer-dilution-matrix-repair.",
+      "gold_answers": [],
+      "source_hash": "1e6565fda1e5b121189b56fb70381278d886e409d5a158153f4b24ea84ed5b3e",
+      "artifact_path": "rsebench-data://raw/skillflow_tasks/test_tasks/Embedded-Data-Repair/buffer-dilution-matrix-repair",
+      "verifier": "skillflow_harbor_v1",
+      "metadata": {
+        "family": "Embedded-Data-Repair",
+        "order": 6,
+        "relative_path": "Embedded-Data-Repair/buffer-dilution-matrix-repair"
+      }
+    }
+  },
+  "partitions": {},
+  "groups": {
+    "HWPX-Document-Automation": [
+      "hwpx-supplier-contact-sheet",
+      "hwpx-event-announcement",
+      "hwpx-clinic-intake-summary",
+      "hwpx-project-proposal",
+      "hwpx-training-feedback",
+      "hwpx-safety-audit-brief"
+    ],
+    "Distribution-Center-Auditing": [
+      "harbor_receiving_exception_audit",
+      "harbor_trailer_detention_audit",
+      "harbor_promo_register_audit",
+      "harbor_service_queue_sla_audit",
+      "harbor_timesheet_policy_audit",
+      "harbor_returns_disposition_audit"
+    ],
+    "Embedded-Data-Repair": [
+      "fx-spot-matrix-refresh",
+      "fx-cross-rate-inverse-fix",
+      "warehouse-slot-factor-refresh",
+      "supplier-pack-matrix-refresh",
+      "catalyst-balance-matrix-sync",
+      "buffer-dilution-matrix-repair"
+    ]
+  },
+  "source_resources": [
+    {
+      "uri": "rsebench-project://benchmark/validation/skillflow_clean_qualification_v1/noise_validation_selection.json",
+      "sha256": "1d7caec1bd273a742e7c62467c9b694b0c7b8cbf17bb61fab2e7723fa2a2b0d7",
+      "kind": "approved-selection-manifest"
+    },
+    {
+      "uri": "rsebench-project://benchmark/validation/skillflow_clean_qualification_v1/second_family_candidates_batch2.json",
+      "sha256": "205fea257c57537e8f7ea54f3fcc97530106d6a0b43202a717f17504c2476016",
+      "kind": "approved-selection-manifest"
+    }
+  ],
+  "provenance": [
+    {
+      "uri": "rsebench-project://benchmark/validation/skillflow_clean_qualification_v1/noise_validation_selection.json",
+      "sha256": "1d7caec1bd273a742e7c62467c9b694b0c7b8cbf17bb61fab2e7723fa2a2b0d7",
+      "kind": "clean-screening-evidence"
+    },
+    {
+      "uri": "rsebench-project://benchmark/validation/skillflow_clean_qualification_v1/second_family_candidates_batch2.json",
+      "sha256": "205fea257c57537e8f7ea54f3fcc97530106d6a0b43202a717f17504c2476016",
+      "kind": "clean-screening-evidence"
+    }
+  ],
+  "metadata": {
+    "family_execution": "serial-in-family-reset-between-families",
+    "selection_purpose": "noise-mechanism-validation",
+    "selection_warning": "clean efficacy is not an unbiased estimate of full-benchmark efficacy"
+  },
+  "content_hash": "028f696980f7f0170da67a8c2969bab6addf14c3c2b6f739b4b47b0b04463c5d"
+}

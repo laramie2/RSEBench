@@ -1,0 +1,6 @@
+schema_version: rsebench.benchmark.v1
+benchmark: officeqa_full
+domain: document
+default_release: validation-v1
+releases:
+  validation-v1: releases/validation-v1/manifest.json
