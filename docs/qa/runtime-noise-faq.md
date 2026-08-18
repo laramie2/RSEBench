@@ -1,6 +1,6 @@
 # N3/N4 运行时加噪常见问题
 
-> 本文是概念性说明。实现边界、保护字段和当前 operator 定义以 [noise-stage interface](../protocols/noise-stage-interface.md) 和 validation matrix 为准。
+> 本文是概念性说明。实现边界、保护字段和当前 operator 定义以 [noise-stage interface](../protocols/noise-stage-interface.md) 和 [validation matrix](../../configs/validation/validation-v1.yaml) 为准。
 
 ## 1. N1/N2 与 N3/N4 的区别是什么？
 
@@ -98,7 +98,7 @@ learning_feedback = evidence_middleware.after_feedback(
 
 ## 7. 其他自进化工作如何使用 RSEBench？
 
-外部方法应在相同 seed skill、任务 ID 与顺序、method seed、模型和 runtime budget 下，报告下列六个对照：
+对 `Clean` 与 `N1`–`N4` 五个 evolution arm，外部方法必须固定同一 DatasetRelease 和 MethodRelease，从相同 seed skill 出发，并使用相同的任务 ID 与顺序、method seed、provider/model、temperature、thinking configuration 和 runtime budget。在此身份约束下，报告下列六个对照：
 
 | 报告项 | 含义 |
 |---|---|
@@ -121,7 +121,7 @@ learning_feedback = evidence_middleware.after_feedback(
 - operator 找不到声明的目标，因而 `applicable=false`；
 - operator discovery、adapter conversion、protected-field audit、runner 或 replay-pack gate 失败；
 - provider/tool 执行失败、超出预算、缺少完整证据，或没有实际执行 skill update；
-- clean/noisy arm 不共享要求的 seed、任务、方法、模型、预算或 clean evaluation identity；
+- `Clean` 与 `N1`–`N4` 未固定同一 DatasetRelease、MethodRelease、任务 ID 与顺序、method seed、provider/model、temperature、thinking configuration 和 runtime budget，或未从相同 seed skill 出发、未使用同一 clean evaluation identity；
 - mutation 改动了 reward、official score、environment state 或其他规范保护的执行结果；
 - baseline 本身没有可确认的 clean evolution gain，却把 clean/noisy 平局解释为鲁棒性。
 
