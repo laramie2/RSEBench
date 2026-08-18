@@ -78,6 +78,8 @@ task context → environment evidence → stored trajectory → update feedback
 | N3 | rollout/reward 后、reflection 前 | 删除或替换 learner-visible event | reward、success、environment state、final result |
 | N4 | feedback 后、skill revision 前 | 错置 critique、failure attribution 或 diagnosis | trajectory、scalar reward、official score、真实环境 |
 
+[运行时加噪 FAQ](qa/runtime-noise-faq.md) 进一步解释 N3/N4 的运行时证据、新 baseline/benchmark 扩展方式和外部统一评测协议。
+
 Validation-v1 的四领域 operator ID 已写入 [matrix](../configs/validation/validation-v1.yaml)。四个 stage 共形成精确 4×4 的 16 个 noisy cell；clean control 通过不可变 evidence identity 复用。
 
 ## 5. 当前项目阶段

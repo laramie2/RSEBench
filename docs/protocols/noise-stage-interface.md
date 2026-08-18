@@ -4,6 +4,8 @@
 >
 > 机器真源：[validation-v1 matrix](../../configs/validation/validation-v1.yaml) 和 `src/rsebench/noise/stages/`
 
+[运行时加噪 FAQ](../qa/runtime-noise-faq.md) 是 N3/N4 的概念性伴读；本协议仍是 stage 边界、保护字段和实现约束的规范性来源。
+
 ## 1. Shared release contract
 
 每个 noise cell 固定：DatasetRelease、MethodRelease、stage、operator ID、selector、seed、mutation budget、protected fields、applicability rule 和 failure policy。

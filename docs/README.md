@@ -5,6 +5,7 @@
 ## 新协作者入口
 
 - [项目入门](project-onboarding.md)
+- [N3/N4 运行时加噪 FAQ](qa/runtime-noise-faq.md)
 - [项目路线图](project-roadmap.md)
 - [N1–N4 协作进度](progress/README.md)
 
