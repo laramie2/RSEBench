@@ -1,6 +1,6 @@
 # N1–N4 协作进度总览
 
-> 最后更新：2026-08-17 UTC
+> 最后更新：2026-08-21 UTC
 >
 > 当前共同里程碑：每个 stage 至少注册一个能够通过 provider-free preflight 的具体 runner。
 
@@ -13,7 +13,7 @@
 | N1 task context | member-1 | `implementing` | [N1](n1-task-context.md) | benchmark-specific operator 与 `CELL_RUNNERS` 尚未注册 |
 | N2 environment evidence | member-2 | `implementing` | [N2](n2-environment-evidence.md) | immutable clean/noisy artifact 与 `CELL_RUNNERS` 尚未注册 |
 | N3 stored trajectory | member-3 | `implementing` | [N3](n3-stored-trajectory.md) | method-specific runtime selector/operator adapter 尚未实现 |
-| N4 update feedback | member-4 | `implementing` | [N4](n4-update-feedback.md) | feedback/update boundary adapter 尚未实现 |
+| N4 update-evidence binding | member-4 | `designing` | [N4](n4-update-feedback.md) | update-conditioning contract、before-update adapter 与 decoy bank 尚未实现 |
 
 ## Shared state
 
@@ -21,6 +21,7 @@
 - 16 个 cell 的结构检查可展开，139 个本地 artifact locator 已验证。
 - 当前 `CELL_RUNNERS` 仍是 interface-only，因此 `execution_ready=false`。
 - 当前阶段没有新的正式付费 N1–N4 结果；provider 调用为 0。
+- 最新版 N4 已改为 updater 调用前的 outcome→evidence misbinding；冻结的 `validation-v1` N4 仍保留旧身份，待实现后另发 versioned release。
 
 ## Reporting rules
 

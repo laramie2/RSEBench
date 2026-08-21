@@ -1,6 +1,6 @@
 # RSEBench current project status
 
-> Status date: 2026-08-17 UTC
+> Status date: 2026-08-21 UTC
 >
 > Scope: validation-v1 mechanism-validation release and the next executable gate
 
@@ -9,6 +9,8 @@
 Validation-v1 has frozen four DatasetRelease identities, four active MethodRelease profiles, four independent noise-stage interfaces, and an exact 4×4 matrix of 16 noisy cells. Attempt isolation, release-specific patch replay, scheduler, CLI, aggregation contracts, and token/timing infrastructure are implemented.
 
 Concrete stage `CELL_RUNNERS` are still interface-only. Provider-free preflight can validate structure and local artifacts but reports `execution_ready=false`; no new formal N1–N4 paid run has started and provider calls remain 0.
+
+The latest N4 definition is now update-evidence misbinding at `before_update`, without requiring a native feedback-attribution boundary. This design is documented but not yet implemented as a machine release. The frozen `validation-v1` N4 identities retain their earlier feedback/attribution semantics for reproducibility and must not be reinterpreted in place.
 
 ## Frozen datasets
 
@@ -48,7 +50,7 @@ SkillLearn Self-Feedback release `skilllearn-self-feedback-diagnostic-v1` remain
 | N1 | four benchmark-specific task-context operators and static runners |
 | N2 | immutable clean/noisy evidence materialization and static runners |
 | N3 | method-specific trajectory selector/operator adapters |
-| N4 | method-specific feedback/update-boundary adapters |
+| N4 | update-conditioning contract, method-specific before-update adapters, compatible decoy bank, and binding replay schema |
 
 The next shared gate is one provider-free executable cell for each stage. Only after those four cells pass protected-field, applicability, release, and replay checks should bounded paid validation begin.
 
@@ -59,5 +61,6 @@ The next shared gate is one provider-free executable cell for each stage. Only a
 - [N1–N4 progress dashboard](../../progress/README.md)
 - [Project roadmap](../../project-roadmap.md)
 - [Validation architecture](../../architecture/validation-v1-architecture.md)
+- [Latest N4 implementation handoff](../../architecture/2026-08-21-n4-update-evidence-misbinding-handoff.md)
 - [Validation runbook](../../operations/validation-runbook.md)
 - [Historical experiment registry](../../archive/experiment-history/registry.yaml)

@@ -1,6 +1,6 @@
 # RSEBench 项目与 N1–N4 加噪验证说明
 
-> 面向第一次参与项目的组员。状态基准：2026-08-17 UTC。
+> 面向第一次参与项目的组员。状态基准：2026-08-21 UTC。
 
 ## 1. 项目研究什么
 
@@ -67,7 +67,7 @@ Validation-v1 冻结的是适合机制验证的输入身份，不等于四领域
 N1–N4 表示噪声进入 self-evolution pipeline 的位置，不是四档强度，也不在第一阶段组合成笛卡尔积：
 
 ```text
-task context → environment evidence → stored trajectory → update feedback
+task context → environment evidence → stored trajectory → update binding
      N1                 N2                   N3                 N4
 ```
 
@@ -76,9 +76,11 @@ task context → environment evidence → stored trajectory → update feedback
 | N1 | 第一次 action 之前 | 错误 handover、先验步骤或局部提示 | objective、gold、artifact、environment、verifier |
 | N2 | 执行时可见证据 | stale/near-match/conflicting evidence | gold 可达性、原始资源、official environment、verifier |
 | N3 | rollout/reward 后、reflection 前 | 删除或替换 learner-visible event | reward、success、environment state、final result |
-| N4 | feedback 后、skill revision 前 | 错置 critique、failure attribution 或 diagnosis | trajectory、scalar reward、official score、真实环境 |
+| N4 | baseline 决定更新后、updater 消费输入前 | 将 outcome 错误绑定到兼容的另一份 update evidence | evidence node、outcome、reward/verifier、更新前 skill、update trigger、updater contract |
 
-Validation-v1 的四领域 operator ID 已写入 [matrix](../configs/validation/validation-v1.yaml)。四个 stage 共形成精确 4×4 的 16 个 noisy cell；clean control 通过不可变 evidence identity 复用。
+N4 只改变 node 之间的绑定，不改变 trajectory/evidence node 本身，因此与修改 evidence 内容的 N3 不同。显式 feedback 可以是一类 update evidence，但不是执行 N4 的必要条件。
+
+冻结的 [validation-v1 matrix](../configs/validation/validation-v1.yaml) 记录了旧 N4 feedback/attribution 定义的机器身份，不能原地重解释。最新版 N4 必须在实现后发布新的 operator version、matrix/release；N1–N3 和既有 DatasetRelease/MethodRelease 不因这次定义修订而变化。完整实现要求见 [N4 Update-Evidence Misbinding 交接方案](architecture/2026-08-21-n4-update-evidence-misbinding-handoff.md)。
 
 ## 5. 当前项目阶段
 
@@ -100,7 +102,7 @@ M3 的第一共同 gate 不是直接跑完整矩阵，而是让每个 stage 至�
 | member-1 | N1 task context | [N1 progress](progress/n1-task-context.md) | `src/rsebench/noise/stages/n1/operators/` |
 | member-2 | N2 environment evidence | [N2 progress](progress/n2-environment-evidence.md) | `src/rsebench/noise/stages/n2/operators/` |
 | member-3 | N3 stored trajectory | [N3 progress](progress/n3-stored-trajectory.md) | `src/rsebench/noise/stages/n3/operators/` |
-| member-4 | N4 update feedback | [N4 progress](progress/n4-update-feedback.md) | `src/rsebench/noise/stages/n4/operators/` |
+| member-4 | N4 update-evidence binding | [N4 progress](progress/n4-update-feedback.md) | `src/rsebench/noise/stages/n4/` + method adapters |
 
 成员只常规修改自己的 stage 目录和进度页。中央 matrix、release 身份和其他 stage 不能为了方便注册而被静默修改。协调者维护 [进度总览](progress/README.md)。
 

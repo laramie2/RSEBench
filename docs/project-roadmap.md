@@ -1,6 +1,6 @@
 # RSEBench 项目路线图
 
-> 状态基准：2026-08-17 UTC。机器可读的 release manifest、registry 和 validation matrix 是可执行事实的最终来源。
+> 状态基准：2026-08-21 UTC。机器可读的 release manifest、registry 和 validation matrix 是可执行事实的最终来源。
 
 ## 1. 研究目标
 
@@ -66,7 +66,7 @@ SkillLearn Self-/Teacher-Feedback 为 `validated_inactive` diagnostic history，
 | N1 task context | member-1 | static | task-context operator + protected-field audit |
 | N2 environment evidence | member-2 | static | clean/noisy artifact + resource/hash audit |
 | N3 stored trajectory | member-3 | runtime | replay-pack mutation + method hook |
-| N4 update feedback | member-4 | runtime | attribution mutation + update-boundary hook |
+| N4 update-evidence binding | member-4 | runtime | update-conditioning contract + before-update hook + compatible decoy policy |
 
 人工进度统一记录在 [N1–N4 dashboard](progress/README.md)。
 
@@ -79,6 +79,8 @@ SkillLearn Self-/Teacher-Feedback 为 `validated_inactive` diagnostic history，
 - [ ] 每个 stage 再跑 bounded paid validation，不直接启动完整 4×4；
 - [ ] 每次付费调用记录 prompt/completion/total tokens 和 UTC timing；
 - [ ] 失败必须区分 operator 不适用、baseline 执行失败、zero-update、score tie 和 noise effect。
+
+最新版 N4 相对冻结的 `validation-v1` 发生了实质语义修订：从显式 feedback/attribution replacement 改为 updater 调用前的 outcome→evidence misbinding。它必须以新的 operator version、matrix/release 进入上述 gate；不得原地改写已经冻结的 16-cell 身份。N1–N3 的定义和冻结身份保持不变。
 
 ### 5.3 并行边界
 

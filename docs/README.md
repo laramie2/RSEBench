@@ -14,6 +14,7 @@
 - [仓库布局](architecture/repository-layout.md)
 - [数据与方法 release](protocols/dataset-and-method-release.md)
 - [Noise stage 接口](protocols/noise-stage-interface.md)
+- [最新版 N4 Update-Evidence Misbinding 交接方案](architecture/2026-08-21-n4-update-evidence-misbinding-handoff.md)
 - [Token、时间与结果合同](protocols/token-timing-and-result-contract.md)
 
 ## 运行与状态
