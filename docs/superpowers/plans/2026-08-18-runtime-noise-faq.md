@@ -1,5 +1,7 @@
 # Runtime-noise FAQ Implementation Plan
 
+> **N4 portions superseded (2026-08-21).** 本文保留历史实施记录；当前 N4 以 [Update-Evidence Misbinding 交接方案](../../architecture/2026-08-21-n4-update-evidence-misbinding-handoff.md) 为准。
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Publish a Chinese N3/N4 FAQ and connect it to the three current documentation entry points.
@@ -54,7 +56,7 @@ The body must include the student-learning analogy, one concrete N3 example, one
 Under `docs/README.md` section `新协作者入口`, add:
 
 ```markdown
-- [N3/N4 运行时加噪 FAQ](qa/runtime-noise-faq.md)
+- [N3/N4 运行时加噪 FAQ](../../qa/runtime-noise-faq.md)
 ```
 
 - [ ] **Step 3: Add the conceptual companion to onboarding**

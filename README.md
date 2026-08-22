@@ -1,6 +1,6 @@
 # RSE-Bench
 
-RSE-Bench evaluates whether skill self-evolution remains effective when task context, environment evidence, stored trajectories, or update feedback contain controlled noise. Validation-v1 covers SpreadsheetBench-Verified / SkillOpt, OfficeQA Full / SkillOpt, WebShop / SkillAdaptor, and SkillFlow-Task / SkillFlow. SkillLearnBench remains diagnostic history and is not the fourth active domain.
+RSE-Bench evaluates whether skill self-evolution remains effective when task context, environment evidence, stored trajectories, or update-evidence bindings contain controlled noise. Validation-v1 covers SpreadsheetBench-Verified / SkillOpt, OfficeQA Full / SkillOpt, WebShop / SkillAdaptor, and SkillFlow-Task / SkillFlow. SkillLearnBench remains diagnostic history and is not the fourth active domain.
 
 ## Start here
 
@@ -22,7 +22,7 @@ Machine-readable DatasetRelease, MethodRelease, registry, and matrix files are t
 | Interactive | WebShop | SkillAdaptor | 5/5/20 |
 | Longitudinal skill | SkillFlow-Task | SkillFlow | 3 families × 6 ordered tasks |
 
-The four noise stages are independent arms: N1 task context, N2 environment evidence, N3 stored trajectory, and N4 update feedback. Validation-v1 expands to exactly 16 noisy cells and reuses frozen clean evidence.
+The four noise stages are independent arms: N1 task context, N2 environment evidence, N3 stored trajectory, and N4 update-evidence binding. The latest N4 design misbinds an outcome to compatible evidence immediately before updater consumption and does not require native explicit feedback. Frozen validation-v1 still preserves its earlier N4 feedback/attribution IDs for reproducibility; the revised N4 requires a new versioned machine release. See the [N4 implementation handoff](docs/architecture/2026-08-21-n4-update-evidence-misbinding-handoff.md).
 
 ## Setup
 
@@ -44,7 +44,7 @@ python -m rsebench.cli validation aggregate \
   --matrix configs/validation/validation-v1.yaml
 ```
 
-The current stage interfaces are frozen, but concrete `CELL_RUNNERS` are not implemented. Preflight therefore reports `execution_ready=false`, and `validation run` must fail closed before any provider call.
+The validation-v1 stage interfaces are frozen, but concrete `CELL_RUNNERS` are not implemented. The revised N4 interface is design-only and is not part of that frozen matrix. Preflight therefore reports `execution_ready=false`, and `validation run` must fail closed before any provider call.
 
 ## Data and baseline bootstrap
 

@@ -1,5 +1,7 @@
 # Runtime-noise FAQ documentation design
 
+> **N4 portions superseded (2026-08-21).** 本文中的显式 feedback/attribution N4 说明仅是历史设计；当前 N4 见 [Update-Evidence Misbinding 交接方案](../../architecture/2026-08-21-n4-update-evidence-misbinding-handoff.md)。
+
 ## Goal
 
 Add a stable Chinese FAQ that explains N3/N4 to project collaborators and external method authors without mixing conceptual guidance into the executable noise-stage contract.

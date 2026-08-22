@@ -2,9 +2,11 @@
 
 > 状态：Current validation-v1 architecture
 >
-> 日期：2026-08-17 UTC
+> 日期：2026-08-17 UTC；N4 语义修订说明更新于 2026-08-21 UTC
 >
 > 相关入口：[matrix](../../configs/validation/validation-v1.yaml)、[current status](../reports/current/current-project-status.md)、[release protocol](../protocols/dataset-and-method-release.md)、[noise-stage protocol](../protocols/noise-stage-interface.md)、[runbook](../operations/validation-runbook.md)
+
+> `validation-v1` 中的 N4 feedback/attribution interface 是已冻结的旧机器身份。最新版 N4 已改为 `before_update` 的 outcome→evidence misbinding，详见 [独立交接方案](2026-08-21-n4-update-evidence-misbinding-handoff.md)；必须另发 versioned release，不能原地改写本架构对应的 matrix。
 
 ## 1. 目标
 
@@ -334,7 +336,7 @@ class StaticNoiseOperator(Protocol):
 
 `StaticNoiseResult` 保存 clean/noisy hash、operator identity、version、seed、applicability、protected-field audit、portable noisy URI 和可逆变更说明。算子只能写 `data/noisy/` 或 attempt-local workspace，不能原地修改 clean artifact。
 
-### 7.3 N3/N4 runtime 算子
+### 7.3 N3 与 frozen validation-v1 N4 runtime 算子
 
 ```python
 class MethodEvidenceAdapter(Protocol):
@@ -356,14 +358,23 @@ class RuntimeNoiseOperator(Protocol):
 
 职责边界：
 
-1. N3/N4 operator 只理解统一 evidence；
+1. N3 和 frozen validation-v1 N4 operator 只理解统一 evidence；
 2. method adapter 只负责 native evidence 的无损 normalize/denormalize；
 3. operator 不直接 import SkillOpt、SkillAdaptor 或 SkillFlow；
 4. clean identity mode 必须结构相等，能字节保持时要求字节相等；
 5. N3 不能改 reward/success；
-6. N4 不能改 reward 或 trajectory；
+6. frozen validation-v1 N4 不能改 reward 或 trajectory；
 7. 无适用目标返回 `applicable=false`，不得换算子或算作 noisy success；
 8. 每次 mutation 写入输入/输出 hash、目标事件、before/after fragment 和 protected-field audit。
+
+最新版 N4 不再复用上述 `FeedbackRecord` 前提。它使用独立 `UpdateConditioningRecord` 和 `UpdateBindingAdapter`，在 baseline 决定调用 updater 后执行：
+
+```python
+native_update_input = update_hook.before_update(native_update_input, context)
+candidate_update = native_updater(native_update_input)
+```
+
+该 hook 只改变 outcome→evidence binding；所有 outcome/evidence node、reward/verifier、更新前 skill、update trigger 和 updater contract 都是 protected input。显式 feedback 仅是一种可选 evidence node。此接口尚未在当前 `main` 实现，也不属于 frozen validation-v1 的可执行身份。
 
 ## 8. 4×4 validation matrix
 
@@ -447,7 +458,8 @@ rsebench validation aggregate --matrix configs/validation/validation-v1.yaml
 - dataset 或 method release hash 不匹配；
 - baseline checkout 或 patch fingerprint 不匹配；
 - N1/N2 修改 clean artifact；
-- N3/N4 修改 protected reward 或不能无损还原；
+- N3 或 frozen validation-v1 N4 修改 protected reward 或不能无损还原；
+- 最新版 N4 修改 evidence node/其他 protected update state，或 updater consumption 与声明 binding 不一致；
 - operator 不适用；
 - token、timing 或 mutation audit 缺失；
 - result identity 与 matrix cell 不一致；
@@ -481,7 +493,7 @@ Preflight 错误不得产生 provider 调用。运行时错误写入 attempt-loc
 5. candidate 和 `validated_inactive` 方法不能进入 validation-v1；
 6. method bootstrap 能从 lock + patch 重建 fingerprint；
 7. N1/N2 clean artifact 不变；
-8. N3/N4 identity-hook parity；
+8. N3/frozen N4 identity-hook parity；最新版 N4 matched clean/noisy instrumentation parity；
 9. 四个 stage 的 plugin discovery 互不依赖中央编辑；
 10. matrix 恰好展开 16 个唯一 cell；
 11. 模拟调度中 16 个 cell 可以同时进入 running；

@@ -1,5 +1,7 @@
 # N4 Feedback-Attribution Noise Implementation Plan
 
+> **Superseded; do not execute as the current N4 plan (2026-08-21).** 本文保留旧 feedback-attribution 实施计划用于追溯。最新版实现要求见 [N4 Update-Evidence Misbinding 交接方案](../../architecture/2026-08-21-n4-update-evidence-misbinding-handoff.md)。
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Implement deterministic, policy-driven N4 feedback-attribution noise for Spreadsheet, OfficeQA, WebShop, and an independently versioned SkillFlow-N4 candidate, with protected-state replay and provider-free readiness reporting.

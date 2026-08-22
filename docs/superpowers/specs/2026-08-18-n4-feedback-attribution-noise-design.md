@@ -1,5 +1,7 @@
 # N4 feedback-attribution noise design
 
+> **Superseded for current N4 semantics (2026-08-21).** 本文保留旧 feedback-attribution 方案作为历史设计记录，不应继续据此实现 N4。最新版定义是 updater 消费前的 outcome→evidence misbinding，见 [N4 Update-Evidence Misbinding 交接方案](../../architecture/2026-08-21-n4-update-evidence-misbinding-handoff.md)。
+
 ## 1. Goal
 
 Implement validation-v1 N4 as deterministic, auditable corruption of the

@@ -1,12 +1,12 @@
 # N3/N4 运行时加噪常见问题
 
-> 本文是概念性说明。实现边界、保护字段和当前 operator 定义以 [noise-stage interface](../protocols/noise-stage-interface.md) 和 [validation matrix](../../configs/validation/validation-v1.yaml) 为准。
+> 本文是概念性说明。实现边界和保护字段以 [noise-stage interface](../protocols/noise-stage-interface.md) 为准；最新版 N4 见 [Update-Evidence Misbinding 交接方案](../architecture/2026-08-21-n4-update-evidence-misbinding-handoff.md)。[validation-v1 matrix](../../configs/validation/validation-v1.yaml) 保留旧 N4 机器身份，不代表最新版 N4 已实现。
 
 ## 1. N1/N2 与 N3/N4 的区别是什么？
 
-N1/N2 改变进入方法的静态任务上下文或环境证据，因此可以在运行前产生带独立 identity 的 clean/noisy artifact。N3/N4 则处理被评估方法在运行时才产生的学习证据：N3 位于 rollout/reward 之后、reflection 之前，N4 位于 feedback 之后、revision/update 之前。它们不是与方法、模型和运行 identity 无关的静态 dataset artifact。
+N1/N2 改变进入方法的静态任务上下文或环境证据，因此可以在运行前产生带独立 identity 的 clean/noisy artifact。N3/N4 则处理被评估方法在运行时才产生的学习证据：N3 位于 rollout/reward 之后、reflection 之前；N4 位于 baseline 决定调用 updater 之后、updater 消费输入之前。它们不是与方法、模型和运行 identity 无关的静态 dataset artifact。
 
-可以把 self-evolution 类比为学生复盘一次练习：N1/N2 像在答题前改动交给学生的题目背景或参考材料；N3 像在答题并评分后，从学生用于复盘的笔记中删掉一个关键步骤；N4 像在学生修订方法前，把老师的错因归到了另一步。N3/N4 不改动学生实际做出的答案和已经产生的官方评分。
+可以把 self-evolution 类比为学生复盘一次练习：N1/N2 像在答题前改动交给学生的题目背景或参考材料；N3 像在答题并评分后，从学生用于复盘的笔记中删掉一个关键步骤；N4 像把这次练习的结果错误配给另一份真实但不属于本题的复盘记录。N3/N4 不改动学生实际做出的答案和已经产生的官方评分。
 
 Validation-v1 中 N1、N2、N3、N4 是四个独立实验 arm，不组合成 `N1×N2×N3×N4`，N3 和 N4 也不在同一 noisy arm 中串联。
 
@@ -15,11 +15,11 @@ Validation-v1 中 N1、N2、N3、N4 是四个独立实验 arm，不组合成 `N1
 | Stage | 只能修改 | 必须保持不变 |
 |---|---|---|
 | N3 | learner-visible stored trajectory 中 operator 授权的 event | task identity、reward、success、environment state、final result |
-| N4 | learner-visible feedback 中 operator 授权的 critique、failure attribution 或 diagnosis | complete trajectory、scalar reward、official score、true environment state |
+| N4 | outcome→update-evidence binding edge | evidence/outcome node、reward/verifier、更新前 skill、update trigger、updater contract |
 
 一个具体的 N3 例子是：WebShop rollout 确实检查了商品的颜色约束，环境和 verifier 也已给出真实结果；N3 仅从交给 learner 复盘的 stored trajectory 中省略这个 constraint event。Task identity、reward、success、environment state 和 final result 都不能随之改变。
 
-一个具体的 N4 例子是：某次 Spreadsheet rollout 的真实 verifier 结果已将错误定位在 `B12`，N4 只把 learner 将要用于 skill revision 的 critique 错置为“应修改 `D20`”。完整 trajectory、scalar reward、official score 和真实工作簿状态仍然不变。
+一个具体的 N4 例子是：Spreadsheet outcome A 原本应与本次真实 trajectory A 一起交给 SkillOpt analyst；N4 改为将 outcome A 与 schema/role 兼容的真实 trajectory B 绑定。A、B 的内容和 hash 都不变，reward、verifier、更新前 skill 和 updater 算法也不变。显式 critique 可以是一类 evidence，但不是公共 N4 的前提。
 
 这两个例子只解释运行时边界，不另行定义 operator 或保护字段。任何实际 mutation 都必须通过规范协议中的 protected-field audit。
 
@@ -31,14 +31,14 @@ Validation-v1 中 N1、N2、N3、N4 是四个独立实验 arm，不组合成 `N1
 
 ## 4. 为什么 N3/N4 会影响自进化？
 
-Self-evolution 更新的并不是已结束的环境执行，而是对那次执行的学习解释。即使任务结果和 reward 正确，看到不完整 trajectory 的 learner 仍可能把成功或失败归因给错误步骤；收到错置 feedback 的 updater 也可能把错误规则写入可复用 skill。
+Self-evolution 更新的并不是已结束的环境执行，而是如何使用该执行证据产生更新。即使任务结果和 reward 正确，看到不完整 trajectory 的 learner 仍可能把成功或失败归因给错误步骤；消费了与 outcome 错误绑定的 update evidence，updater 也可能把错误规则写入可复用 skill。
 
 因果链是：
 
 ```text
 真实执行结果
     ↓
-learner-visible trajectory / feedback
+learner-visible trajectory / update-evidence binding
     ↓
 reflection、归因与 skill revision
     ↓
@@ -53,20 +53,20 @@ untouched clean evaluation
 
 接入层应分成 `Method Adapter + Benchmark Policy + Stage Operator`：
 
-- **Method Adapter** 识别方法原生的 trajectory、feedback 和 update boundary，负责 native evidence 与 normalized record 之间的转换，并审计往返转换没有改变保护字段。
+- **Method Adapter** 识别方法原生的 trajectory 和 updater invocation，负责 native updater input 与 normalized update-conditioning record 之间的转换，并审计往返转换没有改变保护字段。
 - **Benchmark Policy** 说明该 benchmark 中 event、resource、成功和 official result 的语义，提供 applicability 判定与 protected-field 映射。
-- **Stage Operator** 只在 normalized evidence 上实现已授权的 N3 或 N4 mutation，不了解 baseline 的内部更新算法，也不重新定义 benchmark 的官方结果。
+- **Stage Operator** 对 N3 修改 normalized evidence node，对 N4 只修改 normalized outcome→evidence binding；它不了解 baseline 的内部更新算法，也不重新定义 benchmark 的官方结果。
 
-接入新 baseline 时，实现 Method Adapter，把两个 runtime hook 放在真实的 reflection 和 revision/update 边界，并证明 clean path 保留 native object identity。接入新 benchmark 时，增加 Benchmark Policy 与相应的 stage applicability/审计映射。两者都不应为了接入而修改方法的核心更新算法。
+接入新 baseline 时，实现 Method Adapter，把 N3 hook 放在真实 reflection 边界，把 N4 `before_update` hook 放在 baseline 已决定更新但 updater 尚未消费输入的位置。N4 的 matched clean/noisy 两臂必须经过同一条 normalize、binding policy、denormalize 和审计路径。接入新 benchmark 时，增加 Benchmark Policy 与相应的 compatibility/applicability/审计映射。两者都不应为了接入而修改方法的核心更新算法。
 
 N4 必须先做 capability negotiation。Adapter 至少要能如实回答：
 
-1. 方法是否生成可观测的 feedback/attribution；
-2. 该 feedback 是否真的被 revision/update 消费；
-3. 是否能在消费前注入 hook，并把返回值原样交给 updater；
-4. 是否能将可变的 attribution 与 complete trajectory、scalar reward、official score 和 true environment state 分离并审计。
+1. 方法是否有可观测的 updater invocation 和 updater input；
+2. 是否能证明该输入真的被 revision/update 消费；
+3. 是否能在消费前注入 hook，并把返回值交给原 updater；
+4. 是否能把 evidence node 与 binding edge 分离，并审计 node、reward/verifier、更新前 skill、update trigger 和 updater contract 不变。
 
-只有这些能力都可验证时，该方法才支持 N4。没有 faithful feedback boundary 的方法必须报告 `unsupported`，不能运行一个未被 updater 消费的伪 hook，更不能据此报告 N4 null effect。
+只有这些能力都可验证时，该方法才支持 N4。没有显式 feedback boundary 不再构成不支持；只有更新被封装在不可观测远端调用中、无法证明 updater 消费了错误 binding 等情况才报告 `unsupported`。Baseline 自身没有触发更新的任务计入最终评分，但不进入 N4 applicability 分母。
 
 ## 6. 如何让自研 pipeline 与 N3/N4 完全解耦？
 
@@ -77,24 +77,23 @@ class IdentityEvidenceMiddleware:
     def after_rollout(self, native_trajectory, context):
         return native_trajectory
 
-    def after_feedback(self, native_feedback, native_trajectory, context):
-        return native_feedback
+    def before_update(self, native_update_input, context):
+        return native_update_input
 
 
 learning_trajectory = evidence_middleware.after_rollout(
     native_trajectory,
     context,
 )
-learning_feedback = evidence_middleware.after_feedback(
-    native_feedback,
-    native_trajectory,
+native_update_input = evidence_middleware.before_update(
+    native_update_input,
     context,
 )
 ```
 
-不运行噪声实验时，返回值就是同一个 native object，不经过 normalization round trip。运行 RSEBench arm 时，由外部配置将 middleware 替换为组合 Method Adapter、Benchmark Policy 和单个 Stage Operator 的实现。Pipeline 本身不嵌入 operator ID、selector 或 benchmark-specific mutation；它只保证 hook 位于正确的学习边界，并且 updater 实际消费 hook 返回的 evidence。
+不运行噪声实验时，middleware 可以直接返回同一 native object。正式 N4 matched experiment 中，clean/noisy 两臂都由外部配置组合 Method Adapter、Benchmark Policy 和 binding policy，并经过相同 instrumentation；clean 使用 identity binding，noisy 使用错误 binding。Pipeline 本身不嵌入 operator ID、selector 或 benchmark-specific mutation；它只保证 hook 位于正确的学习边界，并且 updater 实际消费 hook 返回的 input。
 
-每个 noisy arm 只注入一个 stage：N3 arm 的 `after_feedback` 仍为 identity，N4 arm 的 `after_rollout` 仍为 identity。这既保持实验独立性，也让方法代码可以在不安装 RSEBench operator 的情况下正常运行。
+每个 noisy arm 只注入一个 stage：N3 arm 的 `before_update` 不做 N4 binding mutation，N4 arm 的 `after_rollout` 不做 N3 node mutation。这既保持实验独立性，也让方法代码可以在不安装 RSEBench operator 的情况下正常运行。
 
 ## 7. 其他自进化工作如何使用 RSEBench？
 
@@ -117,12 +116,12 @@ learning_feedback = evidence_middleware.after_feedback(
 
 以下情况都不是 noise null effect：
 
-- stage 不受方法支持，尤其是 N4 缺少 faithful feedback/update boundary；
+- stage 不受方法支持；对 N4 而言，典型原因是 updater input/consumption 不可观测，而不是缺少显式 feedback；
 - operator 找不到声明的目标，因而 `applicable=false`；
 - operator discovery、adapter conversion、protected-field audit、runner 或 replay-pack gate 失败；
 - provider/tool 执行失败、超出预算、缺少完整证据，或没有实际执行 skill update；
 - `Clean` 与 `N1`–`N4` 未固定同一 DatasetRelease、MethodRelease、任务 ID 与顺序、method seed、provider/model、temperature、thinking configuration 和 runtime budget，或未从相同 seed skill 出发、未使用同一 clean evaluation identity；
-- mutation 改动了 reward、official score、environment state 或其他规范保护的执行结果；
+- mutation 改动了 evidence/outcome node、reward/verifier、更新前 skill、update trigger、updater contract 或其他规范保护状态；
 - baseline 本身没有可确认的 clean evolution gain，却把 clean/noisy 平局解释为鲁棒性。
 
 只有在 operator 可用、mutation 确已进入 learner 的真实边界、所有保护字段不变、更新与 clean evaluation 均完整执行时，“未观测到差异”才能作为该 stage 在当前方法和实验设置下的 null 结果进入分析；它不能外推为“N3/N4 普遍无效”。
